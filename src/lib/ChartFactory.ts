@@ -160,6 +160,26 @@ export interface ServiceAccountSpec {
    * Adds annotation eks.amazonaws.com/audience when provided.
    */
   awsAudience?: string;
+  /**
+   * AKS Workload Identity: Azure application client ID.
+   * Adds annotation azure.workload.identity/client-id when provided.
+   */
+  azureClientId?: string;
+  /**
+   * AKS Workload Identity: Azure tenant ID.
+   * Adds annotation azure.workload.identity/tenant-id when provided.
+   */
+  azureTenantId?: string;
+  /**
+   * AKS Workload Identity: projected SA token expiration (seconds).
+   * Adds annotation azure.workload.identity/service-account-token-expiration.
+   */
+  azureServiceAccountTokenExpiration?: number;
+  /**
+   * GKE Workload Identity: Google service account email.
+   * Adds annotation iam.gke.io/gcp-service-account when provided.
+   */
+  gcpServiceAccountEmail?: string;
 }
 
 export interface ChartFactoryProps {
@@ -434,6 +454,18 @@ export class ChartFactory {
       ...(spec.annotations ?? {}),
       ...(spec.awsRoleArn ? { 'eks.amazonaws.com/role-arn': spec.awsRoleArn } : {}),
       ...(spec.awsAudience ? { 'eks.amazonaws.com/audience': spec.awsAudience } : {}),
+      ...(spec.azureClientId ? { 'azure.workload.identity/client-id': spec.azureClientId } : {}),
+      ...(spec.azureTenantId ? { 'azure.workload.identity/tenant-id': spec.azureTenantId } : {}),
+      ...(spec.azureServiceAccountTokenExpiration !== undefined
+        ? {
+            'azure.workload.identity/service-account-token-expiration': String(
+              spec.azureServiceAccountTokenExpiration,
+            ),
+          }
+        : {}),
+      ...(spec.gcpServiceAccountEmail
+        ? { 'iam.gke.io/gcp-service-account': spec.gcpServiceAccountEmail }
+        : {}),
     };
 
     const sa = new ApiObject(this.chart, spec.name, {
