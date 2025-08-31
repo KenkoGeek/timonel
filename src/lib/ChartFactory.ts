@@ -3,7 +3,12 @@ import * as kplus from 'cdk8s-plus-28';
 import YAML from 'yaml';
 
 import { HelmChartWriter } from './HelmChartWriter';
-import type { HelmChartMeta, HelmChartWriteOptions, SynthAsset } from './HelmChartWriter';
+import type {
+  HelmChartMeta,
+  HelmChartWriteOptions,
+  SynthAsset,
+  HelperDefinition,
+} from './HelmChartWriter';
 
 export interface DeploymentSpec {
   name: string;
@@ -32,6 +37,8 @@ export interface ChartFactoryProps {
   meta: HelmChartMeta;
   defaultValues?: Record<string, unknown>;
   envValues?: Record<string, Record<string, unknown>>;
+  /** Optional Helm helpers content for templates/_helpers.tpl */
+  helpersTpl?: string | HelperDefinition[];
 }
 
 /**
@@ -142,7 +149,8 @@ export class ChartFactory {
       defaultValues: this.props.defaultValues,
       envValues: this.props.envValues,
       assets: this.assets,
-    };
+      ...(this.props.helpersTpl !== undefined ? { helpersTpl: this.props.helpersTpl } : {}),
+    } as HelmChartWriteOptions;
     HelmChartWriter.write(options);
   }
 }

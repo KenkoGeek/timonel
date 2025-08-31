@@ -38,11 +38,23 @@ export interface HelmChartWriteOptions {
    * Accepts one or multiple documents per SynthAsset.
    */
   assets: SynthAsset[];
+  /**
+   * Optional Helm helpers content for templates/_helpers.tpl.
+   * If a string is provided, it's written verbatim.
+   * If an array is provided, each item becomes a named Helm template
+   * block as: {{- define "<name>" -}} ... {{- end }}
+   */
+  helpersTpl?: string | HelperDefinition[];
+}
+
+export interface HelperDefinition {
+  name: string;
+  body: string;
 }
 
 export class HelmChartWriter {
   static write(opts: HelmChartWriteOptions) {
-    const { outDir, meta, defaultValues = {}, envValues = {}, assets } = opts;
+    const { outDir, meta, defaultValues = {}, envValues = {}, assets, helpersTpl } = opts;
     // Prepare structure
     fs.mkdirSync(path.join(outDir, 'templates'), { recursive: true });
 
@@ -81,6 +93,19 @@ export class HelmChartWriter {
         fs.writeFileSync(path.join(outDir, 'templates', filename), doc + '\n');
         counter++;
       }
+    }
+
+    // Optional helpers
+    if (helpersTpl) {
+      let content = '';
+      if (typeof helpersTpl === 'string') {
+        content = helpersTpl.endsWith('\n') ? helpersTpl : helpersTpl + '\n';
+      } else if (Array.isArray(helpersTpl)) {
+        content = helpersTpl
+          .map((h) => [`{{- define "${h.name}" -}}`, h.body.trimEnd(), '{{- end }}', ''].join('\n'))
+          .join('\n');
+      }
+      fs.writeFileSync(path.join(outDir, 'templates', '_helpers.tpl'), content);
     }
   }
 }

@@ -21,6 +21,10 @@ Key features:
 - Simple multi-environment setup: `values.yaml`, `values-dev.yaml`, `values-prod.yaml`, etc.
 - Minimal CLI to scaffold an example and synthesize the chart.
 
+Advanced templating:
+
+- Programmatic Helm helpers: generate `templates/_helpers.tpl` and call helpers using `template()`/`include()`.
+
 ## Installation
 
 - Requirements: Node.js 20+ (Corepack enabled)
@@ -86,7 +90,7 @@ helm install my-app charts/my-app/dist -f charts/my-app/dist/values-prod.yaml
 
 ```bash
 import { ChartFactory } from 'timonel';
-import { valuesRef, helm } from 'timonel/lib/helm';
+import { valuesRef, helm, template, include } from 'timonel/lib/helm';
 
 const factory = new ChartFactory({
   meta: { name: 'my-app', version: '0.1.0', appVersion: '1.0.0' },
@@ -96,6 +100,12 @@ const factory = new ChartFactory({
     service: { port: 80 },
   },
   envValues: { dev: { replicas: 1 }, prod: { replicas: 4 } },
+  helpersTpl: [
+    {
+      name: 'timonel.fullname',
+      body: `{{- printf "%s-%s" .Chart.Name .Release.Name | trunc 63 | trimSuffix "-" -}}`,
+    },
+  ],
 });
 
 factory.addDeployment({
@@ -107,11 +117,22 @@ factory.addDeployment({
 
 factory.addService({ name: 'my-app', port: 80 });
 
+// Use a named helper in annotations (example)
+factory.addDeployment({
+  name: 'annotated',
+  image: 'nginx',
+  containerPort: 80,
+  env: {
+    FULLNAME: include('timonel.fullname'),
+  },
+});
+
 factory.write('dist/charts/my-app');
 ```
 
 - `valuesRef(path)`: returns a Helm placeholder string for `.Values.*`.
 - You can pass these strings directly into cdk8s constructs; they are preserved in the YAML.
+- `template(name, ctx='.')` and `include(name, ctx='.')`: inject calls to helpers defined in `_helpers.tpl`.
 
 ## Multi-environment values
 
@@ -124,9 +145,9 @@ Provide `envValues` in the `ChartFactory` constructor to automatically create
 - cdk8s synthesizes Kubernetes manifests. Timonel wraps them into a Helm chart
   structure and allows Helm placeholders to appear in string fields (e.g.,
   `{{ .Values.image.tag }}`).
-- For more advanced Helm templating (conditionals, helpers, `_helpers.tpl`), you
-  can post-process the generated YAML or extend this library to emit additional
-  helper files.
+- For advanced templating, Timonel can generate `_helpers.tpl`. Provide `helpersTpl`
+  in `ChartFactory` as a string (verbatim) or as named helpers. Use `template()` or `include()`
+  to reference them in your manifests.
 
 ## Roadmap
 

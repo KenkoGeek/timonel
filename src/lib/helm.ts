@@ -39,3 +39,13 @@ export function indent(n: number, expr: string): string {
     .map((l) => (l.trim().length ? spaces + l : l))
     .join('\n');
 }
+
+/** Insert a call to a named Helm template: {{ template "name" . }} */
+export function template(name: string, context = '.'): string {
+  return `{{ template "${name}" ${context} }}`;
+}
+
+/** Insert a call to a named Helm template using include: {{ include "name" . }} */
+export function include(name: string, context = '.'): string {
+  return `{{ include "${name}" ${context} }}`;
+}
