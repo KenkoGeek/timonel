@@ -49,3 +49,13 @@ export function template(name: string, context = '.'): string {
 export function include(name: string, context = '.'): string {
   return `{{ include "${name}" ${context} }}`;
 }
+
+/** Numeric value from .Values with int cast: {{ .Values.path | int }} */
+export function numberRef(path: string): string {
+  return `{{ .Values.${path} | int }}`;
+}
+
+/** Boolean value from .Values with toBool cast: {{ .Values.path | toBool }} */
+export function boolRef(path: string): string {
+  return `{{ .Values.${path} | toBool }}`;
+}

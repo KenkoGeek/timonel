@@ -93,7 +93,7 @@ exist. Use a clean folder or move old artifacts before running synth.
 
 ```typescript
 import { ChartFactory } from 'timonel';
-import { valuesRef, helm, template, include } from 'timonel/lib/helm';
+import { valuesRef, helm, template, include, numberRef, boolRef } from 'timonel/lib/helm';
 
 const factory = new ChartFactory({
   meta: { name: 'my-app', version: '0.1.0', appVersion: '1.0.0' },
@@ -114,11 +114,11 @@ const factory = new ChartFactory({
 factory.addDeployment({
   name: 'my-app',
   image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-  replicas: Number(valuesRef('replicas') as unknown as string) as any,
+  replicas: numberRef('replicas') as any,
   containerPort: 80,
 });
 
-factory.addService({ name: 'my-app', port: 80 });
+factory.addService({ name: 'my-app', port: numberRef('service.port') as any });
 
 // Use a named helper in annotations (example)
 factory.addDeployment({
@@ -136,6 +136,8 @@ factory.write('dist/charts/my-app');
 - `valuesRef(path)`: returns a Helm placeholder string for `.Values.*`.
 - You can pass these strings directly into cdk8s constructs; they are preserved in the YAML.
 - `template(name, ctx='.')` and `include(name, ctx='.')`: inject calls to helpers defined in `_helpers.tpl`.
+- `numberRef(path)`, `boolRef(path)`: cast `.Values.*` to numeric/boolean using Sprig
+  (`int`, `toBool`). Use `as any` where constructs expect typed numbers/bools.
 
 ## Multi-environment values
 
