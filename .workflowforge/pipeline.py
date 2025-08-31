@@ -28,9 +28,15 @@ def main() -> None:
 
     build_job = gha.job(
         runs_on="ubuntu-latest",
+        strategy=gha.strategy(matrix=gha.matrix(**{"node-version": [22, 20]})),
     )
     build_job.add_step(gha.action("actions/checkout@v4"))
-    build_job.add_step(gha.action("actions/setup-node@v4", with_={"node-version": 20}))
+    build_job.add_step(
+        gha.action(
+            "actions/setup-node@v4",
+            with_={"node-version": "${{ matrix.node-version }}"},
+        )
+    )
     build_job.add_step(
         gha.run(
             """
@@ -50,7 +56,7 @@ def main() -> None:
         runs_on="ubuntu-latest",
     )
     audit_job.add_step(gha.action("actions/checkout@v4"))
-    audit_job.add_step(gha.action("actions/setup-node@v4", with_={"node-version": 20}))
+    audit_job.add_step(gha.action("actions/setup-node@v4", with_={"node-version": 22}))
     audit_job.add_step(
         gha.run(
             """

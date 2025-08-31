@@ -1,0 +1,37 @@
+# Do not modify - Generated with WorkflowForge
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  build:
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: "corepack enable\n            corepack prepare pnpm@latest --activate"
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm run security:lint
+      - run: pnpm run build
+      - run: pnpm run format:check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22, 20]
+  audit:
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: "corepack enable\n            corepack prepare pnpm@latest --activate"
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm audit --audit-level=moderate || true
+    runs-on: ubuntu-latest
