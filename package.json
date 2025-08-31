@@ -75,7 +75,7 @@
     "eslint-plugin-security": "^2.1.1",
     "eslint-plugin-sonarjs": "^0.25.1",
     "eslint-plugin-unused-imports": "^3.2.0",
-    "husky": "^9.0.11",
+    "husky": "^9.1.7",
     "lint-staged": "^15.2.2",
     "markdownlint": "^0.38.0",
     "markdownlint-cli": "^0.45.0",
