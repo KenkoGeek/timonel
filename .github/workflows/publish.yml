@@ -38,6 +38,16 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_NAME="${GITHUB_REF_NAME}"
+          echo "package.json: v${PKG_VERSION} | tag: ${TAG_NAME}"
+          if [ "v${PKG_VERSION}" != "${TAG_NAME}" ]; then
+            echo "Tag and package.json version mismatch" >&2
+            exit 1
+          fi
+
       - name: Publish to npm (with provenance)
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
