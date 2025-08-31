@@ -1,5 +1,4 @@
 import { App, Chart, Testing, ApiObject } from 'cdk8s';
-import * as kplus from 'cdk8s-plus-28';
 import YAML from 'yaml';
 
 import { include, helm } from './helm';
@@ -175,9 +174,27 @@ export interface ReplicaSetSpec {
 
 export interface ServiceSpec {
   name: string;
-  port: number;
-  targetPort?: number;
-  type?: 'ClusterIP' | 'NodePort' | 'LoadBalancer';
+  ports: Array<{
+    port: number;
+    targetPort?: number;
+    protocol?: 'TCP' | 'UDP' | 'SCTP';
+    name?: string;
+    nodePort?: number;
+  }>;
+  type?: 'ClusterIP' | 'NodePort' | 'LoadBalancer' | 'ExternalName';
+  selector?: Record<string, string>;
+  clusterIP?: string;
+  externalName?: string;
+  sessionAffinity?: 'None' | 'ClientIP';
+  loadBalancerIP?: string;
+  loadBalancerSourceRanges?: string[];
+  loadBalancerClass?: string;
+  externalTrafficPolicy?: 'Cluster' | 'Local';
+  internalTrafficPolicy?: 'Cluster' | 'Local';
+  ipFamilyPolicy?: 'SingleStack' | 'PreferDualStack' | 'RequireDualStack';
+  ipFamilies?: Array<'IPv4' | 'IPv6'>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
 }
 
 export interface IngressSpec {
@@ -369,14 +386,35 @@ export class ChartFactory {
   }
 
   addService(spec: ServiceSpec) {
-    const typeMap: Record<'ClusterIP' | 'NodePort' | 'LoadBalancer', kplus.ServiceType> = {
-      ClusterIP: kplus.ServiceType.CLUSTER_IP,
-      NodePort: kplus.ServiceType.NODE_PORT,
-      LoadBalancer: kplus.ServiceType.LOAD_BALANCER,
-    };
-    const svc = new kplus.Service(this.chart, spec.name, {
-      type: spec.type ? typeMap[spec.type] : kplus.ServiceType.CLUSTER_IP,
-      ports: [{ port: spec.port, targetPort: spec.targetPort ?? spec.port }],
+    const svc = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'Service',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        type: spec.type ?? 'ClusterIP',
+        selector: spec.selector,
+        ports: spec.ports.map((p) => ({
+          port: p.port,
+          targetPort: p.targetPort ?? p.port,
+          protocol: p.protocol ?? 'TCP',
+          name: p.name,
+          nodePort: p.nodePort,
+        })),
+        clusterIP: spec.clusterIP,
+        externalName: spec.externalName,
+        sessionAffinity: spec.sessionAffinity,
+        loadBalancerIP: spec.loadBalancerIP,
+        loadBalancerSourceRanges: spec.loadBalancerSourceRanges,
+        loadBalancerClass: spec.loadBalancerClass,
+        externalTrafficPolicy: spec.externalTrafficPolicy,
+        internalTrafficPolicy: spec.internalTrafficPolicy,
+        ipFamilyPolicy: spec.ipFamilyPolicy,
+        ipFamilies: spec.ipFamilies,
+      },
     });
     this.capture(svc, `${spec.name}-service`);
     return svc;

@@ -121,9 +121,9 @@ factory.addDeployment({
 
 factory.addService({
   name: '${name}',
-  port: Number(valuesRef('service.port') as unknown as string) as any,
-  targetPort: 80,
+  ports: [{ port: Number(valuesRef('service.port') as unknown as string) as any, targetPort: 80 }],
   type: 'ClusterIP',
+  selector: { app: '${name}' },
 });
 
 // Optional ingress (values.ingress.enabled)
