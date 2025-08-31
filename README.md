@@ -139,6 +139,7 @@ Provide `envValues` in the `ChartFactory` constructor to automatically create
 MIT
 
 <!-- Badges section -->
+
 [license-badge]: https://img.shields.io/badge/License-MIT-yellow.svg
 [license-url]: https://opensource.org/licenses/MIT
 [security-badge]: https://img.shields.io/badge/Security-Policy-2ea44f?logo=security&logoColor=fff
