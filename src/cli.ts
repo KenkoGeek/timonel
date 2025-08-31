@@ -26,11 +26,14 @@ async function cmdInit(name?: string) {
   if (!name) usageAndExit('Missing <chart-name>');
   const base = path.join(process.cwd(), 'charts', name as string);
   const file = path.join(base, 'chart.ts');
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.mkdirSync(base, { recursive: true });
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   if (fs.existsSync(file)) {
     console.error(`File already exists: ${file}`);
     process.exit(1);
   }
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.writeFileSync(file, exampleChartTs(name));
   console.log(`Scaffold created at ${file}`);
 }
@@ -41,12 +44,14 @@ async function cmdSynth(projectDir?: string, out?: string) {
   const chartTs = path.isAbsolute(proj)
     ? path.join(proj, 'chart.ts')
     : path.join(process.cwd(), proj, 'chart.ts');
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   if (!fs.existsSync(chartTs)) {
     console.error(`chart.ts not found at ${chartTs}`);
     process.exit(1);
   }
   // Enable TS runtime
   require('ts-node/register/transpile-only');
+  // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
   const mod = require(chartTs);
   const runner = mod.default || mod.run || mod.synth;
   if (typeof runner !== 'function') {
@@ -54,6 +59,7 @@ async function cmdSynth(projectDir?: string, out?: string) {
     process.exit(1);
   }
   const outDir = out || path.join(path.dirname(chartTs), 'dist');
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.mkdirSync(outDir, { recursive: true });
   await Promise.resolve(runner(outDir));
   console.log(`Chart written to ${outDir}`);
@@ -63,11 +69,13 @@ async function cmdPackage(chartDir?: string, out?: string) {
   if (!chartDir) usageAndExit('Missing <chartDir>');
   const src = path.isAbsolute(chartDir) ? chartDir : path.join(process.cwd(), chartDir);
   const chartYaml = path.join(src, 'Chart.yaml');
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   if (!fs.existsSync(chartYaml)) {
     console.error(`Chart.yaml not found in ${src}`);
     process.exit(1);
   }
   const outDir = out ? (path.isAbsolute(out) ? out : path.join(process.cwd(), out)) : src;
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.mkdirSync(outDir, { recursive: true });
   const helm = process.env['HELM_BIN'] || 'helm';
   const args = ['package', src, '-d', outDir];

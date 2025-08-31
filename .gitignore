@@ -9,6 +9,7 @@ pnpm-debug.log*
 .env
 .env.*
 .vscode/
+.amazonq/
 .idea/
 .node_repl_history
 .nyc_output/

@@ -7,33 +7,72 @@ on:
   pull_request:
     branches:
       - main
+
+permissions:
+  contents: read
+
 jobs:
   build:
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-      - run: "corepack enable\n            corepack prepare pnpm@latest --activate"
-      - run: pnpm install --frozen-lockfile=false
-      - run: pnpm run typecheck
-      - run: pnpm run lint
-      - run: pnpm run security:lint
-      - run: pnpm run build
-      - run: pnpm run format:check
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version:
-          - 22
-          - 20
-    runs-on: ubuntu-latest
-  audit:
+        node-version: [20, 22]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm run typecheck
+
+      - name: Lint code
+        run: pnpm run lint
+
+      - name: Security lint
+        run: pnpm run security:lint
+
+      - name: Build project
+        run: pnpm run build
+
+      - name: Check formatting
+        run: pnpm run format:check
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: "corepack enable\n            corepack prepare pnpm@latest --activate"
-      - run: pnpm install --frozen-lockfile=false
-      - run: pnpm audit --audit-level=moderate || true
-    runs-on: ubuntu-latest
+          cache: 'pnpm'
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Security audit
+        run: pnpm run security:audit

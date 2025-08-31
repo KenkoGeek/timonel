@@ -68,6 +68,10 @@ export interface CsiVolumeSource {
   fsType?: string;
   readOnly?: boolean;
   volumeAttributes?: Record<string, string>;
+  controllerPublishSecretRef?: { name: string; namespace?: string };
+  nodeStageSecretRef?: { name: string; namespace?: string };
+  nodePublishSecretRef?: { name: string; namespace?: string };
+  controllerExpandSecretRef?: { name: string; namespace?: string };
 }
 
 export interface NfsVolumeSource {
@@ -96,12 +100,23 @@ export interface PersistentVolumeSourceSpec {
   azureDisk?: {
     diskName: string;
     diskURI: string;
-    cachingMode?: string;
+    cachingMode?: 'None' | 'ReadOnly' | 'ReadWrite';
     fsType?: string;
     readOnly?: boolean;
+    kind?: 'Shared' | 'Dedicated' | 'Managed';
   };
-  azureFile?: { secretName: string; shareName: string; readOnly?: boolean };
-  gcePersistentDisk?: { pdName: string; fsType?: string; partition?: number; readOnly?: boolean };
+  azureFile?: {
+    secretName: string;
+    shareName: string;
+    readOnly?: boolean;
+    secretNamespace?: string;
+  };
+  gcePersistentDisk?: {
+    pdName: string;
+    fsType?: string;
+    partition?: number;
+    readOnly?: boolean;
+  };
   // Allow custom volume sources
   [key: string]: unknown;
 }
@@ -120,6 +135,8 @@ export interface PersistentVolumeSpec {
   source: PersistentVolumeSourceSpec;
   /** Reference to related PVC for binding */
   claimRef?: { name: string; namespace?: string };
+  /** Cloud provider for optimized defaults */
+  cloudProvider?: 'aws' | 'azure' | 'gcp';
 }
 
 export interface DeploymentSpec {
@@ -247,7 +264,7 @@ export interface SecretSpec {
 export interface PersistentVolumeClaimSpec {
   name: string;
   accessModes: AccessMode[];
-  resources: { requests: { storage: string } };
+  resources: { requests: { storage: string }; limits?: { storage: string } };
   storageClassName?: string;
   volumeMode?: VolumeMode;
   selector?: { matchLabels?: Record<string, string>; matchExpressions?: unknown[] };
@@ -255,6 +272,8 @@ export interface PersistentVolumeClaimSpec {
   annotations?: Record<string, string>;
   /** Reference to specific PV for static binding */
   volumeName?: string;
+  /** Cloud provider for optimized defaults */
+  cloudProvider?: 'aws' | 'azure' | 'gcp';
 }
 
 export interface ServiceAccountSpec {
@@ -325,7 +344,6 @@ export class ChartFactory {
 
   private static readonly LABEL_NAME = 'app.kubernetes.io/name';
   private static readonly LABEL_INSTANCE = 'app.kubernetes.io/instance';
-  private static readonly LABEL_VERSION = 'app.kubernetes.io/version';
   private static readonly HELPER_NAME = 'timonel.name';
 
   addDeployment(spec: DeploymentSpec) {
@@ -546,18 +564,21 @@ export class ChartFactory {
   }
 
   addPersistentVolume(spec: PersistentVolumeSpec) {
+    // Apply cloud provider optimizations
+    const optimizedSpec = this.optimizePVForCloud(spec);
+
     const pvSpec: Record<string, unknown> = {
-      capacity: { storage: spec.capacity },
-      accessModes: spec.accessModes,
-      storageClassName: spec.storageClassName,
-      volumeMode: spec.volumeMode,
-      persistentVolumeReclaimPolicy: spec.reclaimPolicy,
-      mountOptions: spec.mountOptions,
-      nodeAffinity: spec.nodeAffinity,
-      claimRef: spec.claimRef,
+      capacity: { storage: optimizedSpec.capacity },
+      accessModes: optimizedSpec.accessModes,
+      storageClassName: optimizedSpec.storageClassName,
+      volumeMode: optimizedSpec.volumeMode,
+      persistentVolumeReclaimPolicy: optimizedSpec.reclaimPolicy,
+      mountOptions: optimizedSpec.mountOptions,
+      nodeAffinity: optimizedSpec.nodeAffinity,
+      claimRef: optimizedSpec.claimRef,
     };
 
-    // Handle known volume sources
+    // Handle known volume sources with validation
     const knownSources = [
       'csi',
       'nfs',
@@ -566,16 +587,33 @@ export class ChartFactory {
       'azureDisk',
       'azureFile',
       'gcePersistentDisk',
-    ];
+    ] as const;
+
+    let sourceCount = 0;
     for (const sourceType of knownSources) {
-      if (spec.source[sourceType]) {
-        pvSpec[sourceType] = spec.source[sourceType];
+      // eslint-disable-next-line security/detect-object-injection -- Safe: sourceType is from known const array
+      const sourceValue = optimizedSpec.source[sourceType];
+      if (sourceValue) {
+        // eslint-disable-next-line security/detect-object-injection -- Safe: sourceType is from known const array
+        pvSpec[sourceType] = sourceValue;
+        sourceCount++;
       }
     }
 
+    // Validate single volume source
+    if (sourceCount === 0) {
+      throw new Error(`PersistentVolume ${spec.name}: No volume source specified`);
+    }
+    if (sourceCount > 1) {
+      throw new Error(
+        `PersistentVolume ${spec.name}: Multiple volume sources specified, only one allowed`,
+      );
+    }
+
     // Handle custom volume sources
-    for (const [key, value] of Object.entries(spec.source)) {
-      if (!knownSources.includes(key) && value !== undefined) {
+    for (const [key, value] of Object.entries(optimizedSpec.source)) {
+      if (!knownSources.includes(key as (typeof knownSources)[number]) && value !== undefined) {
+        // eslint-disable-next-line security/detect-object-injection -- Safe: controlled object construction
         pvSpec[key] = value;
       }
     }
@@ -585,8 +623,8 @@ export class ChartFactory {
       kind: 'PersistentVolume',
       metadata: {
         name: spec.name,
-        ...(spec.labels ? { labels: spec.labels } : {}),
-        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+        ...(optimizedSpec.labels ? { labels: optimizedSpec.labels } : {}),
+        ...(optimizedSpec.annotations ? { annotations: optimizedSpec.annotations } : {}),
       },
       spec: pvSpec,
     });
@@ -594,7 +632,52 @@ export class ChartFactory {
     return pv;
   }
 
+  private optimizePVForCloud(spec: PersistentVolumeSpec): PersistentVolumeSpec {
+    const optimized = { ...spec };
+
+    // Apply cloud-specific optimizations
+    if (spec.cloudProvider === 'aws') {
+      optimized.annotations = {
+        ...optimized.annotations,
+        'volume.beta.kubernetes.io/storage-provisioner': 'ebs.csi.aws.com',
+      };
+      // Default to gp3 for better performance/cost
+      if (spec.source.csi?.driver === 'ebs.csi.aws.com' && optimized.source.csi) {
+        optimized.source.csi.volumeAttributes = {
+          type: 'gp3',
+          ...spec.source.csi.volumeAttributes,
+        };
+      }
+    } else if (spec.cloudProvider === 'azure') {
+      optimized.annotations = {
+        ...optimized.annotations,
+        'volume.beta.kubernetes.io/storage-provisioner': 'disk.csi.azure.com',
+      };
+      // Default to Premium_ZRS for multi-zone clusters
+      if (spec.source.csi?.driver === 'disk.csi.azure.com' && optimized.source.csi) {
+        optimized.source.csi.volumeAttributes = {
+          skuName: 'Premium_ZRS',
+          ...spec.source.csi.volumeAttributes,
+        };
+      }
+    } else if (spec.cloudProvider === 'gcp') {
+      optimized.annotations = {
+        ...optimized.annotations,
+        'volume.beta.kubernetes.io/storage-provisioner': 'pd.csi.storage.gke.io',
+      };
+    }
+
+    // Set sensible defaults
+    optimized.reclaimPolicy = optimized.reclaimPolicy ?? 'Delete';
+    optimized.volumeMode = optimized.volumeMode ?? 'Filesystem';
+
+    return optimized;
+  }
+
   addPersistentVolumeClaim(spec: PersistentVolumeClaimSpec) {
+    // Validate access modes compatibility
+    this.validatePVCAccessModes(spec);
+
     const pvc = new ApiObject(this.chart, spec.name, {
       apiVersion: 'v1',
       kind: 'PersistentVolumeClaim',
@@ -607,13 +690,35 @@ export class ChartFactory {
         accessModes: spec.accessModes,
         resources: spec.resources,
         storageClassName: spec.storageClassName,
-        volumeMode: spec.volumeMode,
+        volumeMode: spec.volumeMode ?? 'Filesystem',
         selector: spec.selector,
         volumeName: spec.volumeName,
       },
     });
     this.capture(pvc, `${spec.name}-pvc`);
     return pvc;
+  }
+
+  private validatePVCAccessModes(spec: PersistentVolumeClaimSpec) {
+    const { accessModes, storageClassName } = spec;
+
+    // Validate ReadWriteOncePod (K8s 1.22+)
+    if (accessModes.includes('ReadWriteOncePod') && accessModes.length > 1) {
+      throw new Error(
+        `PVC ${spec.name}: ReadWriteOncePod cannot be combined with other access modes`,
+      );
+    }
+
+    // Warn about common misconfigurations
+    if (storageClassName?.includes('azure-disk') && accessModes.includes('ReadWriteMany')) {
+      console.warn(
+        `PVC ${spec.name}: Azure Disk does not support ReadWriteMany, consider Azure Files`,
+      );
+    }
+
+    if (storageClassName?.includes('ebs') && accessModes.includes('ReadWriteMany')) {
+      console.warn(`PVC ${spec.name}: EBS does not support ReadWriteMany, consider EFS`);
+    }
   }
 
   addConfigMap(spec: ConfigMapSpec) {
@@ -725,7 +830,10 @@ export class ChartFactory {
           'app.kubernetes.io/part-of': helm.chartName,
         };
         for (const [k, v] of Object.entries(defaults)) {
-          if (labels[k] === undefined) labels[k] = v;
+          if (!(k in labels)) {
+            // eslint-disable-next-line security/detect-object-injection -- Safe: controlled label assignment
+            labels[k] = v;
+          }
         }
       }
       return obj as Record<string, unknown>;

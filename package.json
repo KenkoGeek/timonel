@@ -20,7 +20,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "security:lint": "eslint . --ext .ts,.tsx",
-    "security:audit": "npm audit --audit-level=moderate || true",
+    "security:audit": "pnpm audit --audit-level=moderate",
+    "security:check": "pnpm run security:lint && pnpm run security:audit",
+    "deps:check": "pnpm outdated",
+    "deps:update": "pnpm update --latest",
     "md:lint": "markdownlint \"**/*.md\"",
     "md:fix": "markdownlint --fix \"**/*.md\""
   },
@@ -34,7 +37,8 @@
   "author": "Franklin García <KenkoGeek>",
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": ">=20",
+    "pnpm": ">=9.0.0"
   },
   "repository": {
     "type": "git",
