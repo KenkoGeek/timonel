@@ -34,7 +34,7 @@
   "author": "Franklin García <KenkoGeek>",
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "repository": {
     "type": "git",

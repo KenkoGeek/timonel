@@ -23,7 +23,7 @@ Key features:
 
 ## Installation
 
-- Requirements: Node.js 18+ (Corepack enabled)
+- Requirements: Node.js 20+ (Corepack enabled)
 - Install dependencies and build with your preferred package manager:
 
 Using pnpm
@@ -145,7 +145,7 @@ MIT
 [security-url]: SECURITY.md
 [pnpm-badge]: https://img.shields.io/badge/pm-pnpm-ffd95a?logo=pnpm&logoColor=fff&labelColor=24292e
 [pnpm-url]: https://pnpm.io/
-[node-badge]: https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=fff
+[node-badge]: https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=fff
 [node-url]: https://nodejs.org/
 [ts-badge]: https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=fff
 [ts-url]: https://www.typescriptlang.org/
