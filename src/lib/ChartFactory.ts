@@ -197,12 +197,32 @@ export interface ServiceSpec {
   annotations?: Record<string, string>;
 }
 
+export interface IngressRule {
+  host?: string;
+  paths: Array<{
+    path: string;
+    pathType: 'Exact' | 'Prefix' | 'ImplementationSpecific';
+    backend: {
+      service: { name: string; port: { number?: number; name?: string } };
+    };
+  }>;
+}
+
+export interface IngressTLS {
+  hosts?: string[];
+  secretName?: string;
+}
+
 export interface IngressSpec {
   name: string;
-  host: string;
-  serviceName: string;
-  servicePort: number;
-  className?: string;
+  rules: IngressRule[];
+  tls?: IngressTLS[];
+  ingressClassName?: string;
+  defaultBackend?: {
+    service: { name: string; port: { number?: number; name?: string } };
+  };
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
 }
 
 export interface ConfigMapSpec {
@@ -497,32 +517,28 @@ export class ChartFactory {
   }
 
   addIngress(spec: IngressSpec) {
-    // Use a raw ApiObject for broader compatibility across kplus versions
     const ing = new ApiObject(this.chart, spec.name, {
       apiVersion: 'networking.k8s.io/v1',
       kind: 'Ingress',
-      metadata: { name: spec.name },
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
       spec: {
-        ingressClassName: spec.className,
-        rules: [
-          {
-            host: spec.host,
-            http: {
-              paths: [
-                {
-                  path: '/',
-                  pathType: 'Prefix',
-                  backend: {
-                    service: {
-                      name: spec.serviceName,
-                      port: { number: spec.servicePort },
-                    },
-                  },
-                },
-              ],
-            },
+        ingressClassName: spec.ingressClassName,
+        defaultBackend: spec.defaultBackend,
+        tls: spec.tls,
+        rules: spec.rules.map((rule) => ({
+          host: rule.host,
+          http: {
+            paths: rule.paths.map((path) => ({
+              path: path.path,
+              pathType: path.pathType,
+              backend: path.backend,
+            })),
           },
-        ],
+        })),
       },
     });
     this.capture(ing, `${spec.name}-ingress`);

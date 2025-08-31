@@ -126,15 +126,25 @@ factory.addService({
   selector: { app: '${name}' },
 });
 
-// Optional ingress (values.ingress.enabled)
+// Optional ingress with advanced path routing and TLS support
 // Helm conditionals can be embedded as comments; template users can wrap templates with if blocks
 // Here we just generate an ingress; for real conditional generation you could split assets yourself.
 factory.addIngress({
   name: '${name}',
-  host: String(valuesRef('ingress.host')),
-  serviceName: '${name}',
-  servicePort: Number(valuesRef('service.port') as unknown as string) as any,
-  className: String(valuesRef('ingress.className')),
+  ingressClassName: String(valuesRef('ingress.className')),
+  rules: [{
+    host: String(valuesRef('ingress.host')),
+    paths: [{
+      path: '/',
+      pathType: 'Prefix',
+      backend: {
+        service: {
+          name: '${name}',
+          port: { number: Number(valuesRef('service.port') as unknown as string) as any },
+        },
+      },
+    }],
+  }],
 });
 
 export default function run(outDir: string) {
