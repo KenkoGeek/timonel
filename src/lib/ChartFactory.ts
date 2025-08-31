@@ -94,7 +94,17 @@ export interface PersistentVolumeSourceSpec {
   nfs?: NfsVolumeSource;
   awsElasticBlockStore?: AwsElasticBlockStoreSource;
   hostPath?: HostPathSource;
-  // Extend here with other providers as needed (azureDisk, azureFile, gcePersistentDisk, etc.)
+  azureDisk?: {
+    diskName: string;
+    diskURI: string;
+    cachingMode?: string;
+    fsType?: string;
+    readOnly?: boolean;
+  };
+  azureFile?: { secretName: string; shareName: string; readOnly?: boolean };
+  gcePersistentDisk?: { pdName: string; fsType?: string; partition?: number; readOnly?: boolean };
+  // Allow custom volume sources
+  [key: string]: unknown;
 }
 
 export interface PersistentVolumeSpec {
@@ -105,10 +115,12 @@ export interface PersistentVolumeSpec {
   volumeMode?: VolumeMode;
   reclaimPolicy?: ReclaimPolicy;
   mountOptions?: string[];
-  nodeAffinity?: Record<string, unknown>; // pass-through
+  nodeAffinity?: Record<string, unknown>;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
   source: PersistentVolumeSourceSpec;
+  /** Reference to related PVC for binding */
+  claimRef?: { name: string; namespace?: string };
 }
 
 export interface DeploymentSpec {
@@ -193,6 +205,19 @@ export interface SecretSpec {
   immutable?: boolean;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
+}
+
+export interface PersistentVolumeClaimSpec {
+  name: string;
+  accessModes: AccessMode[];
+  resources: { requests: { storage: string } };
+  storageClassName?: string;
+  volumeMode?: VolumeMode;
+  selector?: { matchLabels?: Record<string, string>; matchExpressions?: unknown[] };
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+  /** Reference to specific PV for static binding */
+  volumeName?: string;
 }
 
 export interface ServiceAccountSpec {
@@ -475,13 +500,31 @@ export class ChartFactory {
       persistentVolumeReclaimPolicy: spec.reclaimPolicy,
       mountOptions: spec.mountOptions,
       nodeAffinity: spec.nodeAffinity,
+      claimRef: spec.claimRef,
     };
 
-    if (spec.source.csi) pvSpec.csi = spec.source.csi;
-    if (spec.source.nfs) pvSpec.nfs = spec.source.nfs;
-    if (spec.source.awsElasticBlockStore)
-      pvSpec.awsElasticBlockStore = spec.source.awsElasticBlockStore;
-    if (spec.source.hostPath) pvSpec.hostPath = spec.source.hostPath;
+    // Handle known volume sources
+    const knownSources = [
+      'csi',
+      'nfs',
+      'awsElasticBlockStore',
+      'hostPath',
+      'azureDisk',
+      'azureFile',
+      'gcePersistentDisk',
+    ];
+    for (const sourceType of knownSources) {
+      if (spec.source[sourceType]) {
+        pvSpec[sourceType] = spec.source[sourceType];
+      }
+    }
+
+    // Handle custom volume sources
+    for (const [key, value] of Object.entries(spec.source)) {
+      if (!knownSources.includes(key) && value !== undefined) {
+        pvSpec[key] = value;
+      }
+    }
 
     const pv = new ApiObject(this.chart, spec.name, {
       apiVersion: 'v1',
@@ -495,6 +538,28 @@ export class ChartFactory {
     });
     this.capture(pv, `${spec.name}-pv`);
     return pv;
+  }
+
+  addPersistentVolumeClaim(spec: PersistentVolumeClaimSpec) {
+    const pvc = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'PersistentVolumeClaim',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        accessModes: spec.accessModes,
+        resources: spec.resources,
+        storageClassName: spec.storageClassName,
+        volumeMode: spec.volumeMode,
+        selector: spec.selector,
+        volumeName: spec.volumeName,
+      },
+    });
+    this.capture(pvc, `${spec.name}-pvc`);
+    return pvc;
   }
 
   addConfigMap(spec: ConfigMapSpec) {
