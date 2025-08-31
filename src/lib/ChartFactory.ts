@@ -105,6 +105,8 @@ export interface ConfigMapSpec {
   data?: Record<string, string>;
   binaryData?: Record<string, string>;
   immutable?: boolean;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
 }
 
 export interface SecretSpec {
@@ -315,7 +317,11 @@ export class ChartFactory {
     const cm = new ApiObject(this.chart, spec.name, {
       apiVersion: 'v1',
       kind: 'ConfigMap',
-      metadata: { name: spec.name },
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
       data: spec.data,
       binaryData: spec.binaryData,
       immutable: spec.immutable,
