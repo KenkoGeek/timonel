@@ -40,6 +40,10 @@ export interface ChartFactoryProps {
   envValues?: Record<string, Record<string, unknown>>;
   /** Optional Helm helpers content for templates/_helpers.tpl */
   helpersTpl?: string | HelperDefinition[];
+  /** Optional NOTES.txt content */
+  notesTpl?: string;
+  /** Optional values.schema.json object */
+  valuesSchema?: Record<string, unknown>;
 }
 
 /**
@@ -131,6 +135,13 @@ export class ChartFactory {
   }
 
   /**
+   * Add a raw CRD manifest to the chart (written under crds/).
+   */
+  addCrd(yaml: string, id = 'crd') {
+    this.assets.push({ id, yaml, target: 'crds' });
+  }
+
+  /**
    * Synthesize the cdk8s app and write a Helm chart to outDir.
    */
   write(outDir: string) {
@@ -212,6 +223,8 @@ export class ChartFactory {
               },
             ],
           }),
+      ...(this.props.notesTpl !== undefined ? { notesTpl: this.props.notesTpl } : {}),
+      ...(this.props.valuesSchema !== undefined ? { valuesSchema: this.props.valuesSchema } : {}),
     } as HelmChartWriteOptions;
     HelmChartWriter.write(options);
   }

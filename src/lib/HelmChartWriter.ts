@@ -15,6 +15,15 @@ export interface HelmChartMeta {
   sources?: string[];
   maintainers?: { name: string; email?: string; url?: string }[];
   icon?: string;
+  dependencies?: Array<{
+    name: string;
+    version: string;
+    repository: string;
+    alias?: string;
+    condition?: string | string[];
+    tags?: string[];
+    importValues?: unknown;
+  }>;
 }
 
 export interface EnvValuesMap {
@@ -26,6 +35,8 @@ export interface SynthAsset {
   id: string;
   /** YAML string, may contain multiple docs separated by --- */
   yaml: string;
+  /** target directory inside chart: templates (default) or crds */
+  target?: 'templates' | 'crds';
 }
 
 export interface HelmChartWriteOptions {
@@ -45,6 +56,10 @@ export interface HelmChartWriteOptions {
    * block as: {{- define "<name>" -}} ... {{- end }}
    */
   helpersTpl?: string | HelperDefinition[];
+  /** Optional NOTES.txt content under templates/ */
+  notesTpl?: string;
+  /** Optional values.schema.json object */
+  valuesSchema?: Record<string, unknown>;
 }
 
 export interface HelperDefinition {
@@ -54,9 +69,19 @@ export interface HelperDefinition {
 
 export class HelmChartWriter {
   static write(opts: HelmChartWriteOptions) {
-    const { outDir, meta, defaultValues = {}, envValues = {}, assets, helpersTpl } = opts;
+    const {
+      outDir,
+      meta,
+      defaultValues = {},
+      envValues = {},
+      assets,
+      helpersTpl,
+      notesTpl,
+      valuesSchema,
+    } = opts;
     // Prepare structure
     fs.mkdirSync(path.join(outDir, 'templates'), { recursive: true });
+    // Create crds directory only if needed later
 
     // Chart.yaml
     const chartYaml = YAML.stringify({
@@ -72,6 +97,7 @@ export class HelmChartWriter {
       sources: meta.sources,
       maintainers: meta.maintainers,
       icon: meta.icon,
+      dependencies: meta.dependencies,
     });
     fs.writeFileSync(path.join(outDir, 'Chart.yaml'), chartYaml);
 
@@ -81,19 +107,8 @@ export class HelmChartWriter {
       fs.writeFileSync(path.join(outDir, `values-${env}.yaml`), YAML.stringify(values));
     }
 
-    // templates/
-    let counter = 0;
-    for (const asset of assets) {
-      const parts = asset.yaml
-        .split(/^---\s*$/m)
-        .map((p) => p.trim())
-        .filter((p) => p.length);
-      for (const doc of parts) {
-        const filename = `${String(counter).padStart(4, '0')}-${asset.id}.yaml`;
-        fs.writeFileSync(path.join(outDir, 'templates', filename), doc + '\n');
-        counter++;
-      }
-    }
+    // templates/ and crds/
+    writeAssets(outDir, assets);
 
     // Optional helpers
     if (helpersTpl) {
@@ -106,6 +121,22 @@ export class HelmChartWriter {
           .join('\n');
       }
       fs.writeFileSync(path.join(outDir, 'templates', '_helpers.tpl'), content);
+    }
+
+    // Optional NOTES.txt
+    if (notesTpl) {
+      fs.writeFileSync(
+        path.join(outDir, 'templates', 'NOTES.txt'),
+        notesTpl.endsWith('\n') ? notesTpl : notesTpl + '\n',
+      );
+    }
+
+    // Optional values.schema.json
+    if (valuesSchema) {
+      fs.writeFileSync(
+        path.join(outDir, 'values.schema.json'),
+        JSON.stringify(valuesSchema, null, 2) + '\n',
+      );
     }
 
     // Emit a default .helmignore if missing
@@ -134,6 +165,27 @@ export class HelmChartWriter {
         '',
       ].join('\n');
       fs.writeFileSync(helmIgnorePath, helmIgnore);
+    }
+  }
+}
+
+function splitDocs(yamlStr: string): string[] {
+  return yamlStr
+    .split(/^---\s*$/m)
+    .map((p) => p.trim())
+    .filter((p) => p.length);
+}
+
+function writeAssets(outDir: string, assets: SynthAsset[]) {
+  let counter = 0;
+  for (const asset of assets) {
+    const parts = splitDocs(asset.yaml);
+    for (const doc of parts) {
+      const filename = `${String(counter).padStart(4, '0')}-${asset.id}.yaml`;
+      const dir = asset.target === 'crds' ? 'crds' : 'templates';
+      fs.mkdirSync(path.join(outDir, dir), { recursive: true });
+      fs.writeFileSync(path.join(outDir, dir, filename), doc + '\n');
+      counter++;
     }
   }
 }
