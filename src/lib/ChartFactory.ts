@@ -114,6 +114,9 @@ export interface SecretSpec {
   type?: string; // e.g., Opaque (default), kubernetes.io/dockerconfigjson, kubernetes.io/tls
   stringData?: Record<string, string>; // unencoded strings (kube encodes to data)
   data?: Record<string, string>; // base64-encoded values
+  immutable?: boolean;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
 }
 
 export interface ServiceAccountSpec {
@@ -334,10 +337,15 @@ export class ChartFactory {
     const sec = new ApiObject(this.chart, spec.name, {
       apiVersion: 'v1',
       kind: 'Secret',
-      metadata: { name: spec.name },
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
       type: spec.type ?? 'Opaque',
       stringData: spec.stringData,
       data: spec.data,
+      immutable: spec.immutable,
     });
     this.capture(sec, `${spec.name}-secret`);
     return sec;
