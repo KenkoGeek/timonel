@@ -59,3 +59,13 @@ export function numberRef(path: string): string {
 export function boolRef(path: string): string {
   return `{{ .Values.${path} | toBool }}`;
 }
+
+/** String value from .Values with toString cast: {{ .Values.path | toString }} */
+export function stringRef(path: string): string {
+  return `{{ .Values.${path} | toString }}`;
+}
+
+/** Float value from .Values with float64 cast: {{ .Values.path | float64 }} */
+export function floatRef(path: string): string {
+  return `{{ .Values.${path} | float64 }}`;
+}

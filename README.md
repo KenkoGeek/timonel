@@ -93,7 +93,16 @@ exist. Use a clean folder or move old artifacts before running synth.
 
 ```typescript
 import { ChartFactory } from 'timonel';
-import { valuesRef, helm, template, include, numberRef, boolRef } from 'timonel/lib/helm';
+import {
+  valuesRef,
+  helm,
+  template,
+  include,
+  numberRef,
+  boolRef,
+  stringRef,
+  floatRef,
+} from 'timonel/lib/helm';
 
 const factory = new ChartFactory({
   meta: { name: 'my-app', version: '0.1.0', appVersion: '1.0.0' },
@@ -138,6 +147,8 @@ factory.write('dist/charts/my-app');
 - `template(name, ctx='.')` and `include(name, ctx='.')`: inject calls to helpers defined in `_helpers.tpl`.
 - `numberRef(path)`, `boolRef(path)`: cast `.Values.*` to numeric/boolean using Sprig
   (`int`, `toBool`). Use `as any` where constructs expect typed numbers/bools.
+- `stringRef(path)`, `floatRef(path)`: cast `.Values.*` to string/float using Sprig
+  (`toString`, `float64`).
 
 ## Multi-environment values
 
