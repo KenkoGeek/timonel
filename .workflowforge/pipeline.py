@@ -102,7 +102,7 @@ def main() -> None:
     publish = gha.workflow(
         name="Publish npm",
         on=[
-            gha.on_push(tags=["v*"]),
+            gha.on_release(types=["published"]),
         ],
     )
 
@@ -143,7 +143,7 @@ def main() -> None:
         gha.run(
             """
             PKG_VERSION=$(node -p "require('./package.json').version")
-            TAG_NAME="${GITHUB_REF_NAME}"
+            TAG_NAME="${{ github.event.release.tag_name }}"
             echo "package.json: v${PKG_VERSION} | tag: ${TAG_NAME}"
             if [ "v${PKG_VERSION}" != "${TAG_NAME}" ]; then
               echo "Tag and package.json version mismatch" >&2
@@ -156,12 +156,14 @@ def main() -> None:
     publish_job.add_step(
         gha.run(
             """
-            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-            npm publish --access public --provenance
+            if [ "${{ matrix.node-version }}" = "22" ]; then
+              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+              npm publish --access public --provenance
+            else
+              echo "Skip publish on Node ${{ matrix.node-version }}"
+            fi
             """.strip(),
             name="Publish to npm (with provenance)",
-            env={"NPM_TOKEN": "${{ secrets.NPM_TOKEN }}"},
-            if_="${{ matrix.node-version == '22' }}",
         )
     )
 

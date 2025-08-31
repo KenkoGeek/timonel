@@ -21,10 +21,12 @@ jobs:
       - run: pnpm run security:lint
       - run: pnpm run build
       - run: pnpm run format:check
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [22, 20]
+        node-version:
+          - 22
+          - 20
+    runs-on: ubuntu-latest
   audit:
     steps:
       - uses: actions/checkout@v4

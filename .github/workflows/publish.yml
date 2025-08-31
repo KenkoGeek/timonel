@@ -1,61 +1,44 @@
 # Do not modify - Generated with WorkflowForge
 name: Publish npm
-
 on:
-  push:
-    tags:
-      - 'v*'
-
-permissions:
-  contents: read
-  id-token: write
-
+  release:
+    types:
+      - published
 jobs:
   publish:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [22, 20]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+        name: Checkout
+      - uses: actions/setup-node@v4
+        name: Setup Node.js
         with:
           node-version: ${{ matrix.node-version }}
           registry-url: https://registry.npmjs.org
-
-      - name: Enable Corepack and pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest --activate
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
-
-      - name: Lint and typecheck
-        run: |
-          pnpm run typecheck
-          pnpm run lint
-
-      - name: Build
-        run: pnpm run build
-
-      - name: Verify tag matches package.json version
-        run: |
-          PKG_VERSION=$(node -p "require('./package.json').version")
-          TAG_NAME="${GITHUB_REF_NAME}"
-          echo "package.json: v${PKG_VERSION} | tag: ${TAG_NAME}"
-          if [ "v${PKG_VERSION}" != "${TAG_NAME}" ]; then
-            echo "Tag and package.json version mismatch" >&2
-            exit 1
-          fi
-
-      - name: Publish to npm (with provenance)
-        if: ${{ matrix.node-version == '22' }}
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-          npm publish --access public --provenance
+      - run: "corepack enable\n            corepack prepare pnpm@latest --activate"
+        name: Enable Corepack and pnpm
+      - run: pnpm install --frozen-lockfile=false
+        name: Install dependencies
+      - run: "pnpm run typecheck\n            pnpm run lint"
+        name: Lint and typecheck
+      - run: pnpm run build
+        name: Build
+      - run:
+          "PKG_VERSION=$(node -p \"require('./package.json').version\")\n            TAG_NAME=\"${{ github.event.release.tag_name
+          }}\"\n            echo \"package.json: v${PKG_VERSION} | tag: ${TAG_NAME}\"\n            if [ \"v${PKG_VERSION}\"\
+          \ != \"${TAG_NAME}\" ]; then\n              echo \"Tag and package.json version mismatch\" >&2\n              exit
+          1\n            fi"
+        name: Verify tag matches package.json version
+      - run:
+          "if [ \"${{ matrix.node-version }}\" = \"22\" ]; then\n              echo \"//registry.npmjs.org/:_authToken=${{
+          secrets.NPM_TOKEN }}\" > ~/.npmrc\n              npm publish --access public --provenance\n            else\n  \
+          \            echo \"Skip publish on Node ${{ matrix.node-version }}\"\n            fi"
+        name: Publish to npm (with provenance)
+    strategy:
+      matrix:
+        node-version:
+          - 22
+          - 20
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
