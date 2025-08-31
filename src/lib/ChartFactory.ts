@@ -74,6 +74,14 @@ export interface DeploymentSpec {
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never';
   serviceAccountName?: string;
   matchLabels?: Record<string, string>;
+  /** Optional extra labels on the Deployment metadata */
+  labels?: Record<string, string>;
+  /** Optional annotations on the Deployment metadata */
+  annotations?: Record<string, string>;
+  /** Optional extra labels on the pod template (merged with matchLabels) */
+  podLabels?: Record<string, string>;
+  /** Optional annotations on the pod template (useful for reloaders, etc.) */
+  podAnnotations?: Record<string, string>;
 }
 
 export interface ReplicaSetSpec {
@@ -220,15 +228,24 @@ export class ChartFactory {
         }))
       : undefined;
 
+    const templateLabels = { ...match, ...(spec.podLabels ?? {}) };
+
     const dep = new ApiObject(this.chart, spec.name, {
       apiVersion: 'apps/v1',
       kind: 'Deployment',
-      metadata: { name: spec.name },
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
       spec: {
         replicas: spec.replicas ?? 1,
         selector: { matchLabels: match },
         template: {
-          metadata: { labels: match },
+          metadata: {
+            labels: templateLabels,
+            ...(spec.podAnnotations ? { annotations: spec.podAnnotations } : {}),
+          },
           spec: {
             serviceAccountName: spec.serviceAccountName,
             volumes: volumeDefs,
