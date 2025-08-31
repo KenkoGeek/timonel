@@ -61,30 +61,33 @@ Markdown commands:
 1. Create an example project
 
 ```bash
-timonel init my-app
+timonel init my-app-src
 ```
 
-This generates `charts/my-app/chart.ts` with a working example.
+This generates `charts/my-app-src/chart.ts` with a working example.
 
-1. Synthesize Helm chart artifacts
+1. Synthesize Helm chart artifacts (separate src and chart dirs)
 
 ```bash
-timonel synth charts/my-app charts/my-app/dist
+timonel synth charts/my-app-src charts/my-app/
 ```
 
 Expected output:
 
-- `charts/my-app/dist/Chart.yaml`
-- `charts/my-app/dist/values.yaml`
-- `charts/my-app/dist/values-dev.yaml`, `values-prod.yaml` (if defined)
-- `charts/my-app/dist/templates/*.yaml`
+- `charts/my-app/Chart.yaml`
+- `charts/my-app/values.yaml`
+- `charts/my-app/values-dev.yaml`, `values-prod.yaml` (if defined)
+- `charts/my-app/templates/*.yaml`
 
 1. Use with Helm
 
 ```bash
-helm template charts/my-app/dist -f charts/my-app/dist/values-dev.yaml
-helm install my-app charts/my-app/dist -f charts/my-app/dist/values-prod.yaml
+helm template charts/my-app -f charts/my-app/values-dev.yaml
+helm install my-app charts/my-app -f charts/my-app/values-prod.yaml
 ```
+
+Note: the output directory (`charts/my-app/` in this example) is overwritten if files
+exist. Use a clean folder or move old artifacts before running synth.
 
 ## Library API
 
