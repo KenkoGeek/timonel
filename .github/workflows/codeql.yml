@@ -27,3 +27,6 @@ jobs:
         language:
           - javascript-typescript
     runs-on: ubuntu-latest
+permissions:
+  contents: read
+  security-events: write

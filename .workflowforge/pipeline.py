@@ -79,6 +79,7 @@ def main() -> None:
             gha.on_pull_request(branches=["main"]),
             gha.on_schedule(cron="17 8 * * 4"),
         ],
+        permissions={"contents": "read", "security-events": "write"},
     )
     analyze = gha.job(
         runs_on="ubuntu-latest",
