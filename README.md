@@ -89,6 +89,17 @@ helm install my-app charts/my-app -f charts/my-app/values-prod.yaml
 Note: the output directory (`charts/my-app/` in this example) is overwritten if files
 exist. Use a clean folder or move old artifacts before running synth.
 
+### Package the chart (tgz)
+
+Requires Helm installed locally (`helm version`). Packages the chart directory into a
+`.tgz` that you can publish or attach to releases:
+
+```bash
+tl package charts/my-app charts/
+# or set HELM_BIN if helm is not in PATH
+HELM_BIN=/usr/local/bin/helm tl package charts/my-app charts/
+```
+
 ## Library API
 
 ```typescript
@@ -168,7 +179,6 @@ Provide `envValues` in the `ChartFactory` constructor to automatically create
 ## Roadmap
 
 - Helpers for common patterns (HPA, ServiceAccount/RBAC, ConfigMap/Secret mounts).
-- Optional `_helpers.tpl` generation and named template functions.
 - Richer CLI (resource generators, diff, packaging with `helm package`).
 
 ## License

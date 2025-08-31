@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as fs from 'fs';
 import * as path from 'path';
+import * as cp from 'child_process';
 
 function usageAndExit(msg?: string): never {
   if (msg) console.error(msg);
@@ -11,6 +12,7 @@ function usageAndExit(msg?: string): never {
       'Usage:',
       '  tl init <chart-name>                 Scaffold example at charts/<name>/chart.ts',
       '  tl synth <projectDir> [outDir]       Run charts/<...>/chart.ts and write chart',
+      '  tl package <chartDir> [outDir]       Run `helm package` into outDir (requires Helm)',
       '',
       'Examples:',
       '  tl init my-app',
@@ -55,6 +57,30 @@ async function cmdSynth(projectDir?: string, out?: string) {
   fs.mkdirSync(outDir, { recursive: true });
   await Promise.resolve(runner(outDir));
   console.log(`Chart written to ${outDir}`);
+}
+
+async function cmdPackage(chartDir?: string, out?: string) {
+  if (!chartDir) usageAndExit('Missing <chartDir>');
+  const src = path.isAbsolute(chartDir) ? chartDir : path.join(process.cwd(), chartDir);
+  const chartYaml = path.join(src, 'Chart.yaml');
+  if (!fs.existsSync(chartYaml)) {
+    console.error(`Chart.yaml not found in ${src}`);
+    process.exit(1);
+  }
+  const outDir = out ? (path.isAbsolute(out) ? out : path.join(process.cwd(), out)) : src;
+  fs.mkdirSync(outDir, { recursive: true });
+  const helm = process.env['HELM_BIN'] || 'helm';
+  const args = ['package', src, '-d', outDir];
+  console.log(`> ${helm} ${args.join(' ')}`);
+  const res = cp.spawnSync(helm, args, { stdio: 'inherit' });
+  if (res.error) {
+    console.error(`Failed to execute Helm: ${res.error.message}`);
+    console.error('Ensure Helm is installed and in PATH, or set HELM_BIN.');
+    process.exit(1);
+  }
+  if (res.status !== 0) {
+    process.exit(res.status ?? 1);
+  }
 }
 
 function exampleChartTs(name: string): string {
@@ -125,6 +151,9 @@ async function main() {
       break;
     case 'synth':
       await cmdSynth(arg1, arg2);
+      break;
+    case 'package':
+      await cmdPackage(arg1, arg2);
       break;
     case '-h':
     case '--help':
