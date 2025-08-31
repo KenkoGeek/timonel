@@ -153,6 +153,23 @@ def main() -> None:
             name="Verify tag matches package.json version",
         )
     )
+    # Require CI green for the release commit
+    publish_job.add_step(
+        gha.action(
+            "actions/github-script@v7",
+            name="Require CI success",
+            with_={
+                "script": (
+                    "const sha = process.env.GITHUB_SHA;\n"
+                    "const { owner, repo } = context.repo;\n"
+                    "const res = await github.rest.actions.listWorkflowRuns({ owner, repo, workflow_id: 'ci.yml', head_sha: sha, per_page: 1 });\n"
+                    "if (!res.data.workflow_runs.length) { core.setFailed(`No CI run found for SHA ${sha}`); return; }\n"
+                    "const run = res.data.workflow_runs[0];\n"
+                    "if (run.status !== 'completed' || run.conclusion !== 'success') { core.setFailed(`CI not successful for ${sha}: status=${run.status} conclusion=${run.conclusion}`); }\n"
+                ),
+            },
+        )
+    )
     publish_job.add_step(
         gha.run(
             """
