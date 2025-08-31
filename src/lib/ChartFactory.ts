@@ -19,6 +19,15 @@ export interface DeploymentSpec {
   env?: Record<string, string>;
 }
 
+export interface ReplicaSetSpec {
+  name: string;
+  image: string;
+  replicas?: number;
+  containerPort?: number;
+  env?: Record<string, string>;
+  matchLabels?: Record<string, string>;
+}
+
 export interface ServiceSpec {
   name: string;
   port: number;
@@ -75,6 +84,11 @@ export class ChartFactory {
     this.chart = new Chart(this.app, props.meta.name);
   }
 
+  private static readonly LABEL_NAME = 'app.kubernetes.io/name';
+  private static readonly LABEL_INSTANCE = 'app.kubernetes.io/instance';
+  private static readonly LABEL_VERSION = 'app.kubernetes.io/version';
+  private static readonly HELPER_NAME = 'timonel.name';
+
   addDeployment(spec: DeploymentSpec) {
     const dep = new kplus.Deployment(this.chart, spec.name, {
       replicas: spec.replicas ?? 1,
@@ -104,6 +118,37 @@ export class ChartFactory {
     });
     this.capture(svc, `${spec.name}-service`);
     return svc;
+  }
+
+  addReplicaSet(spec: ReplicaSetSpec) {
+    const match = spec.matchLabels ?? {
+      [ChartFactory.LABEL_NAME]: include(ChartFactory.HELPER_NAME),
+      [ChartFactory.LABEL_INSTANCE]: helm.releaseName,
+    };
+    const rs = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'apps/v1',
+      kind: 'ReplicaSet',
+      metadata: { name: spec.name },
+      spec: {
+        replicas: spec.replicas ?? 1,
+        selector: { matchLabels: match },
+        template: {
+          metadata: { labels: match },
+          spec: {
+            containers: [
+              {
+                name: spec.name,
+                image: spec.image,
+                ports: spec.containerPort ? [{ containerPort: spec.containerPort }] : undefined,
+                env: spec.env && Object.entries(spec.env).map(([name, value]) => ({ name, value })),
+              },
+            ],
+          },
+        },
+      },
+    });
+    this.capture(rs, `${spec.name}-replicaset`);
+    return rs;
   }
 
   addIngress(spec: IngressSpec) {
@@ -197,7 +242,7 @@ export class ChartFactory {
         const labels = o.metadata.labels as Record<string, unknown>;
         const defaults: Record<string, string> = {
           'helm.sh/chart': '{{ .Chart.Name }}-{{ .Chart.Version }}',
-          'app.kubernetes.io/name': include('timonel.name'),
+          'app.kubernetes.io/name': include(ChartFactory.HELPER_NAME),
           'app.kubernetes.io/instance': helm.releaseName,
           'app.kubernetes.io/version': helm.chartVersion,
           'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
