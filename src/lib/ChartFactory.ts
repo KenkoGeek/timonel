@@ -34,6 +34,20 @@ export interface IngressSpec {
   className?: string;
 }
 
+export interface ConfigMapSpec {
+  name: string;
+  data?: Record<string, string>;
+  binaryData?: Record<string, string>;
+  immutable?: boolean;
+}
+
+export interface SecretSpec {
+  name: string;
+  type?: string; // e.g., Opaque (default), kubernetes.io/dockerconfigjson, kubernetes.io/tls
+  stringData?: Record<string, string>; // unencoded strings (kube encodes to data)
+  data?: Record<string, string>; // base64-encoded values
+}
+
 export interface ChartFactoryProps {
   meta: HelmChartMeta;
   defaultValues?: Record<string, unknown>;
@@ -123,6 +137,32 @@ export class ChartFactory {
     });
     this.capture(ing, `${spec.name}-ingress`);
     return ing;
+  }
+
+  addConfigMap(spec: ConfigMapSpec) {
+    const cm = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'ConfigMap',
+      metadata: { name: spec.name },
+      data: spec.data,
+      binaryData: spec.binaryData,
+      immutable: spec.immutable,
+    });
+    this.capture(cm, `${spec.name}-configmap`);
+    return cm;
+  }
+
+  addSecret(spec: SecretSpec) {
+    const sec = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'Secret',
+      metadata: { name: spec.name },
+      type: spec.type ?? 'Opaque',
+      stringData: spec.stringData,
+      data: spec.data,
+    });
+    this.capture(sec, `${spec.name}-secret`);
+    return sec;
   }
 
   /**
