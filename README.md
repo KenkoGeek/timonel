@@ -91,7 +91,7 @@ exist. Use a clean folder or move old artifacts before running synth.
 
 ## Library API
 
-```bash
+```typescript
 import { ChartFactory } from 'timonel';
 import { valuesRef, helm, template, include } from 'timonel/lib/helm';
 
