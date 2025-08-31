@@ -59,6 +59,58 @@ export interface ResourceRequirements {
   requests?: { cpu?: string; memory?: string };
 }
 
+export type AccessMode = 'ReadWriteOnce' | 'ReadOnlyMany' | 'ReadWriteMany' | 'ReadWriteOncePod';
+export type VolumeMode = 'Filesystem' | 'Block';
+export type ReclaimPolicy = 'Retain' | 'Recycle' | 'Delete';
+
+export interface CsiVolumeSource {
+  driver: string;
+  volumeHandle: string;
+  fsType?: string;
+  readOnly?: boolean;
+  volumeAttributes?: Record<string, string>;
+}
+
+export interface NfsVolumeSource {
+  server: string;
+  path: string;
+  readOnly?: boolean;
+}
+
+export interface AwsElasticBlockStoreSource {
+  volumeID: string;
+  fsType?: string;
+  partition?: number;
+  readOnly?: boolean;
+}
+
+export interface HostPathSource {
+  path: string;
+  type?: string;
+}
+
+export interface PersistentVolumeSourceSpec {
+  csi?: CsiVolumeSource;
+  nfs?: NfsVolumeSource;
+  awsElasticBlockStore?: AwsElasticBlockStoreSource;
+  hostPath?: HostPathSource;
+  // Extend here with other providers as needed (azureDisk, azureFile, gcePersistentDisk, etc.)
+}
+
+export interface PersistentVolumeSpec {
+  name: string;
+  capacity: string; // e.g., '10Gi'
+  accessModes: AccessMode[];
+  storageClassName?: string;
+  volumeMode?: VolumeMode;
+  reclaimPolicy?: ReclaimPolicy;
+  mountOptions?: string[];
+  nodeAffinity?: Record<string, unknown>; // pass-through
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+  source: PersistentVolumeSourceSpec;
+}
+
 export interface DeploymentSpec {
   name: string;
   image: string;
@@ -412,6 +464,37 @@ export class ChartFactory {
     });
     this.capture(ing, `${spec.name}-ingress`);
     return ing;
+  }
+
+  addPersistentVolume(spec: PersistentVolumeSpec) {
+    const pvSpec: Record<string, unknown> = {
+      capacity: { storage: spec.capacity },
+      accessModes: spec.accessModes,
+      storageClassName: spec.storageClassName,
+      volumeMode: spec.volumeMode,
+      persistentVolumeReclaimPolicy: spec.reclaimPolicy,
+      mountOptions: spec.mountOptions,
+      nodeAffinity: spec.nodeAffinity,
+    };
+
+    if (spec.source.csi) pvSpec.csi = spec.source.csi;
+    if (spec.source.nfs) pvSpec.nfs = spec.source.nfs;
+    if (spec.source.awsElasticBlockStore)
+      pvSpec.awsElasticBlockStore = spec.source.awsElasticBlockStore;
+    if (spec.source.hostPath) pvSpec.hostPath = spec.source.hostPath;
+
+    const pv = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'PersistentVolume',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: pvSpec,
+    });
+    this.capture(pv, `${spec.name}-pv`);
+    return pv;
   }
 
   addConfigMap(spec: ConfigMapSpec) {
