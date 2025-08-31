@@ -4,6 +4,15 @@ dist/
 npm-debug.log*
 pnpm-debug.log*
 .pnpm-store/
+*.tgz
+.npmrc
+.env
+.env.*
+.vscode/
+.idea/
+.node_repl_history
+.nyc_output/
+.coverage
 coverage/
 charts/**/dist/
 __pycache__/
@@ -11,3 +20,5 @@ __pycache__/
 .venv*
 .workflowforge/.venv/
 .python-version
+imports/
+cdk8s.out/
