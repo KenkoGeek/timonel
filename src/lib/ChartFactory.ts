@@ -11,12 +11,69 @@ import type {
   HelperDefinition,
 } from './HelmChartWriter';
 
+export interface HttpHeader {
+  name: string;
+  value: string;
+}
+export interface HttpGetAction {
+  path?: string;
+  port: number | string;
+  scheme?: 'HTTP' | 'HTTPS';
+  httpHeaders?: HttpHeader[];
+}
+export interface ExecAction {
+  command: string[];
+}
+export interface TcpSocketAction {
+  port: number | string;
+}
+export interface Probe {
+  httpGet?: HttpGetAction;
+  exec?: ExecAction;
+  tcpSocket?: TcpSocketAction;
+  initialDelaySeconds?: number;
+  periodSeconds?: number;
+  timeoutSeconds?: number;
+  successThreshold?: number;
+  failureThreshold?: number;
+}
+
+export interface EnvFromSource {
+  configMapRef?: string;
+  secretRef?: string;
+}
+export interface VolumeSourceSpec {
+  name: string;
+  configMap?: string;
+  secret?: string;
+  persistentVolumeClaim?: string;
+}
+export interface VolumeMountSpec {
+  name: string;
+  mountPath: string;
+  readOnly?: boolean;
+  subPath?: string;
+}
+export interface ResourceRequirements {
+  limits?: { cpu?: string; memory?: string };
+  requests?: { cpu?: string; memory?: string };
+}
+
 export interface DeploymentSpec {
   name: string;
   image: string;
   replicas?: number;
   containerPort?: number;
   env?: Record<string, string>;
+  envFrom?: EnvFromSource[];
+  volumes?: VolumeSourceSpec[];
+  volumeMounts?: VolumeMountSpec[];
+  resources?: ResourceRequirements;
+  livenessProbe?: Probe;
+  readinessProbe?: Probe;
+  imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never';
+  serviceAccountName?: string;
+  matchLabels?: Record<string, string>;
 }
 
 export interface ReplicaSetSpec {
@@ -90,17 +147,68 @@ export class ChartFactory {
   private static readonly HELPER_NAME = 'timonel.name';
 
   addDeployment(spec: DeploymentSpec) {
-    const dep = new kplus.Deployment(this.chart, spec.name, {
-      replicas: spec.replicas ?? 1,
-      containers: [
-        {
-          image: spec.image,
-          portNumber: spec.containerPort ?? 3000,
-          envVariables: Object.fromEntries(
-            Object.entries(spec.env ?? {}).map(([k, v]) => [k, kplus.EnvValue.fromValue(v)]),
-          ),
+    const match = spec.matchLabels ?? {
+      [ChartFactory.LABEL_NAME]: include(ChartFactory.HELPER_NAME),
+      [ChartFactory.LABEL_INSTANCE]: helm.releaseName,
+    };
+
+    const envEntries = spec.env
+      ? Object.entries(spec.env).map(([name, value]) => ({ name, value }))
+      : undefined;
+    const envFromEntries = spec.envFrom
+      ? spec.envFrom.map((s) => ({
+          configMapRef: s.configMapRef ? { name: s.configMapRef } : undefined,
+          secretRef: s.secretRef ? { name: s.secretRef } : undefined,
+        }))
+      : undefined;
+    const volumeDefs = spec.volumes
+      ? spec.volumes.map((v) => ({
+          name: v.name,
+          configMap: v.configMap ? { name: v.configMap } : undefined,
+          secret: v.secret ? { secretName: v.secret } : undefined,
+          persistentVolumeClaim: v.persistentVolumeClaim
+            ? { claimName: v.persistentVolumeClaim }
+            : undefined,
+        }))
+      : undefined;
+    const volumeMountDefs = spec.volumeMounts
+      ? spec.volumeMounts.map((m) => ({
+          name: m.name,
+          mountPath: m.mountPath,
+          readOnly: m.readOnly,
+          subPath: m.subPath,
+        }))
+      : undefined;
+
+    const dep = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'apps/v1',
+      kind: 'Deployment',
+      metadata: { name: spec.name },
+      spec: {
+        replicas: spec.replicas ?? 1,
+        selector: { matchLabels: match },
+        template: {
+          metadata: { labels: match },
+          spec: {
+            serviceAccountName: spec.serviceAccountName,
+            volumes: volumeDefs,
+            containers: [
+              {
+                name: spec.name,
+                image: spec.image,
+                imagePullPolicy: spec.imagePullPolicy,
+                ports: spec.containerPort ? [{ containerPort: spec.containerPort }] : undefined,
+                env: envEntries,
+                envFrom: envFromEntries,
+                volumeMounts: volumeMountDefs,
+                resources: spec.resources,
+                livenessProbe: spec.livenessProbe,
+                readinessProbe: spec.readinessProbe,
+              },
+            ],
+          },
         },
-      ],
+      },
     });
     this.capture(dep, `${spec.name}-deployment`);
     return dep;
