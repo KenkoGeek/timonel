@@ -2,8 +2,8 @@
 
 [![License: MIT][license-badge]][license-url]
 [![Security][security-badge]][security-url]
-[![CI][ci-badge]][ci-url]
 [![CodeQL][codeql-badge]][codeql-url]
+[![CI][ci-badge]][ci-url]
 [![pnpm][pnpm-badge]][pnpm-url]
 [![Node.js][node-badge]][node-url]
 [![TypeScript][ts-badge]][ts-url]
