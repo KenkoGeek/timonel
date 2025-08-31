@@ -121,6 +121,16 @@ export interface ServiceAccountSpec {
   automountServiceAccountToken?: boolean;
   imagePullSecrets?: string[]; // names of Secrets
   secrets?: string[]; // names of Secrets to mount as tokens/files
+  /**
+   * EKS IRSA support: if set, adds annotation eks.amazonaws.com/role-arn
+   * Example: arn:aws:iam::<account-id>:role/<role-name>
+   */
+  awsRoleArn?: string;
+  /**
+   * Optional custom audience for IRSA (default is sts.amazonaws.com)
+   * Adds annotation eks.amazonaws.com/audience when provided.
+   */
+  awsAudience?: string;
 }
 
 export interface ChartFactoryProps {
@@ -328,12 +338,18 @@ export class ChartFactory {
   }
 
   addServiceAccount(spec: ServiceAccountSpec) {
+    const ann: Record<string, string> = {
+      ...(spec.annotations ?? {}),
+      ...(spec.awsRoleArn ? { 'eks.amazonaws.com/role-arn': spec.awsRoleArn } : {}),
+      ...(spec.awsAudience ? { 'eks.amazonaws.com/audience': spec.awsAudience } : {}),
+    };
+
     const sa = new ApiObject(this.chart, spec.name, {
       apiVersion: 'v1',
       kind: 'ServiceAccount',
       metadata: {
         name: spec.name,
-        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+        ...(Object.keys(ann).length ? { annotations: ann } : {}),
         ...(spec.labels ? { labels: spec.labels } : {}),
       },
       automountServiceAccountToken: spec.automountServiceAccountToken,
