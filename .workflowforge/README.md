@@ -6,10 +6,10 @@ Note: This generator uses the Python library "workflowforge" to declare pipeline
 
 ## Usage
 
-1. Install Python deps (required; Python 3.11+):
+1. Install Python deps (required; Python 3.13+):
 
 ```bash
-python3.11 -m venv .venv && . .venv/bin/activate
+python3.13 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 ```
 

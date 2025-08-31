@@ -11,8 +11,8 @@ from workflowforge import github_actions as gha  # type: ignore
 
 
 def main() -> None:
-    if sys.version_info < (3, 11):
-        raise SystemExit("workflowforge requires Python >= 3.11. Please run with Python 3.11+.")
+    if sys.version_info < (3, 13):
+        raise SystemExit("workflowforge requires Python >= 3.13. Please run with Python 3.13+.")
     repo_root = Path(__file__).resolve().parents[1]
     out_dir = repo_root / ".github" / "workflows"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -108,6 +108,7 @@ def main() -> None:
 
     publish_job = gha.job(
         runs_on="ubuntu-latest",
+        strategy=gha.strategy(matrix=gha.matrix(**{"node-version": [22, 20]})),
         permissions={"contents": "read", "id-token": "write"},
     )
     publish_job.add_step(gha.action("actions/checkout@v4", name="Checkout"))
@@ -115,7 +116,7 @@ def main() -> None:
         gha.action(
             "actions/setup-node@v4",
             name="Setup Node.js",
-            with_={"node-version": 20, "registry-url": "https://registry.npmjs.org"},
+            with_={"node-version": "${{ matrix.node-version }}", "registry-url": "https://registry.npmjs.org"},
         )
     )
     publish_job.add_step(
@@ -160,6 +161,7 @@ def main() -> None:
             """.strip(),
             name="Publish to npm (with provenance)",
             env={"NPM_TOKEN": "${{ secrets.NPM_TOKEN }}"},
+            if_="${{ matrix.node-version == '22' }}",
         )
     )
 

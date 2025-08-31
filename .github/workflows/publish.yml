@@ -13,6 +13,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22, 20]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
           registry-url: https://registry.npmjs.org
 
       - name: Enable Corepack and pnpm
@@ -50,6 +53,7 @@ jobs:
           fi
 
       - name: Publish to npm (with provenance)
+        if: ${{ matrix.node-version == '22' }}
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
