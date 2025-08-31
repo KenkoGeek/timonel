@@ -114,6 +114,15 @@ export interface SecretSpec {
   data?: Record<string, string>; // base64-encoded values
 }
 
+export interface ServiceAccountSpec {
+  name: string;
+  annotations?: Record<string, string>;
+  labels?: Record<string, string>;
+  automountServiceAccountToken?: boolean;
+  imagePullSecrets?: string[]; // names of Secrets
+  secrets?: string[]; // names of Secrets to mount as tokens/files
+}
+
 export interface ChartFactoryProps {
   meta: HelmChartMeta;
   defaultValues?: Record<string, unknown>;
@@ -316,6 +325,23 @@ export class ChartFactory {
     });
     this.capture(sec, `${spec.name}-secret`);
     return sec;
+  }
+
+  addServiceAccount(spec: ServiceAccountSpec) {
+    const sa = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'ServiceAccount',
+      metadata: {
+        name: spec.name,
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+        ...(spec.labels ? { labels: spec.labels } : {}),
+      },
+      automountServiceAccountToken: spec.automountServiceAccountToken,
+      imagePullSecrets: spec.imagePullSecrets?.map((n) => ({ name: n })),
+      secrets: spec.secrets?.map((n) => ({ name: n })),
+    });
+    this.capture(sa, `${spec.name}-serviceaccount`);
+    return sa;
   }
 
   /**
