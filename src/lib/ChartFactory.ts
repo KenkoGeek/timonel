@@ -82,7 +82,23 @@ export interface ReplicaSetSpec {
   replicas?: number;
   containerPort?: number;
   env?: Record<string, string>;
+  envFrom?: EnvFromSource[];
+  volumes?: VolumeSourceSpec[];
+  volumeMounts?: VolumeMountSpec[];
+  resources?: ResourceRequirements;
+  livenessProbe?: Probe;
+  readinessProbe?: Probe;
+  imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never';
+  serviceAccountName?: string;
   matchLabels?: Record<string, string>;
+  /** Optional extra labels on the ReplicaSet metadata */
+  labels?: Record<string, string>;
+  /** Optional annotations on the ReplicaSet metadata */
+  annotations?: Record<string, string>;
+  /** Optional extra labels on the pod template (merged with matchLabels) */
+  podLabels?: Record<string, string>;
+  /** Optional annotations on the pod template (useful for reloaders, etc.) */
+  podAnnotations?: Record<string, string>;
 }
 
 export interface ServiceSpec {
@@ -257,22 +273,67 @@ export class ChartFactory {
       [ChartFactory.LABEL_NAME]: include(ChartFactory.HELPER_NAME),
       [ChartFactory.LABEL_INSTANCE]: helm.releaseName,
     };
+    const envEntries = spec.env
+      ? Object.entries(spec.env).map(([name, value]) => ({ name, value }))
+      : undefined;
+    const envFromEntries = spec.envFrom
+      ? spec.envFrom.map((s) => ({
+          configMapRef: s.configMapRef ? { name: s.configMapRef } : undefined,
+          secretRef: s.secretRef ? { name: s.secretRef } : undefined,
+        }))
+      : undefined;
+    const volumeDefs = spec.volumes
+      ? spec.volumes.map((v) => ({
+          name: v.name,
+          configMap: v.configMap ? { name: v.configMap } : undefined,
+          secret: v.secret ? { secretName: v.secret } : undefined,
+          persistentVolumeClaim: v.persistentVolumeClaim
+            ? { claimName: v.persistentVolumeClaim }
+            : undefined,
+        }))
+      : undefined;
+    const volumeMountDefs = spec.volumeMounts
+      ? spec.volumeMounts.map((m) => ({
+          name: m.name,
+          mountPath: m.mountPath,
+          readOnly: m.readOnly,
+          subPath: m.subPath,
+        }))
+      : undefined;
+
+    const templateLabels = { ...match, ...(spec.podLabels ?? {}) };
+
     const rs = new ApiObject(this.chart, spec.name, {
       apiVersion: 'apps/v1',
       kind: 'ReplicaSet',
-      metadata: { name: spec.name },
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
       spec: {
         replicas: spec.replicas ?? 1,
         selector: { matchLabels: match },
         template: {
-          metadata: { labels: match },
+          metadata: {
+            labels: templateLabels,
+            ...(spec.podAnnotations ? { annotations: spec.podAnnotations } : {}),
+          },
           spec: {
+            serviceAccountName: spec.serviceAccountName,
+            volumes: volumeDefs,
             containers: [
               {
                 name: spec.name,
                 image: spec.image,
+                imagePullPolicy: spec.imagePullPolicy,
                 ports: spec.containerPort ? [{ containerPort: spec.containerPort }] : undefined,
-                env: spec.env && Object.entries(spec.env).map(([name, value]) => ({ name, value })),
+                env: envEntries,
+                envFrom: envFromEntries,
+                volumeMounts: volumeMountDefs,
+                resources: spec.resources,
+                livenessProbe: spec.livenessProbe,
+                readinessProbe: spec.readinessProbe,
               },
             ],
           },
