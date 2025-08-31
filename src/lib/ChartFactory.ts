@@ -2,6 +2,7 @@ import { App, Chart, Testing, ApiObject } from 'cdk8s';
 import * as kplus from 'cdk8s-plus-28';
 import YAML from 'yaml';
 
+import { include, helm } from './helm';
 import { HelmChartWriter } from './HelmChartWriter';
 import type {
   HelmChartMeta,
@@ -134,8 +135,31 @@ export class ChartFactory {
    */
   write(outDir: string) {
     // Use cdk8s Testing.synth to obtain manifest objects
-    const manifestObjs: unknown[] = Testing.synth(this.chart) as unknown[];
-    const combinedYaml = manifestObjs
+    const manifestObjs = Testing.synth(this.chart) as unknown[];
+
+    // Enforce common labels best-practice on all rendered objects
+    const enriched = manifestObjs.map((obj: unknown) => {
+      if (obj && typeof obj === 'object') {
+        const o = obj as { metadata?: { labels?: Record<string, unknown> } };
+        o.metadata = o.metadata ?? {};
+        o.metadata.labels = o.metadata.labels ?? {};
+        const labels = o.metadata.labels as Record<string, unknown>;
+        const defaults: Record<string, string> = {
+          'helm.sh/chart': '{{ .Chart.Name }}-{{ .Chart.Version }}',
+          'app.kubernetes.io/name': include('timonel.name'),
+          'app.kubernetes.io/instance': helm.releaseName,
+          'app.kubernetes.io/version': helm.chartVersion,
+          'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
+          'app.kubernetes.io/part-of': helm.chartName,
+        };
+        for (const [k, v] of Object.entries(defaults)) {
+          if (labels[k] === undefined) labels[k] = v;
+        }
+      }
+      return obj as Record<string, unknown>;
+    });
+
+    const combinedYaml = enriched
       .map((obj) => YAML.stringify(obj).trim())
       .filter(Boolean)
       .map((y) => `---\n${y}`)
@@ -149,7 +173,45 @@ export class ChartFactory {
       defaultValues: this.props.defaultValues,
       envValues: this.props.envValues,
       assets: this.assets,
-      ...(this.props.helpersTpl !== undefined ? { helpersTpl: this.props.helpersTpl } : {}),
+      ...(this.props.helpersTpl !== undefined
+        ? { helpersTpl: this.props.helpersTpl }
+        : {
+            helpersTpl: [
+              {
+                name: 'timonel.name',
+                body: '{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}',
+              },
+              {
+                name: 'timonel.fullname',
+                body:
+                  '{{- if .Values.fullnameOverride -}}\n' +
+                  '{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}\n' +
+                  '{{- else -}}\n' +
+                  '{{- printf "%s-%s" .Chart.Name .Release.Name | trunc 63 | trimSuffix "-" -}}\n' +
+                  '{{- end -}}',
+              },
+              {
+                name: 'timonel.chart',
+                body: '{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}',
+              },
+              {
+                name: 'timonel.labels',
+                body:
+                  'helm.sh/chart: {{ include "timonel.chart" . }}\n' +
+                  'app.kubernetes.io/name: {{ include "timonel.name" . }}\n' +
+                  'app.kubernetes.io/instance: {{ .Release.Name }}\n' +
+                  'app.kubernetes.io/version: {{ .Chart.Version }}\n' +
+                  'app.kubernetes.io/managed-by: {{ .Release.Service }}\n' +
+                  'app.kubernetes.io/part-of: {{ .Chart.Name }}',
+              },
+              {
+                name: 'timonel.selectorLabels',
+                body:
+                  'app.kubernetes.io/name: {{ include "timonel.name" . }}\n' +
+                  'app.kubernetes.io/instance: {{ .Release.Name }}',
+              },
+            ],
+          }),
     } as HelmChartWriteOptions;
     HelmChartWriter.write(options);
   }

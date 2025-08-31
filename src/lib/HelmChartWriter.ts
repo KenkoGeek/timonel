@@ -107,5 +107,33 @@ export class HelmChartWriter {
       }
       fs.writeFileSync(path.join(outDir, 'templates', '_helpers.tpl'), content);
     }
+
+    // Emit a default .helmignore if missing
+    const helmIgnorePath = path.join(outDir, '.helmignore');
+    if (!fs.existsSync(helmIgnorePath)) {
+      const helmIgnore = [
+        '# VCS',
+        '.git/',
+        '.hg/',
+        '.svn/',
+        '',
+        '# OS/editor',
+        '.DS_Store',
+        '.idea/',
+        '.vscode/',
+        '',
+        '# Backups',
+        '*.swp',
+        '*.bak',
+        '*.tmp',
+        '*.orig',
+        '',
+        '# Chart dependencies and packages',
+        'charts/',
+        '*.tgz',
+        '',
+      ].join('\n');
+      fs.writeFileSync(helmIgnorePath, helmIgnore);
+    }
   }
 }
