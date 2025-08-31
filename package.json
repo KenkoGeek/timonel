@@ -1,0 +1,96 @@
+{
+  "name": "timonel",
+  "version": "0.1.0",
+  "description": "Timonel: programmatic Helm chart factory using cdk8s (TypeScript)",
+  "bin": {
+    "timonel": "dist/cli.js",
+    "tl": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "dev": "tsc -w -p tsconfig.json",
+    "prepare": "husky",
+    "prepack": "npm run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "security:lint": "eslint . --ext .ts,.tsx",
+    "security:audit": "npm audit --audit-level=moderate || true",
+    "md:lint": "markdownlint \"**/*.md\"",
+    "md:fix": "markdownlint --fix \"**/*.md\""
+  },
+  "keywords": [
+    "helm",
+    "charts",
+    "cdk8s",
+    "kubernetes",
+    "iac"
+  ],
+  "author": "Franklin García <KenkoGeek>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KenkoGeek/timonel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KenkoGeek/timonel/issues"
+  },
+  "homepage": "https://github.com/KenkoGeek/timonel#readme",
+  "lint-staged": {
+    "**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "**/*.{js,cjs,json,yml,yaml}": [
+      "prettier --write"
+    ],
+    "**/*.md": [
+      "markdownlint --fix"
+    ]
+  },
+  "dependencies": {
+    "cdk8s": "^2.7.0",
+    "cdk8s-plus-28": "^2.5.6",
+    "yaml": "^2.4.5",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.3.0",
+    "@commitlint/config-conventional": "^19.2.2",
+    "@types/node": "^20.11.30",
+    "@typescript-eslint/eslint-plugin": "^7.8.0",
+    "@typescript-eslint/parser": "^7.8.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.1",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-security": "^2.1.1",
+    "eslint-plugin-sonarjs": "^0.25.1",
+    "eslint-plugin-unused-imports": "^3.2.0",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
+    "markdownlint": "^0.38.0",
+    "markdownlint-cli": "^0.45.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "packageManager": "pnpm@10.15.0+sha512.486ebc259d3e999a4e8691ce03b5cac4a71cbeca39372a9b762cb500cfdf0873e2cb16abe3d951b1ee2cf012503f027b98b6584e4df22524e0c7450d9ec7aa7b"
+}
