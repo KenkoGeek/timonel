@@ -329,16 +329,20 @@ function parseArgs(): { cmd: string; args: string[]; flags: CliFlags } {
     } else if (arg === '--silent') {
       flags.silent = true;
     } else if (arg === '--env' && i + 1 < argv.length) {
-      flags.env = argv[++i];
+      const nextArg = argv[++i];
+      if (nextArg) flags.env = nextArg;
     } else if (arg === '--version-bump' && i + 1 < argv.length) {
-      flags.versionBump = argv[++i];
+      const nextArg = argv[++i];
+      if (nextArg) flags.versionBump = nextArg;
     } else if (arg === '--set' && i + 1 < argv.length) {
       const setValue = argv[++i];
-      const [key, value] = setValue.split('=', 2);
-      if (key && value !== undefined) {
-        flags.set[key] = value;
+      if (setValue) {
+        const [key, value] = setValue.split('=', 2);
+        if (key && value !== undefined) {
+          flags.set[key] = value;
+        }
       }
-    } else if (!arg.startsWith('--')) {
+    } else if (arg && !arg.startsWith('--')) {
       if (!cmd) {
         cmd = arg;
       } else {

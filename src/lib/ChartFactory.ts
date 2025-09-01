@@ -365,11 +365,14 @@ export class ChartFactory {
 
   private setNestedValue(obj: Record<string, unknown>, path: string, value: unknown) {
     /* eslint-disable security/detect-object-injection */
-    const keys = path.split('.');
+    const keys = path.split('.').filter(Boolean);
+    if (keys.length === 0) return;
+
     let current = obj;
 
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
+      if (!key) continue;
       if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
         current[key] = {};
       }
@@ -377,7 +380,9 @@ export class ChartFactory {
     }
 
     const finalKey = keys[keys.length - 1];
-    current[finalKey] = value;
+    if (finalKey) {
+      current[finalKey] = value;
+    }
     /* eslint-enable security/detect-object-injection */
   }
 
