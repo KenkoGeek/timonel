@@ -262,7 +262,7 @@ jobs:
       - run: npm install -g timonel
       - name: Validate chart
         run: tl validate example --silent
-        
+
   deploy-staging:
     needs: validate
     if: github.ref == 'refs/heads/main'
@@ -277,7 +277,7 @@ jobs:
         # Add your kubectl configuration here
       - name: Deploy to staging
         run: tl deploy example game-2048-staging --env dev --silent
-        
+
   deploy-production:
     needs: deploy-staging
     if: github.event_name == 'workflow_dispatch'
@@ -364,9 +364,9 @@ Set resource limits:
 deployment:
   resources:
     requests:
-      cpu: "0.5"
-      memory: "256Mi"
+      cpu: '0.5'
+      memory: '256Mi'
     limits:
-      cpu: "1.0"
-      memory: "512Mi"
+      cpu: '1.0'
+      memory: '512Mi'
 ```

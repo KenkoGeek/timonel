@@ -71,7 +71,7 @@ The chart includes sensible defaults:
 ### Environment Values
 
 - **dev**: 2 replicas
-- **staging**: 3 replicas  
+- **staging**: 3 replicas
 - **prod**: 5 replicas
 
 ### Custom Values
@@ -84,10 +84,10 @@ deployment:
   replicas: 10
   resources:
     requests:
-      cpu: "1.0"
+      cpu: '1.0'
     limits:
-      cpu: "2.0"
-      memory: "1Gi"
+      cpu: '2.0'
+      memory: '1Gi'
 
 ingress:
   annotations:
