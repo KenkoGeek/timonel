@@ -10,7 +10,7 @@ Create an EKS cluster with the AWS Load Balancer Controller:
 
 ```bash
 # Create cluster with eksctl
-eksctl create cluster --name game-cluster --region us-west-2
+eksctl create cluster --name game-cluster --region us-east-2
 
 # Install AWS Load Balancer Controller
 kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
@@ -31,7 +31,7 @@ Ensure your subnets have proper tags for ALB:
 # Public subnets
 aws ec2 create-tags --resources subnet-xxxxx --tags Key=kubernetes.io/role/elb,Value=1
 
-# Private subnets  
+# Private subnets
 aws ec2 create-tags --resources subnet-xxxxx --tags Key=kubernetes.io/role/internal-elb,Value=1
 ```
 
