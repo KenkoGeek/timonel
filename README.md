@@ -1,6 +1,7 @@
 # Timonel
 
 [![License: MIT][license-badge]][license-url]
+[![npm version][npm-badge]][npm-url]
 [![Security][security-badge]][security-url]
 [![CodeQL][codeql-badge]][codeql-url]
 [![CI][ci-badge]][ci-url]
@@ -27,10 +28,15 @@ Advanced templating:
 
 ## Installation
 
-- Requirements: Node.js 20+ (Corepack enabled)
-- Install dependencies and build with your preferred package manager:
+### Using npm
 
-Using pnpm
+```bash
+npm install timonel
+```
+
+### Development setup
+
+Requirements: Node.js 20+ (Corepack enabled)
 
 ```bash
 corepack enable
@@ -56,7 +62,7 @@ Markdown commands:
 - Lint: `pnpm run md:lint`
 - Fix: `pnpm run md:fix`
 
-## Quick start (local)
+## Quick start
 
 1. Create an example project
 
@@ -66,7 +72,7 @@ timonel init my-app-src
 
 This generates `charts/my-app-src/chart.ts` with a working example.
 
-1. Synthesize Helm chart artifacts (separate src and chart dirs)
+1. Synthesize Helm chart artifacts
 
 ```bash
 timonel synth charts/my-app-src charts/my-app/
@@ -167,6 +173,14 @@ Provide `envValues` in the `ChartFactory` constructor to automatically create
 `values-<env>.yaml` files. Each environment file overrides defaults from
 `values.yaml`.
 
+## Security
+
+- ESLint security plugin with comprehensive vulnerability detection
+- Automated dependency scanning via Dependabot
+- Security audit in CI/CD pipeline
+- Provenance-enabled npm publishing
+- CodeQL analysis for code security
+
 ## Notes on cdk8s and Helm templates
 
 - cdk8s synthesizes Kubernetes manifests. Timonel wraps them into a Helm chart
@@ -178,8 +192,41 @@ Provide `envValues` in the `ChartFactory` constructor to automatically create
 
 ## Roadmap
 
-- Helpers for common patterns (HPA, ServiceAccount/RBAC, ConfigMap/Secret mounts).
-- Richer CLI (resource generators, diff, packaging with `helm package`).
+- Helpers for common patterns (HPA, auto-scaling)
+- Richer CLI (resource generators, diff)
+- Enhanced multi-cloud support
+- Template validation and testing utilities
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes following the existing code style
+4. Run tests: `pnpm run lint && pnpm run build`
+5. Commit using conventional commits: `git commit -m 'feat: add amazing feature'`
+6. Push to the branch: `git push origin feature/amazing-feature`
+7. Open a Pull Request
+
+## Troubleshooting
+
+### Common Issues
+
+#### Error: chart.ts not found
+
+- Ensure you're running `timonel synth` from the correct directory
+- Verify the chart.ts file exists in the specified path
+
+#### TypeScript compilation errors
+
+- Check Node.js version (requires 20+)
+- Run `pnpm install` to ensure dependencies are installed
+- Verify TypeScript configuration in tsconfig.json
+
+#### Helm template errors
+
+- Validate YAML syntax in generated templates
+- Check Helm values references match your values.yaml structure
+- Use `helm template --debug` for detailed error information
 
 ## License
 
@@ -189,6 +236,8 @@ MIT
 
 [license-badge]: https://img.shields.io/badge/License-MIT-yellow.svg
 [license-url]: https://opensource.org/licenses/MIT
+[npm-badge]: https://img.shields.io/npm/v/timonel.svg
+[npm-url]: https://www.npmjs.com/package/timonel
 [security-badge]: https://img.shields.io/badge/Security-Policy-2ea44f?logo=security&logoColor=fff
 [security-url]: SECURITY.md
 [pnpm-badge]: https://img.shields.io/badge/pm-pnpm-ffd95a?logo=pnpm&logoColor=fff&labelColor=24292e
