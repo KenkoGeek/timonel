@@ -25,7 +25,8 @@
     "deps:check": "pnpm outdated",
     "deps:update": "pnpm update --latest",
     "md:lint": "markdownlint \"**/*.md\"",
-    "md:fix": "markdownlint --fix \"**/*.md\""
+    "md:fix": "markdownlint --fix \"**/*.md\"",
+    "ci:check": "pnpm typecheck && pnpm lint && pnpm build"
   },
   "keywords": [
     "helm",

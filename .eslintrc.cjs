@@ -10,7 +10,6 @@ module.exports = {
     'plugin:@typescript-eslint/recommended',
     'plugin:import/recommended',
     'plugin:import/typescript',
-    'plugin:sonarjs/recommended',
     'prettier',
   ],
   settings: { 'import/resolver': { typescript: true } },
@@ -29,6 +28,15 @@ module.exports = {
         'newlines-between': 'always',
       },
     ],
+    // SonarJS rules (manual for v3.x compatibility)
+    'sonarjs/cognitive-complexity': ['error', 15],
+    'sonarjs/no-collapsible-if': 'error',
+    'sonarjs/no-duplicate-string': 'error',
+    'sonarjs/no-duplicated-branches': 'error',
+    'sonarjs/no-identical-functions': 'error',
+    'sonarjs/no-redundant-boolean': 'error',
+    'sonarjs/no-unused-collection': 'error',
+    'sonarjs/prefer-immediate-return': 'error',
     // Security rules
     'security/detect-object-injection': 'error',
     'security/detect-non-literal-regexp': 'error',
