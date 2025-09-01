@@ -335,11 +335,60 @@ export class ChartFactory {
   private readonly app: App;
   private readonly chart: Chart;
   private readonly assets: SynthAsset[] = [];
+  private valueOverrides: Record<string, string> = {};
 
   constructor(props: ChartFactoryProps) {
     this.props = props;
     this.app = new App();
     this.chart = new Chart(this.app, props.meta.name);
+  }
+
+  /**
+   * Set dynamic value overrides (from --set flags)
+   */
+  setValues(overrides: Record<string, string>) {
+    this.valueOverrides = { ...this.valueOverrides, ...overrides };
+  }
+
+  /**
+   * Apply value overrides to nested object using dot notation
+   */
+  private applyOverrides(values: Record<string, unknown>): Record<string, unknown> {
+    const result = JSON.parse(JSON.stringify(values)); // Deep clone
+
+    for (const [key, value] of Object.entries(this.valueOverrides)) {
+      this.setNestedValue(result, key, this.parseValue(value));
+    }
+
+    return result;
+  }
+
+  private setNestedValue(obj: Record<string, unknown>, path: string, value: unknown) {
+    /* eslint-disable security/detect-object-injection */
+    const keys = path.split('.');
+    let current = obj;
+
+    for (let i = 0; i < keys.length - 1; i++) {
+      const key = keys[i];
+      if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
+        current[key] = {};
+      }
+      current = current[key] as Record<string, unknown>;
+    }
+
+    const finalKey = keys[keys.length - 1];
+    current[finalKey] = value;
+    /* eslint-enable security/detect-object-injection */
+  }
+
+  private parseValue(value: string): unknown {
+    // Try to parse as JSON first (for objects, arrays, booleans, numbers)
+    try {
+      return JSON.parse(value);
+    } catch {
+      // If not valid JSON, treat as string
+      return value;
+    }
   }
 
   private static readonly LABEL_NAME = 'app.kubernetes.io/name';
@@ -850,7 +899,9 @@ export class ChartFactory {
     const options: HelmChartWriteOptions = {
       outDir,
       meta: this.props.meta,
-      defaultValues: this.props.defaultValues,
+      defaultValues: this.props.defaultValues
+        ? this.applyOverrides(this.props.defaultValues)
+        : undefined,
       envValues: this.props.envValues,
       assets: this.assets,
       ...(this.props.helpersTpl !== undefined

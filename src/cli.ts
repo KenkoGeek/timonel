@@ -21,6 +21,7 @@ function usageAndExit(msg?: string): never {
       '  --dry-run                            Show what would be done without executing',
       '  --silent                             Suppress output (useful for CI)',
       '  --env <environment>                  Use environment-specific values',
+      '  --set <key=value>                    Override values (can be used multiple times)',
       '',
       'Examples:',
       '  tl init my-app',
@@ -28,6 +29,8 @@ function usageAndExit(msg?: string): never {
       '  tl validate charts/my-app',
       '  tl deploy charts/my-app my-release --env prod',
       '  tl synth charts/my-app --dry-run --silent',
+      '  tl synth charts/my-app --set replicas=5 --set image.tag=v2.0.0',
+      '  tl deploy charts/my-app my-release --set service.port=8080',
     ].join('\n'),
   );
   process.exit(msg ? 1 : 0);
@@ -96,6 +99,16 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
   if (typeof runner !== 'function') {
     console.error('chart.ts must export a default/run/synth function');
     process.exit(1);
+  }
+
+  // Apply --set overrides if provided
+  if (
+    flags?.set &&
+    Object.keys(flags.set).length > 0 &&
+    mod.factory &&
+    typeof mod.factory.setValues === 'function'
+  ) {
+    mod.factory.setValues(flags.set);
   }
   const outDir = out || path.join(path.dirname(chartTs), 'dist');
 
@@ -297,41 +310,40 @@ interface CliFlags {
   silent: boolean;
   env?: string;
   versionBump?: string;
+  set: Record<string, string>;
 }
 
+// eslint-disable-next-line sonarjs/cognitive-complexity -- CLI argument parsing requires multiple conditions
 function parseArgs(): { cmd: string; args: string[]; flags: CliFlags } {
   /* eslint-disable security/detect-object-injection */
   const argv = process.argv.slice(2);
-  const flags: CliFlags = { dryRun: false, silent: false };
+  const flags: CliFlags = { dryRun: false, silent: false, set: {} };
   const args: string[] = [];
   let cmd = '';
 
-  let i = 0;
-  while (i < argv.length) {
+  for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+
     if (arg === '--dry-run') {
       flags.dryRun = true;
-      i++;
     } else if (arg === '--silent') {
       flags.silent = true;
-      i++;
     } else if (arg === '--env' && i + 1 < argv.length) {
-      i++;
-      flags.env = argv[i];
-      i++;
+      flags.env = argv[++i];
     } else if (arg === '--version-bump' && i + 1 < argv.length) {
-      i++;
-      flags.versionBump = argv[i];
-      i++;
-    } else if (arg.startsWith('--')) {
-      // Skip unknown flags
-      i++;
-    } else if (!cmd) {
-      cmd = arg;
-      i++;
-    } else {
-      args.push(arg);
-      i++;
+      flags.versionBump = argv[++i];
+    } else if (arg === '--set' && i + 1 < argv.length) {
+      const setValue = argv[++i];
+      const [key, value] = setValue.split('=', 2);
+      if (key && value !== undefined) {
+        flags.set[key] = value;
+      }
+    } else if (!arg.startsWith('--')) {
+      if (!cmd) {
+        cmd = arg;
+      } else {
+        args.push(arg);
+      }
     }
   }
   /* eslint-enable security/detect-object-injection */

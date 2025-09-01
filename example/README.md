@@ -39,6 +39,10 @@ tl deploy . game-2048 --env dev
 tl deploy . game-2048 --env prod --dry-run  # Test first
 tl deploy . game-2048 --env prod            # Deploy
 
+# Override values dynamically
+tl deploy . game-2048 --env dev --set replicas=3 --set image.tag=v2.0.0
+tl synth . ../dist/game-2048 --set service.port=8080 --set ingress.host=my-game.com
+
 # Or traditional helm approach
 helm install game-2048 ../dist/game-2048 -f ../dist/game-2048/values-prod.yaml
 ```
@@ -94,6 +98,27 @@ Deploy with custom values:
 
 ```bash
 helm install game-2048 dist/game-2048 -f custom-values.yaml
+```
+
+### Dynamic Values with --set
+
+Override values directly from command line:
+
+```bash
+# Single value override
+tl synth . ../dist/game-2048 --set replicas=5
+
+# Multiple values
+tl synth . ../dist/game-2048 --set replicas=3 --set image.tag=v2.0.0
+
+# Nested values using dot notation
+tl synth . ../dist/game-2048 --set deployment.resources.requests.cpu=1.0
+
+# Complex values (JSON)
+tl synth . ../dist/game-2048 --set 'ingress.annotations={"alb.ingress.kubernetes.io/scheme":"internal"}'
+
+# Deploy with overrides
+tl deploy . game-2048-custom --env prod --set replicas=10 --set service.port=8080
 ```
 
 ## Architecture

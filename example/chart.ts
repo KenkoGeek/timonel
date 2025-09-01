@@ -170,3 +170,6 @@ factory.addIngress({
 export default function run(outDir: string) {
   factory.write(outDir);
 }
+
+// Export factory for --set support
+export { factory };
