@@ -64,6 +64,8 @@ Markdown commands:
 
 ## Quick start
 
+<!-- markdownlint-disable MD029 -->
+
 1. Create an example project
 
 ```bash
@@ -72,7 +74,7 @@ timonel init my-app-src
 
 This generates `charts/my-app-src/chart.ts` with a working example.
 
-1. Synthesize Helm chart artifacts
+2. Synthesize Helm chart artifacts
 
 ```bash
 timonel synth charts/my-app-src charts/my-app/
@@ -85,7 +87,7 @@ Expected output:
 - `charts/my-app/values-dev.yaml`, `values-prod.yaml` (if defined)
 - `charts/my-app/templates/*.yaml`
 
-1. Use with Helm
+3. Use with Helm
 
 ```bash
 helm template charts/my-app -f charts/my-app/values-dev.yaml
