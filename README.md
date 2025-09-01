@@ -20,7 +20,7 @@ Key features:
 - Type-safe API (strict TypeScript) with cdk8s constructs.
 - Helm templating helpers to embed `{{ .Values.* }}` where needed.
 - Simple multi-environment setup: `values.yaml`, `values-dev.yaml`, `values-prod.yaml`, etc.
-- Minimal CLI to scaffold an example and synthesize the chart.
+- Minimal CLI (`tl`) to scaffold an example and synthesize the chart.
 
 Advanced templating:
 
@@ -69,7 +69,7 @@ Markdown commands:
 1. Create an example project
 
 ```bash
-timonel init my-app-src
+tl init my-app-src
 ```
 
 This generates `charts/my-app-src/chart.ts` with a working example.
@@ -77,7 +77,7 @@ This generates `charts/my-app-src/chart.ts` with a working example.
 2. Synthesize Helm chart artifacts
 
 ```bash
-timonel synth charts/my-app-src charts/my-app/
+tl synth charts/my-app-src charts/my-app/
 ```
 
 Expected output:
@@ -215,7 +215,7 @@ Provide `envValues` in the `ChartFactory` constructor to automatically create
 
 #### Error: chart.ts not found
 
-- Ensure you're running `timonel synth` from the correct directory
+- Ensure you're running `tl synth` from the correct directory
 - Verify the chart.ts file exists in the specified path
 
 #### TypeScript compilation errors
