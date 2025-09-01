@@ -1,0 +1,29 @@
+{
+  "name": "timonel-2048-example",
+  "version": "1.0.0",
+  "description": "AWS 2048 game deployment example using Timonel",
+  "private": true,
+  "scripts": {
+    "synth": "npx timonel synth . ../dist/game-2048",
+    "synth:dev": "npx timonel synth . ../dist/game-2048-dev",
+    "deploy": "helm install game-2048 ../dist/game-2048",
+    "deploy:dev": "helm install game-2048-dev ../dist/game-2048 -f ../dist/game-2048/values-dev.yaml",
+    "deploy:prod": "helm install game-2048-prod ../dist/game-2048 -f ../dist/game-2048/values-prod.yaml",
+    "upgrade": "helm upgrade game-2048 ../dist/game-2048",
+    "uninstall": "helm uninstall game-2048",
+    "status": "kubectl get all,ingress",
+    "logs": "kubectl logs -l app.kubernetes.io/name=app-2048 --tail=100"
+  },
+  "keywords": [
+    "timonel",
+    "helm",
+    "kubernetes",
+    "aws",
+    "eks",
+    "2048",
+    "example"
+  ],
+  "dependencies": {
+    "timonel": "^0.1.0"
+  }
+}
