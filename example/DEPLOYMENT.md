@@ -84,6 +84,9 @@ Deploy with development settings (2 replicas):
 # Using new integrated deploy command
 tl deploy . game-2048-dev --env dev
 
+# With dynamic value overrides
+tl deploy . game-2048-dev --env dev --set replicas=2 --set image.tag=latest
+
 # Or traditional helm approach
 helm install game-2048-dev ../dist/game-2048 -f ../dist/game-2048/values-dev.yaml
 ```
@@ -125,6 +128,9 @@ tl deploy . game-2048-prod --env prod --dry-run
 
 # Deploy to production
 tl deploy . game-2048-prod --env prod
+
+# Deploy with custom scaling
+tl deploy . game-2048-prod --env prod --set replicas=10 --set resources.requests.cpu=2.0
 
 # Or traditional helm approach
 helm install game-2048-prod ../dist/game-2048 -f ../dist/game-2048/values-prod.yaml
