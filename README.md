@@ -204,10 +204,11 @@ Provide `envValues` in the `ChartFactory` constructor to automatically create
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
 3. Make your changes following the existing code style
-4. Run tests: `pnpm run lint && pnpm run build`
-5. Commit using conventional commits: `git commit -m 'feat: add amazing feature'`
-6. Push to the branch: `git push origin feature/amazing-feature`
-7. Open a Pull Request
+4. Run tests: `pnpm ci:check`
+5. Update CHANGELOG.md following [Keep a Changelog](https://keepachangelog.com/) format
+6. Commit using conventional commits: `git commit -m 'feat: add amazing feature'`
+7. Push to the branch: `git push origin feature/amazing-feature`
+8. Open a Pull Request using the provided template
 
 ## Troubleshooting
 

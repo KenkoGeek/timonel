@@ -26,7 +26,11 @@
     "deps:update": "pnpm update --latest",
     "md:lint": "markdownlint \"**/*.md\"",
     "md:fix": "markdownlint --fix \"**/*.md\"",
-    "ci:check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm build"
+    "ci:check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm build",
+    "changelog": "echo 'Update CHANGELOG.md manually following Keep a Changelog format'",
+    "version:patch": "npm version patch && echo 'Remember to update CHANGELOG.md'",
+    "version:minor": "npm version minor && echo 'Remember to update CHANGELOG.md'",
+    "version:major": "npm version major && echo 'Remember to update CHANGELOG.md'"
   },
   "keywords": [
     "helm",
@@ -90,6 +94,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "SECURITY.md",
     "LICENSE"
   ],
