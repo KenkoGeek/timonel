@@ -25,21 +25,18 @@ The example creates a complete Kubernetes deployment including:
 1. **Generate the Helm chart**:
 
 ```bash
-# Install timonel globally or use npx
-npm install -g timonel
-# OR: npx timonel synth . dist/game-2048
-
-timonel synth . dist/game-2048
+# From the example directory
+tl synth . ../dist/game-2048
 ```
 
 1. **Deploy to your EKS cluster**:
 
 ```bash
 # Install the chart
-helm install game-2048 dist/game-2048
+helm install game-2048 ../dist/game-2048
 
 # Or with environment-specific values
-helm install game-2048 dist/game-2048 -f dist/game-2048/values-prod.yaml
+helm install game-2048 ../dist/game-2048 -f ../dist/game-2048/values-prod.yaml
 ```
 
 1. **Get the ALB endpoint**:

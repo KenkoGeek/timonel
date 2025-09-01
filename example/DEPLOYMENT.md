@@ -43,7 +43,7 @@ From the example directory:
 
 ```bash
 cd example
-npm run synth
+tl synth . ../dist/game-2048
 ```
 
 This creates the Helm chart in `../dist/game-2048/` with:
@@ -73,12 +73,6 @@ cat ../dist/game-2048/values-prod.yaml
 Deploy with development settings (2 replicas):
 
 ```bash
-npm run deploy:dev
-```
-
-Or manually:
-
-```bash
 helm install game-2048-dev ../dist/game-2048 -f ../dist/game-2048/values-dev.yaml
 ```
 
@@ -87,13 +81,13 @@ helm install game-2048-dev ../dist/game-2048 -f ../dist/game-2048/values-dev.yam
 Check all resources:
 
 ```bash
-npm run status
+kubectl get pods,svc,ingress -l app.kubernetes.io/name=app-2048
 ```
 
 Check pod logs:
 
 ```bash
-npm run logs
+kubectl logs -l app.kubernetes.io/name=app-2048 --tail=50
 ```
 
 Get the ALB endpoint:
@@ -114,7 +108,7 @@ kubectl get ingress
 For production deployment with 5 replicas:
 
 ```bash
-npm run deploy:prod
+helm install game-2048-prod ../dist/game-2048 -f ../dist/game-2048/values-prod.yaml
 ```
 
 ## Monitoring and Management
@@ -154,7 +148,7 @@ Update replicas in values and upgrade:
 vim ../dist/game-2048/values.yaml
 
 # Upgrade deployment
-npm run upgrade
+helm upgrade game-2048-dev ../dist/game-2048 -f ../dist/game-2048/values-dev.yaml
 ```
 
 ## Troubleshooting
@@ -222,7 +216,8 @@ npm run upgrade
 Remove all resources:
 
 ```bash
-npm run uninstall
+helm uninstall game-2048-dev
+helm uninstall game-2048-prod
 ```
 
 Or manually:
