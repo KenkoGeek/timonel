@@ -12,7 +12,7 @@ on:
 jobs:
   analyze:
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         name: Checkout repository
       - uses: github/codeql-action/init@v3
         name: Initialize CodeQL
