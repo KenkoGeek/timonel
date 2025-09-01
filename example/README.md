@@ -22,20 +22,24 @@ The example creates a complete Kubernetes deployment including:
 
 <!-- markdownlint-disable MD029 -->
 
-1. **Generate the Helm chart**:
+1. **Validate and generate the Helm chart**:
 
 ```bash
 # From the example directory
-tl synth . ../dist/game-2048
+tl validate .                    # Validate chart.ts
+tl synth . ../dist/game-2048     # Generate chart
+tl diff . ../dist/game-2048      # Check differences (if exists)
 ```
 
 1. **Deploy to your EKS cluster**:
 
 ```bash
-# Install the chart
-helm install game-2048 ../dist/game-2048
+# Using integrated deploy command
+tl deploy . game-2048 --env dev
+tl deploy . game-2048 --env prod --dry-run  # Test first
+tl deploy . game-2048 --env prod            # Deploy
 
-# Or with environment-specific values
+# Or traditional helm approach
 helm install game-2048 ../dist/game-2048 -f ../dist/game-2048/values-prod.yaml
 ```
 
@@ -157,6 +161,38 @@ To remove all resources:
 helm uninstall game-2048
 ```
 
+## CI/CD Integration
+
+This example showcases Timonel's CI/CD capabilities:
+
+### Validation Pipeline
+
+```bash
+# Pre-commit validation
+tl validate . --silent
+
+# Change detection
+tl diff . ../dist/game-2048 --silent
+
+# Deployment testing
+tl deploy . game-2048-test --env dev --dry-run --silent
+```
+
+### Automated Deployment
+
+```bash
+# Development environment
+tl deploy . game-2048-dev --env dev --silent
+
+# Production with safety checks
+tl deploy . game-2048-prod --env prod --dry-run --silent  # Test
+tl deploy . game-2048-prod --env prod --silent            # Deploy
+```
+
+### GitHub Actions Integration
+
+See `DEPLOYMENT.md` for complete GitHub Actions workflow example.
+
 ## Learning Points
 
 This example demonstrates:
@@ -165,11 +201,12 @@ This example demonstrates:
 2. **Multi-environment configuration** with environment-specific values
 3. **AWS ALB integration** with proper annotations
 4. **Kubernetes best practices** with labels and resource management
-5. **Documentation-driven development** with comprehensive comments
+5. **CI/CD integration** with validation, diff, and deploy commands
+6. **Documentation-driven development** with comprehensive comments
 
 ## Next Steps
 
-- Modify the chart to add health checks
-- Add horizontal pod autoscaling (HPA)
-- Implement persistent storage for game state
-- Add monitoring and logging configuration
+- Set up GitHub Actions workflow for automated deployment
+- Add chart validation to pre-commit hooks
+- Implement blue-green deployment with diff validation
+- Add monitoring and alerting for deployment status

@@ -37,13 +37,21 @@ aws ec2 create-tags --resources subnet-xxxxx --tags Key=kubernetes.io/role/inter
 
 ## Step-by-Step Deployment
 
-### Step 1: Generate the Helm Chart
+### Step 1: Validate and Generate the Helm Chart
 
 From the example directory:
 
 ```bash
 cd example
+
+# Validate chart without generating files (CI/CD)
+tl validate .
+
+# Generate the chart
 tl synth . ../dist/game-2048
+
+# Check differences (if chart already exists)
+tl diff . ../dist/game-2048
 ```
 
 This creates the Helm chart in `../dist/game-2048/` with:
@@ -73,6 +81,10 @@ cat ../dist/game-2048/values-prod.yaml
 Deploy with development settings (2 replicas):
 
 ```bash
+# Using new integrated deploy command
+tl deploy . game-2048-dev --env dev
+
+# Or traditional helm approach
 helm install game-2048-dev ../dist/game-2048 -f ../dist/game-2048/values-dev.yaml
 ```
 
@@ -108,6 +120,13 @@ kubectl get ingress
 For production deployment with 5 replicas:
 
 ```bash
+# Test deployment first (dry-run)
+tl deploy . game-2048-prod --env prod --dry-run
+
+# Deploy to production
+tl deploy . game-2048-prod --env prod
+
+# Or traditional helm approach
 helm install game-2048-prod ../dist/game-2048 -f ../dist/game-2048/values-prod.yaml
 ```
 
@@ -211,16 +230,82 @@ helm upgrade game-2048-dev ../dist/game-2048 -f ../dist/game-2048/values-dev.yam
    kubectl run test-pod --image=busybox --rm -it -- wget -qO- service-2048
    ```
 
+## CI/CD Integration
+
+### GitHub Actions Example
+
+Create `.github/workflows/deploy.yml`:
+
+```yaml
+name: Deploy 2048 Game
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g timonel
+      - name: Validate chart
+        run: tl validate example --silent
+        
+  deploy-staging:
+    needs: validate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g timonel
+      - name: Configure kubectl
+        # Add your kubectl configuration here
+      - name: Deploy to staging
+        run: tl deploy example game-2048-staging --env dev --silent
+        
+  deploy-production:
+    needs: deploy-staging
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g timonel
+      - name: Configure kubectl
+        # Add your kubectl configuration here
+      - name: Test production deployment
+        run: tl deploy example game-2048-prod --env prod --dry-run --silent
+      - name: Deploy to production
+        run: tl deploy example game-2048-prod --env prod --silent
+```
+
+### Local CI/CD Testing
+
+```bash
+# Validate before commit
+tl validate . --silent
+
+# Check what would change
+tl diff . ../dist/game-2048 --silent
+
+# Test deployment
+tl deploy . game-2048-test --env dev --dry-run
+```
+
 ## Cleanup
 
 Remove all resources:
-
-```bash
-helm uninstall game-2048-dev
-helm uninstall game-2048-prod
-```
-
-Or manually:
 
 ```bash
 helm uninstall game-2048-dev
