@@ -72,7 +72,7 @@
       "prettier --write"
     ],
     "**/*.md": [
-      "markdownlint --fix --ignore node_modules"
+      "markdownlint --fix"
     ]
   },
   "dependencies": {
