@@ -23,7 +23,7 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
     "lib": ["ES2020"],
     "types": ["node"]
   },

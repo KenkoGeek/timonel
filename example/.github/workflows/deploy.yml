@@ -1,0 +1,166 @@
+name: Deploy 2048 Game
+
+on:
+  push:
+    branches: [main]
+    paths: ['example/**']
+  pull_request:
+    branches: [main]
+    paths: ['example/**']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+jobs:
+  validate:
+    name: Validate Chart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Timonel
+        run: npm install -g timonel
+
+      - name: Validate chart
+        run: |
+          cd example
+          tl validate . --silent
+
+      - name: Generate chart for diff
+        run: |
+          cd example
+          tl synth . ../dist/game-2048 --silent
+
+      - name: Upload chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: dist/game-2048/
+          retention-days: 7
+
+  deploy-dev:
+    name: Deploy to Development
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Timonel
+        run: npm install -g timonel
+
+      - name: Configure kubectl
+        run: |
+          # Add your kubectl configuration here
+          # Example:
+          # aws eks update-kubeconfig --region us-east-1 --name dev-cluster
+          echo "Configure kubectl for development cluster"
+
+      - name: Deploy to development
+        run: |
+          cd example
+          tl deploy . game-2048-dev --env dev --silent
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods,svc,ingress -l app.kubernetes.io/name=app-2048
+          kubectl rollout status deployment/deployment-2048
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Timonel
+        run: npm install -g timonel
+
+      - name: Configure kubectl
+        run: |
+          # Add your kubectl configuration here
+          echo "Configure kubectl for staging cluster"
+
+      - name: Test deployment (dry-run)
+        run: |
+          cd example
+          tl deploy . game-2048-staging --env staging --dry-run --silent
+
+      - name: Deploy to staging
+        run: |
+          cd example
+          tl deploy . game-2048-staging --env staging --silent
+
+  deploy-prod:
+    name: Deploy to Production
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Timonel
+        run: npm install -g timonel
+
+      - name: Configure kubectl
+        run: |
+          # Add your kubectl configuration here
+          echo "Configure kubectl for production cluster"
+
+      - name: Test deployment (dry-run)
+        run: |
+          cd example
+          tl deploy . game-2048-prod --env prod --dry-run --silent
+
+      - name: Deploy to production
+        run: |
+          cd example
+          tl deploy . game-2048-prod --env prod --silent
+
+      - name: Verify production deployment
+        run: |
+          kubectl get pods,svc,ingress -l app.kubernetes.io/name=app-2048
+          kubectl rollout status deployment/deployment-2048
+
+      - name: Run smoke tests
+        run: |
+          # Add your smoke tests here
+          echo "Running smoke tests..."
+          # Example: curl health check, etc.
