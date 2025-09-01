@@ -25,8 +25,11 @@ The example creates a complete Kubernetes deployment including:
 1. **Generate the Helm chart**:
 
 ```bash
-# From the project root
-npx timonel synth example dist/game-2048
+# Install timonel globally or use npx
+npm install -g timonel
+# OR: npx timonel synth . dist/game-2048
+
+timonel synth . dist/game-2048
 ```
 
 1. **Deploy to your EKS cluster**:

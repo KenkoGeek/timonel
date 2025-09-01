@@ -1,5 +1,7 @@
-import { ChartFactory } from '../src';
-import { valuesRef, numberRef } from '../src/lib/helm';
+// eslint-disable-next-line import/no-unresolved -- Package will be available when published
+import { ChartFactory } from 'timonel';
+// eslint-disable-next-line import/no-unresolved -- Package will be available when published
+import { valuesRef, numberRef } from 'timonel/lib/helm';
 
 /**
  * AWS 2048 Game Helm Chart Example
