@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2024-12-19
+
 ### Fixed
 
+- Fixed TypeScript module resolution error in CLI when validating charts
+- Added explicit ts-node configuration to prevent module resolution error
 - Added `exports` field to package.json to support subpath imports like `timonel/lib/helm`
 
 ## [0.1.0] - 2024-12-19

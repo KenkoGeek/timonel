@@ -23,3 +23,5 @@ __pycache__/
 .python-version
 imports/
 cdk8s.out/
+example/package-lock.json
+example/pnpm-lock.yaml
