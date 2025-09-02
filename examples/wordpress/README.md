@@ -18,7 +18,7 @@ This example demonstrates deploying WordPress with MySQL database using Timonel.
 
    ```bash
    # From project root
-   pnpm tl synth example/wordpress wordpress-chart
+   pnpm tl synth examples/wordpress wordpress-chart
    ```
 
 2. **Deploy to Kubernetes:**

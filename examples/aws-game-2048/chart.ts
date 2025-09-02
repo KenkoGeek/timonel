@@ -10,7 +10,7 @@ import { Rutter, valuesRef } from 'timonel';
  * Based on: https://docs.aws.amazon.com/eks/latest/userguide/auto-elb-example.html
  */
 
-// Create the chart factory with metadata and values
+// Create the chart rutter with metadata and values
 const rutter = new Rutter({
   meta: {
     name: 'game-2048',
@@ -165,5 +165,5 @@ export default function run(outDir: string) {
   rutter.write(outDir);
 }
 
-// Export factory for --set support
+// Export rutter for --set support
 export { rutter };

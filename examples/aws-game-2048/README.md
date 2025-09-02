@@ -24,7 +24,7 @@ The example creates a complete Kubernetes deployment including:
 
 ```bash
 # From project root
-pnpm tl synth example/aws-game-2048 dist/game-2048
+pnpm tl synth examples/aws-game-2048 dist/game-2048
 ```
 
 1. **Deploy to your EKS cluster**:
