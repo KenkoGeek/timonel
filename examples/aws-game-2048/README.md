@@ -88,7 +88,7 @@ The chart includes sensible defaults:
 
 ### Components
 
-1. **ChartFactory**: Main class that orchestrates the chart creation
+1. **Rutter**: Main class that orchestrates the chart creation
 2. **Deployment**: Manages the 2048 game pods with proper scaling
 3. **Service**: Provides stable networking for the pods
 4. **Ingress**: Exposes the application via AWS ALB
