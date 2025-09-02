@@ -1,4 +1,4 @@
-import { ChartFactory, numberRef, valuesRef } from '../..';
+import { ChartFactory, numberRef, valuesRef } from 'timonel';
 
 /**
  * WordPress with MySQL Database Helm Chart Example
