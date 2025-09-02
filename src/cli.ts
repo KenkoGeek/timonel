@@ -64,8 +64,14 @@ async function cmdValidate(projectDir?: string, silent = false) {
     process.exit(1);
   }
   try {
-    // Enable TS runtime
-    require('ts-node/register/transpile-only');
+    // Enable TS runtime with specific config
+    require('ts-node').register({
+      transpileOnly: true,
+      compilerOptions: {
+        module: 'CommonJS',
+        moduleResolution: 'node',
+      },
+    });
     // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
     const mod = require(chartTs);
     const runner = mod.default || mod.run || mod.synth;
@@ -91,8 +97,14 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
     console.error(`chart.ts not found at ${chartTs}`);
     process.exit(1);
   }
-  // Enable TS runtime
-  require('ts-node/register/transpile-only');
+  // Enable TS runtime with specific config
+  require('ts-node').register({
+    transpileOnly: true,
+    compilerOptions: {
+      module: 'CommonJS',
+      moduleResolution: 'node',
+    },
+  });
   // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
   const mod = require(chartTs);
   const runner = mod.default || mod.run || mod.synth;
