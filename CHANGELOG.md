@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI tool (`tl`) with commands: init, synth, validate, diff, deploy, package
 - CI/CD integration with --dry-run, --silent, --env flags
 - Dynamic value overrides with --set flag and dot notation support
-- Helm templating helpers with programmatic _helpers.tpl generation
+- Helm templating helpers with programmatic \_helpers.tpl generation
 - Type-safe API with cdk8s constructs and Helm placeholder preservation
 - Comprehensive AWS 2048 game example with EKS deployment
 - Security-focused development with ESLint security plugin and audit pipeline
