@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolved deprecated moduleResolution warning for TypeScript 7.0 compatibility
 - Modernized module resolution while maintaining CommonJS compatibility
 
+### CI
+
+- Excluded example directories from security linting to resolve CI import errors
+
 ## [0.1.3] - 2025-01-02
 
 ### Bug Fixes
