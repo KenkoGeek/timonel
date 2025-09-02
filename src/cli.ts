@@ -3,6 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as cp from 'child_process';
 
+const HELM_INSTALL_URL = 'https://helm.sh/docs/intro/install/';
+const HELM_ENV_VAR_MSG = 'Or set HELM_BIN environment variable to helm binary path.';
+
 function usageAndExit(msg?: string): never {
   if (msg) console.error(msg);
   console.log(
@@ -63,26 +66,47 @@ async function cmdValidate(projectDir?: string, silent = false) {
     console.error(`chart.ts not found at ${chartTs}`);
     process.exit(1);
   }
+
+  // Check if helm is available
+  const helm = process.env['HELM_BIN'] || 'helm';
   try {
-    // Enable TS runtime with specific config
-    require('ts-node').register({
-      transpileOnly: true,
-      compilerOptions: {
-        module: 'CommonJS',
-        moduleResolution: 'node',
-      },
+    cp.execSync(`${helm} version --short`, { stdio: 'ignore' });
+  } catch {
+    console.error('✗ Helm not found. Install Helm to enable chart validation.');
+    console.error(`  Install: ${HELM_INSTALL_URL}`);
+    console.error(`  ${HELM_ENV_VAR_MSG}`);
+    process.exit(1);
+  }
+
+  const tempDir = path.join(process.cwd(), '.timonel-validate');
+  try {
+    // Generate chart to temp directory for validation
+    await cmdSynth(projectDir, tempDir, { dryRun: false, silent: true, set: {} });
+
+    // Run helm lint on generated chart
+    const lintResult = cp.spawnSync(helm, ['lint', tempDir], {
+      stdio: silent ? 'pipe' : 'inherit',
+      encoding: 'utf8',
     });
-    // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
-    const mod = require(chartTs);
-    const runner = mod.default || mod.run || mod.synth;
-    if (typeof runner !== 'function') {
-      console.error('chart.ts must export a default/run/synth function');
+
+    if (lintResult.status !== 0) {
+      if (silent && lintResult.stderr) {
+        console.error(lintResult.stderr);
+      }
+      console.error('✗ Chart validation failed: Helm lint errors found');
       process.exit(1);
     }
+
     log('✓ Chart validation passed', silent);
   } catch (error) {
     console.error('✗ Chart validation failed:', error instanceof Error ? error.message : error);
     process.exit(1);
+  } finally {
+    // Cleanup temp directory
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   }
 }
 
@@ -174,7 +198,9 @@ async function cmdDeploy(projectDir?: string, releaseName?: string, flags?: CliF
   try {
     cp.execSync(`${helm} version --short`, { stdio: 'ignore' });
   } catch {
-    console.error('Helm not found. Install Helm or set HELM_BIN environment variable.');
+    console.error('✗ Helm not found. Install Helm to enable deployment.');
+    console.error(`  Install: ${HELM_INSTALL_URL}`);
+    console.error(`  ${HELM_ENV_VAR_MSG}`);
     process.exit(1);
   }
 
@@ -238,8 +264,9 @@ async function cmdPackage(chartDir?: string, out?: string, silent = false) {
   log(`> ${helm} ${args.join(' ')}`, silent);
   const res = cp.spawnSync(helm, args, { stdio: 'inherit' });
   if (res.error) {
-    console.error(`Failed to execute Helm: ${res.error.message}`);
-    console.error('Ensure Helm is installed and in PATH, or set HELM_BIN.');
+    console.error(`✗ Failed to execute Helm: ${res.error.message}`);
+    console.error(`  Install: ${HELM_INSTALL_URL}`);
+    console.error(`  ${HELM_ENV_VAR_MSG}`);
     process.exit(1);
   }
   if (res.status !== 0) {

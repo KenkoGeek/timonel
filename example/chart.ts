@@ -1,7 +1,5 @@
 // eslint-disable-next-line import/no-unresolved -- Package will be available when published
-import { ChartFactory } from 'timonel';
-// eslint-disable-next-line import/no-unresolved -- Package will be available when published
-import { numberRef, valuesRef } from 'timonel';
+import { ChartFactory, numberRef, valuesRef } from 'timonel';
 
 /**
  * AWS 2048 Game Helm Chart Example
@@ -47,8 +45,8 @@ const factory = new ChartFactory({
       enabled: true,
       className: 'alb',
       annotations: {
-        'alb.ingress.kubernetes.io/scheme': 'internet-facing',
-        'alb.ingress.kubernetes.io/target-type': 'ip',
+        scheme: 'internet-facing',
+        targetType: 'ip',
       },
     },
   },
@@ -135,12 +133,8 @@ factory.addIngress({
   name: 'ingress-2048',
   ingressClassName: valuesRef('ingress.className') as string,
   annotations: {
-    'alb.ingress.kubernetes.io/scheme': valuesRef(
-      'ingress.annotations["alb.ingress.kubernetes.io/scheme"]',
-    ) as string,
-    'alb.ingress.kubernetes.io/target-type': valuesRef(
-      'ingress.annotations["alb.ingress.kubernetes.io/target-type"]',
-    ) as string,
+    'alb.ingress.kubernetes.io/scheme': valuesRef('ingress.annotations.scheme') as string,
+    'alb.ingress.kubernetes.io/target-type': valuesRef('ingress.annotations.targetType') as string,
   },
   rules: [
     {
