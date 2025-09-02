@@ -315,7 +315,7 @@ export interface ServiceAccountSpec {
   gcpServiceAccountEmail?: string;
 }
 
-export interface ChartFactoryProps {
+export interface RutterProps {
   meta: HelmChartMeta;
   defaultValues?: Record<string, unknown>;
   envValues?: Record<string, Record<string, unknown>>;
@@ -328,16 +328,16 @@ export interface ChartFactoryProps {
 }
 
 /**
- * ChartFactory builds Kubernetes manifests using cdk8s and writes a Helm chart.
+ * Rutter builds Kubernetes manifests using cdk8s and writes a Helm chart.
  */
-export class ChartFactory {
-  private readonly props: ChartFactoryProps;
+export class Rutter {
+  private readonly props: RutterProps;
   private readonly app: App;
   private readonly chart: Chart;
   private readonly assets: SynthAsset[] = [];
   private valueOverrides: Record<string, string> = {};
 
-  constructor(props: ChartFactoryProps) {
+  constructor(props: RutterProps) {
     this.props = props;
     this.app = new App();
     this.chart = new Chart(this.app, props.meta.name);
@@ -402,8 +402,8 @@ export class ChartFactory {
 
   addDeployment(spec: DeploymentSpec) {
     const match = spec.matchLabels ?? {
-      [ChartFactory.LABEL_NAME]: include(ChartFactory.HELPER_NAME),
-      [ChartFactory.LABEL_INSTANCE]: helm.releaseName,
+      [Rutter.LABEL_NAME]: include(Rutter.HELPER_NAME),
+      [Rutter.LABEL_INSTANCE]: helm.releaseName,
     };
 
     const envEntries = spec.env
@@ -514,8 +514,8 @@ export class ChartFactory {
 
   addReplicaSet(spec: ReplicaSetSpec) {
     const match = spec.matchLabels ?? {
-      [ChartFactory.LABEL_NAME]: include(ChartFactory.HELPER_NAME),
-      [ChartFactory.LABEL_INSTANCE]: helm.releaseName,
+      [Rutter.LABEL_NAME]: include(Rutter.HELPER_NAME),
+      [Rutter.LABEL_INSTANCE]: helm.releaseName,
     };
     const envEntries = spec.env
       ? Object.entries(spec.env).map(([name, value]) => ({ name, value }))
@@ -877,7 +877,7 @@ export class ChartFactory {
         const labels = o.metadata.labels as Record<string, unknown>;
         const defaults: Record<string, string> = {
           'helm.sh/chart': '{{ .Chart.Name }}-{{ .Chart.Version }}',
-          'app.kubernetes.io/name': include(ChartFactory.HELPER_NAME),
+          'app.kubernetes.io/name': include(Rutter.HELPER_NAME),
           'app.kubernetes.io/instance': helm.releaseName,
           'app.kubernetes.io/version': helm.chartVersion,
           'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
