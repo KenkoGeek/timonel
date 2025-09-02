@@ -121,7 +121,7 @@ import {
   boolRef,
   stringRef,
   floatRef,
-} from 'timonel/lib/helm';
+} from 'timonel';
 
 const factory = new ChartFactory({
   meta: { name: 'my-app', version: '0.1.0', appVersion: '1.0.0' },
