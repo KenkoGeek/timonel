@@ -20,42 +20,44 @@ The example creates a complete Kubernetes deployment including:
 
 ## Quick Start
 
-<!-- markdownlint-disable MD029 -->
-
-1. **Validate and generate the Helm chart**:
+1. **Generate the Helm chart**:
 
 ```bash
-# From the example directory
-tl validate .                    # Validate chart.ts
-tl synth . ../dist/game-2048     # Generate chart
-tl diff . ../dist/game-2048      # Check differences (if exists)
+# From project root
+pnpm tl synth example/aws-game-2048 dist/game-2048
 ```
 
 1. **Deploy to your EKS cluster**:
 
 ```bash
-# Using integrated deploy command
-tl deploy . game-2048 --env dev
-tl deploy . game-2048 --env prod --dry-run  # Test first
-tl deploy . game-2048 --env prod            # Deploy
+# Deploy to production
+helm install game-2048 dist/game-2048 -f dist/game-2048/values-prod.yaml
 
-# Override values dynamically
-tl deploy . game-2048 --env dev --set replicas=3 --set image.tag=v2.0.0
-tl synth . ../dist/game-2048 --set service.port=8080 --set ingress.host=my-game.com
+# Deploy to development
+helm install game-2048 dist/game-2048 -f dist/game-2048/values-dev.yaml
 
-# Or traditional helm approach
-helm install game-2048 ../dist/game-2048 -f ../dist/game-2048/values-prod.yaml
-```
-
-1. **Get the ALB endpoint**:
-
-```bash
-kubectl get ingress -n default
+# Deploy to Kind/local cluster (without ALB)
+helm install game-2048 dist/game-2048 \
+  -f dist/game-2048/values-dev.yaml \
+  --set ingress.enabled=false \
+  --set service.type=NodePort
 ```
 
 1. **Access the game**:
 
-Open your browser and navigate to the ALB endpoint URL.
+For EKS with ALB:
+
+```bash
+kubectl get ingress ingress-2048
+# Open the ALB endpoint URL in browser
+```
+
+For local/Kind:
+
+```bash
+kubectl port-forward svc/service-2048 8080:80
+open http://localhost:8080
+```
 
 ## Configuration
 
@@ -74,52 +76,13 @@ The chart includes sensible defaults:
 - **staging**: 3 replicas
 - **prod**: 5 replicas
 
-### Custom Values
+### Key Features
 
-You can override any value in the chart:
-
-```yaml
-# custom-values.yaml
-deployment:
-  replicas: 10
-  resources:
-    requests:
-      cpu: '1.0'
-    limits:
-      cpu: '2.0'
-      memory: '1Gi'
-
-ingress:
-  annotations:
-    alb.ingress.kubernetes.io/scheme: internal
-```
-
-Deploy with custom values:
-
-```bash
-helm install game-2048 dist/game-2048 -f custom-values.yaml
-```
-
-### Dynamic Values with --set
-
-Override values directly from command line:
-
-```bash
-# Single value override
-tl synth . ../dist/game-2048 --set replicas=5
-
-# Multiple values
-tl synth . ../dist/game-2048 --set replicas=3 --set image.tag=v2.0.0
-
-# Nested values using dot notation
-tl synth . ../dist/game-2048 --set deployment.resources.requests.cpu=1.0
-
-# Complex values (JSON)
-tl synth . ../dist/game-2048 --set 'ingress.annotations={"alb.ingress.kubernetes.io/scheme":"internal"}'
-
-# Deploy with overrides
-tl deploy . game-2048-custom --env prod --set replicas=10 --set service.port=8080
-```
+- **Multi-environment support**: Different replica counts for dev/staging/prod
+- **ALB Integration**: Ready for AWS Load Balancer Controller
+- **Resource management**: CPU requests for proper scheduling
+- **Kubernetes best practices**: Proper labels and selectors
+- **Literal numeric values**: Ensures proper YAML generation without template parsing issues
 
 ## Architecture
 
@@ -186,38 +149,6 @@ To remove all resources:
 helm uninstall game-2048
 ```
 
-## CI/CD Integration
-
-This example showcases Timonel's CI/CD capabilities:
-
-### Validation Pipeline
-
-```bash
-# Pre-commit validation
-tl validate . --silent
-
-# Change detection
-tl diff . ../dist/game-2048 --silent
-
-# Deployment testing
-tl deploy . game-2048-test --env dev --dry-run --silent
-```
-
-### Automated Deployment
-
-```bash
-# Development environment
-tl deploy . game-2048-dev --env dev --silent
-
-# Production with safety checks
-tl deploy . game-2048-prod --env prod --dry-run --silent  # Test
-tl deploy . game-2048-prod --env prod --silent            # Deploy
-```
-
-### GitHub Actions Integration
-
-See `DEPLOYMENT.md` for complete GitHub Actions workflow example.
-
 ## Learning Points
 
 This example demonstrates:
@@ -226,12 +157,5 @@ This example demonstrates:
 2. **Multi-environment configuration** with environment-specific values
 3. **AWS ALB integration** with proper annotations
 4. **Kubernetes best practices** with labels and resource management
-5. **CI/CD integration** with validation, diff, and deploy commands
+5. **Literal numeric handling** to avoid YAML parsing issues
 6. **Documentation-driven development** with comprehensive comments
-
-## Next Steps
-
-- Set up GitHub Actions workflow for automated deployment
-- Add chart validation to pre-commit hooks
-- Implement blue-green deployment with diff validation
-- Add monitoring and alerting for deployment status

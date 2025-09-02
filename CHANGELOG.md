@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2025-01-02
+
+### Bug Fixes
+
+- Fixed Helm chart generation issues with numeric values in YAML
+- Corrected environment variable handling for complex objects
+- Fixed PersistentVolumeClaim volume references
+- Resolved Service port type casting issues
+- Updated examples to use literal numeric values instead of numberRef for critical fields
+
+### Changed
+
+- Simplified WordPress example to use string environment variables instead of valueFrom objects
+- Updated AWS 2048 example to use literal ports and replicas
+- Improved README documentation with corrected deployment examples
+- Removed redundant DEPLOYMENT.md file from aws-game-2048 example
+
+### Documentation
+
+- Enhanced main README with better examples and troubleshooting
+- Updated example READMEs with working deployment commands
+- Added notes about numeric value handling in Helm templates
+
 ## [0.1.2] - 2024-12-19
 
 ### Added

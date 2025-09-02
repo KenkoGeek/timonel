@@ -142,11 +142,11 @@ const factory = new ChartFactory({
 factory.addDeployment({
   name: 'my-app',
   image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-  replicas: numberRef('replicas') as any,
+  replicas: 2,
   containerPort: 80,
 });
 
-factory.addService({ name: 'my-app', port: numberRef('service.port') as any });
+factory.addService({ name: 'my-app', port: 80 });
 
 // Use a named helper in annotations (example)
 factory.addDeployment({
@@ -165,9 +165,10 @@ factory.write('dist/charts/my-app');
 - You can pass these strings directly into cdk8s constructs; they are preserved in the YAML.
 - `template(name, ctx='.')` and `include(name, ctx='.')`: inject calls to helpers defined in `_helpers.tpl`.
 - `numberRef(path)`, `boolRef(path)`: cast `.Values.*` to numeric/boolean using Sprig
-  (`int`, `toBool`). Use `as any` where constructs expect typed numbers/bools.
+  (`int`, `toBool`). Use for template strings, not direct numeric fields.
 - `stringRef(path)`, `floatRef(path)`: cast `.Values.*` to string/float using Sprig
   (`toString`, `float64`).
+- For numeric fields (ports, replicas), use literal values or template strings with proper casting.
 
 ## Multi-environment values
 
