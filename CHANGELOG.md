@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1] - 2024-12-19
+## [0.1.2] - 2024-12-19
+
+### Added
+
+- Enhanced `validate` command to generate chart and run `helm lint` for proper validation
+- Helm installation detection with clear installation instructions
+- Automatic cleanup of temporary validation directories
 
 ### Fixed
+
+- Fixed example chart to use valid Helm template syntax for annotations
+- Improved error messages with installation links for missing Helm binary
+
+## [0.1.1] - 2024-12-19
+
+### Resolved
 
 - Fixed TypeScript module resolution error in CLI when validating charts
 - Added explicit ts-node configuration to prevent module resolution error
@@ -17,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2024-12-19
 
-### Added
+### Initial
 
 - Initial release of Timonel - TypeScript library for programmatic Helm chart generation
 - ChartFactory class with support for Deployments, Services, Ingress, ConfigMaps, Secrets
