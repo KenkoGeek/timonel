@@ -141,10 +141,10 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
   if (
     flags?.set &&
     Object.keys(flags.set).length > 0 &&
-    mod.factory &&
-    typeof mod.factory.setValues === 'function'
+    mod.rutter &&
+    typeof mod.rutter.setValues === 'function'
   ) {
-    mod.factory.setValues(flags.set);
+    mod.rutter.setValues(flags.set);
   }
   const outDir = out || path.join(path.dirname(chartTs), 'dist');
 
@@ -275,11 +275,11 @@ async function cmdPackage(chartDir?: string, out?: string, silent = false) {
 }
 
 function exampleChartTs(name: string): string {
-  return `import { ChartFactory } from '../../src';
+  return `import { Rutter } from '../../src';
 import { valuesRef, helm } from '../../src/lib/helm';
 
 // Define chart metadata and default/env values
-const factory = new ChartFactory({
+const rutter = new Rutter({
   meta: {
     name: '${name}',
     version: '0.1.0',
@@ -299,7 +299,7 @@ const factory = new ChartFactory({
 });
 
 // Use Helm placeholders in strings passed to cdk8s constructs
-factory.addDeployment({
+rutter.addDeployment({
   name: '${name}',
   image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
   replicas: Number(valuesRef('replicas') as unknown as string) as any,
@@ -310,7 +310,7 @@ factory.addDeployment({
   },
 });
 
-factory.addService({
+rutter.addService({
   name: '${name}',
   ports: [{ port: Number(valuesRef('service.port') as unknown as string) as any, targetPort: 80 }],
   type: 'ClusterIP',
@@ -320,7 +320,7 @@ factory.addService({
 // Optional ingress with advanced path routing and TLS support
 // Helm conditionals can be embedded as comments; template users can wrap templates with if blocks
 // Here we just generate an ingress; for real conditional generation you could split assets yourself.
-factory.addIngress({
+rutter.addIngress({
   name: '${name}',
   ingressClassName: String(valuesRef('ingress.className')),
   rules: [{
@@ -339,7 +339,7 @@ factory.addIngress({
 });
 
 export default function run(outDir: string) {
-  factory.write(outDir);
+  rutter.write(outDir);
 }
 `;
 }
