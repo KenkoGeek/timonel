@@ -132,7 +132,7 @@ factory.addDeployment({
 // WordPress Service
 factory.addService({
   name: 'wordpress-service',
-  type: valuesRef('service.type') as string,
+  type: valuesRef('service.type') as 'LoadBalancer' | 'ClusterIP' | 'NodePort' | 'ExternalName',
   ports: [
     {
       port: 80,
