@@ -1,0 +1,12 @@
+{
+  "name": "wordpress-helm-chart",
+  "version": "1.0.0",
+  "description": "WordPress with MySQL Helm chart example using Timonel",
+  "scripts": {
+    "build": "tl synth . ../dist/wordpress",
+    "package": "tl package ../dist/wordpress ../dist/"
+  },
+  "dependencies": {
+    "timonel": "^0.1.2"
+  }
+}
