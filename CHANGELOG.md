@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2025-01-02
+
+### Structure
+
+- Renamed `example/` directory to `examples/` for better clarity
+- Updated linting ignore patterns to use `examples/**`
+- Added Examples section to README documenting available examples
+
 ## [0.1.5] - 2025-01-02
 
 ### Linting

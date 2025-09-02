@@ -1,6 +1,6 @@
 {
   "name": "timonel",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Timonel: programmatic Helm chart factory using cdk8s (TypeScript)",
   "bin": {
     "timonel": "dist/cli.js",
@@ -25,11 +25,11 @@
     "prepare": "husky",
     "prepack": "pnpm build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint . --ext .ts,.tsx --ignore-pattern 'example/**'",
+    "lint": "eslint . --ext .ts,.tsx --ignore-pattern 'examples/**'",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "security:lint": "eslint . --ext .ts,.tsx --ignore-pattern 'example/**'",
+    "security:lint": "eslint . --ext .ts,.tsx --ignore-pattern 'examples/**'",
     "security:audit": "pnpm audit --audit-level=moderate",
     "security:check": "pnpm run security:lint && pnpm run security:audit",
     "deps:check": "pnpm outdated",

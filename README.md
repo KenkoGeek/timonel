@@ -161,6 +161,15 @@ factory.addDeployment({
 factory.write('dist/charts/my-app');
 ```
 
+## Examples
+
+The `examples/` directory contains complete working examples:
+
+- **aws-game-2048**: AWS 2048 game deployment with Service and Ingress
+- **wordpress**: WordPress with MySQL database setup
+
+Each example includes its own README with deployment instructions.
+
 - `valuesRef(path)`: returns a Helm placeholder string for `.Values.*`.
 - You can pass these strings directly into cdk8s constructs; they are preserved in the YAML.
 - `template(name, ctx='.')` and `include(name, ctx='.')`: inject calls to helpers defined in `_helpers.tpl`.
