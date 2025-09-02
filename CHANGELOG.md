@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2025-01-02
+
+### Updated
+
+- Updated TypeScript configuration to use Node16 module and moduleResolution
+- Resolved deprecated moduleResolution warning for TypeScript 7.0 compatibility
+- Modernized module resolution while maintaining CommonJS compatibility
+
 ## [0.1.3] - 2025-01-02
 
 ### Bug Fixes

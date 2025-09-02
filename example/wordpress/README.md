@@ -26,10 +26,10 @@ This example demonstrates deploying WordPress with MySQL database using Timonel.
    ```bash
    # Production deployment with LoadBalancer
    helm install wordpress wordpress-chart -f wordpress-chart/values-prod.yaml
-   
+
    # Development deployment
    helm install wordpress wordpress-chart -f wordpress-chart/values-dev.yaml
-   
+
    # Local/Kind deployment with NodePort
    helm install wordpress wordpress-chart \
      -f wordpress-chart/values-dev.yaml \
@@ -61,7 +61,7 @@ This example demonstrates deploying WordPress with MySQL database using Timonel.
 ## Environment Configurations
 
 - **dev**: 1 WordPress replica, 5Gi MySQL storage
-- **staging**: 2 WordPress replicas, 8Gi MySQL storage  
+- **staging**: 2 WordPress replicas, 8Gi MySQL storage
 - **prod**: 3 WordPress replicas, 20Gi MySQL storage
 
 ## Security Notes
