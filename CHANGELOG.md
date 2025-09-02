@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2025-01-02
+
+### Breaking Changes
+
+- **BREAKING**: Renamed `ChartFactory` class to `Rutter` (maritime pilot concept)
+- Updated all examples and documentation to use `Rutter` instead of `ChartFactory`
+- Renamed `ChartFactory.ts` to `Rutter.ts` for consistency
+- Updated API: `new Rutter()` instead of `new ChartFactory()`
+
 ## [0.1.6] - 2025-01-02
 
 ### Structure
