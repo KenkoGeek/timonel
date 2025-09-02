@@ -17,19 +17,23 @@ This example demonstrates deploying WordPress with MySQL database using Timonel.
 1. **Generate the chart:**
 
    ```bash
-   tl synth . ../dist/wordpress
+   # From project root
+   pnpm tl synth example/wordpress wordpress-chart
    ```
 
 2. **Deploy to Kubernetes:**
 
    ```bash
-   helm install wordpress ../dist/wordpress
-   ```
-
-3. **Deploy with environment-specific values:**
-
-   ```bash
-   helm install wordpress ../dist/wordpress -f ../dist/wordpress/values-prod.yaml
+   # Production deployment with LoadBalancer
+   helm install wordpress wordpress-chart -f wordpress-chart/values-prod.yaml
+   
+   # Development deployment
+   helm install wordpress wordpress-chart -f wordpress-chart/values-dev.yaml
+   
+   # Local/Kind deployment with NodePort
+   helm install wordpress wordpress-chart \
+     -f wordpress-chart/values-dev.yaml \
+     --set service.type=NodePort
    ```
 
 ## Configuration
@@ -68,10 +72,25 @@ Update `mysql.rootPassword` and `mysql.password` values before deploying to prod
 
 ## Accessing WordPress
 
-After deployment, get the external IP:
+After deployment:
+
+**For LoadBalancer service:**
 
 ```bash
-kubectl get services wordpress
+kubectl get services wordpress-service
+# Navigate to EXTERNAL-IP in browser
 ```
 
-Navigate to the external IP in your browser to complete WordPress setup.
+**For NodePort or local access:**
+
+```bash
+kubectl port-forward svc/wordpress-service 8080:80
+open http://localhost:8080
+```
+
+**Check deployment status:**
+
+```bash
+kubectl get pods
+kubectl get pvc
+```

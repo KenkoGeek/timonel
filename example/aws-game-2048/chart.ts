@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/no-unresolved -- Package will be available when published
-import { ChartFactory, numberRef, valuesRef } from 'timonel';
+import { ChartFactory, valuesRef } from 'timonel';
 
 /**
  * AWS 2048 Game Helm Chart Example
@@ -82,8 +82,8 @@ const factory = new ChartFactory({
 factory.addDeployment({
   name: valuesRef('app.name') as string,
   image: valuesRef('app.image') as string,
-  replicas: numberRef('deployment.replicas') as unknown as number,
-  containerPort: numberRef('app.port') as unknown as number,
+  replicas: 5,
+  containerPort: 80,
   resources: {
     requests: {
       cpu: valuesRef('deployment.resources.requests.cpu') as string,
@@ -111,8 +111,8 @@ factory.addService({
   name: 'service-2048',
   ports: [
     {
-      port: numberRef('service.port') as unknown as number,
-      targetPort: numberRef('service.targetPort') as unknown as number,
+      port: 80,
+      targetPort: 80,
       protocol: 'TCP',
     },
   ],
@@ -146,7 +146,7 @@ factory.addIngress({
             service: {
               name: 'service-2048',
               port: {
-                number: numberRef('service.port') as unknown as number,
+                number: 80,
               },
             },
           },

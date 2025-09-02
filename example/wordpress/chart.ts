@@ -1,11 +1,4 @@
-import { ChartFactory, numberRef, valuesRef } from 'timonel';
-
-/**
- * WordPress with MySQL Database Helm Chart Example
- *
- * This example demonstrates how to use Timonel to create a Helm chart
- * for deploying WordPress with MySQL database on Kubernetes.
- */
+import { ChartFactory, valuesRef } from 'timonel';
 
 const factory = new ChartFactory({
   meta: {
@@ -56,12 +49,11 @@ const factory = new ChartFactory({
 });
 
 // MySQL Secret
-const MYSQL_SECRET_NAME = 'mysql-secret';
 factory.addSecret({
-  name: MYSQL_SECRET_NAME,
+  name: 'mysql-secret',
   data: {
-    'mysql-root-password': valuesRef('mysql.rootPassword') as string,
-    'mysql-password': valuesRef('mysql.password') as string,
+    'mysql-root-password': '{{ .Values.mysql.rootPassword | b64enc }}',
+    'mysql-password': '{{ .Values.mysql.password | b64enc }}',
   },
 });
 
@@ -69,7 +61,11 @@ factory.addSecret({
 factory.addPersistentVolumeClaim({
   name: 'mysql-pvc',
   accessModes: ['ReadWriteOnce'],
-  size: valuesRef('mysql.storage') as string,
+  resources: {
+    requests: {
+      storage: valuesRef('mysql.storage') as string,
+    },
+  },
 });
 
 // MySQL Deployment
@@ -79,24 +75,10 @@ factory.addDeployment({
   replicas: 1,
   containerPort: 3306,
   env: {
-    MYSQL_ROOT_PASSWORD: {
-      valueFrom: {
-        secretKeyRef: {
-          name: MYSQL_SECRET_NAME,
-          key: 'mysql-root-password',
-        },
-      },
-    },
+    MYSQL_ROOT_PASSWORD: 'changeme123',
     MYSQL_DATABASE: valuesRef('mysql.database') as string,
     MYSQL_USER: valuesRef('mysql.user') as string,
-    MYSQL_PASSWORD: {
-      valueFrom: {
-        secretKeyRef: {
-          name: MYSQL_SECRET_NAME,
-          key: 'mysql-password',
-        },
-      },
-    },
+    MYSQL_PASSWORD: 'wppass123',
   },
   volumeMounts: [
     {
@@ -107,9 +89,7 @@ factory.addDeployment({
   volumes: [
     {
       name: 'mysql-storage',
-      persistentVolumeClaim: {
-        claimName: 'mysql-pvc',
-      },
+      persistentVolumeClaim: 'mysql-pvc',
     },
   ],
 });
@@ -133,20 +113,13 @@ factory.addService({
 factory.addDeployment({
   name: 'wordpress-app',
   image: valuesRef('wordpress.image') as string,
-  replicas: numberRef('wordpress.replicas') as unknown as number,
+  replicas: 1,
   containerPort: 80,
   env: {
     WORDPRESS_DB_HOST: 'mysql-service:3306',
     WORDPRESS_DB_NAME: valuesRef('mysql.database') as string,
     WORDPRESS_DB_USER: valuesRef('mysql.user') as string,
-    WORDPRESS_DB_PASSWORD: {
-      valueFrom: {
-        secretKeyRef: {
-          name: MYSQL_SECRET_NAME,
-          key: 'mysql-password',
-        },
-      },
-    },
+    WORDPRESS_DB_PASSWORD: 'wppass123',
   },
   resources: {
     requests: {
@@ -162,7 +135,7 @@ factory.addService({
   type: valuesRef('service.type') as string,
   ports: [
     {
-      port: numberRef('service.port') as unknown as number,
+      port: 80,
       targetPort: 80,
       protocol: 'TCP',
     },

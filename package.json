@@ -1,6 +1,6 @@
 {
   "name": "timonel",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Timonel: programmatic Helm chart factory using cdk8s (TypeScript)",
   "bin": {
     "timonel": "dist/cli.js",
