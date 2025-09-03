@@ -20,11 +20,13 @@ Key features:
 - Type-safe API (strict TypeScript) with cdk8s constructs.
 - Helm templating helpers to embed `{{ .Values.* }}` where needed.
 - Simple multi-environment setup: `values.yaml`, `values-dev.yaml`, `values-prod.yaml`, etc.
+- **Umbrella Charts**: Manage multiple subcharts as a single deployable unit.
 - Minimal CLI (`tl`) to scaffold an example and synthesize the chart.
 
 Advanced templating:
 
 - Programmatic Helm helpers: generate `templates/_helpers.tpl` and call helpers using `template()`/`include()`.
+- Umbrella chart support with automatic dependency management.
 
 ## Installation
 
@@ -161,14 +163,78 @@ rutter.addDeployment({
 rutter.write('dist/charts/my-app');
 ```
 
+## Umbrella Charts
+
+Create umbrella charts that combine multiple subcharts into a single deployable unit:
+
+```typescript
+import { createUmbrella, Rutter } from 'timonel';
+
+// Create individual subcharts
+const mysql = new Rutter({
+  meta: { name: 'mysql', version: '0.1.0' },
+  // MySQL configuration...
+});
+
+const wordpress = new Rutter({
+  meta: { name: 'wordpress', version: '0.1.0' },
+  // WordPress configuration...
+});
+
+// Combine into umbrella chart
+const umbrella = createUmbrella({
+  meta: {
+    name: 'wordpress-stack',
+    version: '1.0.0',
+    description: 'Complete WordPress stack with MySQL database',
+  },
+  subcharts: [
+    { name: 'mysql', rutter: mysql },
+    { name: 'wordpress', rutter: wordpress },
+  ],
+  defaultValues: {
+    global: { storageClass: 'gp2' },
+    mysql: { persistence: { size: '8Gi' } },
+    wordpress: { service: { type: 'LoadBalancer' } },
+  },
+  envValues: {
+    dev: { mysql: { persistence: { size: '5Gi' } } },
+    prod: { mysql: { persistence: { size: '20Gi' } } },
+  },
+});
+
+umbrella.write('dist/wordpress-stack');
+```
+
+### CLI for Umbrella Charts
+
+```bash
+# Create umbrella structure
+tl umbrella init my-stack
+
+# Add subcharts
+tl umbrella add database
+tl umbrella add frontend
+
+# Generate umbrella chart
+tl umbrella synth ./dist
+```
+
 ## Examples
 
 The `examples/` directory contains complete working examples:
 
 - **aws-game-2048**: AWS 2048 game deployment with Service and Ingress
-- **wordpress**: WordPress with MySQL database setup
+- **wordpress**: WordPress with MySQL database setup (single chart)
+- **wordpress-umbrella**: WordPress stack using umbrella charts (MySQL + WordPress subcharts)
 
 Each example includes its own README with deployment instructions.
+
+### Umbrella Chart Example
+
+See `examples/wordpress-umbrella/` for a complete umbrella chart implementation that
+separates MySQL and WordPress into individual subcharts with proper dependencies,
+shared values, and multi-environment support.
 
 - `valuesRef(path)`: returns a Helm placeholder string for `.Values.*`.
 - You can pass these strings directly into cdk8s constructs; they are preserved in the YAML.
