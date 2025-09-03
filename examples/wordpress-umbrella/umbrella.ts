@@ -1,4 +1,4 @@
-import { createUmbrella } from '../../src';
+import { createUmbrella } from 'timonel';
 
 // Import subcharts
 import { rutter as mysql } from './charts/mysql/chart';
