@@ -30,6 +30,7 @@ function usageAndExit(msg?: string): never {
       '  --silent                             Suppress output (useful for CI)',
       '  --env <environment>                  Use environment-specific values',
       '  --set <key=value>                    Override values (can be used multiple times)',
+      '  --version, -v                        Show version information',
       '',
       'Examples:',
       '  tl init my-app',
@@ -603,6 +604,9 @@ function parseArgs(): { cmd: string; args: string[]; flags: CliFlags } {
           flags.set[key] = value;
         }
       }
+    } else if (arg === '--version' || arg === '-v') {
+      showVersion();
+      process.exit(0);
     } else if (arg && !arg.startsWith('--')) {
       if (!cmd) {
         cmd = arg;
@@ -614,6 +618,18 @@ function parseArgs(): { cmd: string; args: string[]; flags: CliFlags } {
   /* eslint-enable security/detect-object-injection */
 
   return { cmd, args, flags };
+}
+
+function showVersion() {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI needs to read package.json
+  const packagePath = path.join(__dirname, '..', 'package.json');
+  try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI needs to read package.json
+    const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    console.log(`timonel v${packageJson.version}`);
+  } catch {
+    console.log('timonel (version unknown)');
+  }
 }
 
 function log(message: string, silent = false) {
@@ -646,6 +662,11 @@ async function main() {
       break;
     case 'umbrella':
       await cmdUmbrella(args[0], args.slice(1), flags);
+      break;
+    case 'version':
+    case '-v':
+    case '--version':
+      showVersion();
       break;
     case '-h':
     case '--help':
