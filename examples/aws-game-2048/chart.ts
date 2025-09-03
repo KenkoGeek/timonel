@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/no-unresolved -- Package will be available when published
-import { ChartFactory, valuesRef } from 'timonel';
+import { Rutter, valuesRef } from 'timonel';
 
 /**
  * AWS 2048 Game Helm Chart Example
@@ -10,8 +10,8 @@ import { ChartFactory, valuesRef } from 'timonel';
  * Based on: https://docs.aws.amazon.com/eks/latest/userguide/auto-elb-example.html
  */
 
-// Create the chart factory with metadata and values
-const factory = new ChartFactory({
+// Create the chart rutter with metadata and values
+const rutter = new Rutter({
   meta: {
     name: 'game-2048',
     version: '1.0.0',
@@ -79,7 +79,7 @@ const factory = new ChartFactory({
  * - Resource requests for CPU
  * - Proper labels for service selection
  */
-factory.addDeployment({
+rutter.addDeployment({
   name: valuesRef('app.name') as string,
   image: valuesRef('app.image') as string,
   replicas: 5,
@@ -107,7 +107,7 @@ factory.addDeployment({
  * - Port mapping from service to container
  * - Label selector to find pods
  */
-factory.addService({
+rutter.addService({
   name: 'service-2048',
   ports: [
     {
@@ -129,7 +129,7 @@ factory.addService({
  * - IP target type for direct pod routing
  * - Path-based routing to the service
  */
-factory.addIngress({
+rutter.addIngress({
   name: 'ingress-2048',
   ingressClassName: valuesRef('ingress.className') as string,
   annotations: {
@@ -162,8 +162,8 @@ factory.addIngress({
  * This function is called by the Timonel CLI to generate the Helm chart
  */
 export default function run(outDir: string) {
-  factory.write(outDir);
+  rutter.write(outDir);
 }
 
-// Export factory for --set support
-export { factory };
+// Export rutter for --set support
+export { rutter };

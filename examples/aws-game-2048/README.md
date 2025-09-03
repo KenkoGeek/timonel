@@ -24,7 +24,7 @@ The example creates a complete Kubernetes deployment including:
 
 ```bash
 # From project root
-pnpm tl synth example/aws-game-2048 dist/game-2048
+pnpm tl synth examples/aws-game-2048 dist/game-2048
 ```
 
 1. **Deploy to your EKS cluster**:
@@ -88,7 +88,7 @@ The chart includes sensible defaults:
 
 ### Components
 
-1. **ChartFactory**: Main class that orchestrates the chart creation
+1. **Rutter**: Main class that orchestrates the chart creation
 2. **Deployment**: Manages the 2048 game pods with proper scaling
 3. **Service**: Provides stable networking for the pods
 4. **Ingress**: Exposes the application via AWS ALB

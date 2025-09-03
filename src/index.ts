@@ -1,3 +1,3 @@
-export * from './lib/ChartFactory';
+export * from './lib/Rutter';
 export * from './lib/HelmChartWriter';
 export * from './lib/helm';
