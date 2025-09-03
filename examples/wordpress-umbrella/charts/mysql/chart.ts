@@ -1,5 +1,4 @@
-import { Rutter } from '../../../../src';
-import { valuesRef } from '../../../../src/lib/helm';
+import { Rutter, valuesRef } from 'timonel';
 
 // MySQL subchart
 const rutter = new Rutter({

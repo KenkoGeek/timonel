@@ -1,5 +1,4 @@
-import { Rutter } from '../../../../src';
-import { valuesRef } from '../../../../src/lib/helm';
+import { Rutter, valuesRef } from 'timonel';
 
 // WordPress subchart
 const rutter = new Rutter({
