@@ -86,7 +86,7 @@ rutter.addDeployment({
 
 // MySQL Service
 rutter.addService({
-  name: 'mysql',
+  name: 'mysql-service',
   ports: [{ port: 3306, targetPort: 3306 }],
   selector: { app: 'mysql' },
 });

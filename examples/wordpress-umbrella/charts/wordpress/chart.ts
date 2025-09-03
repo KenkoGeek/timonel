@@ -81,7 +81,7 @@ rutter.addDeployment({
 
 // WordPress Service
 rutter.addService({
-  name: 'wordpress',
+  name: 'wordpress-service',
   ports: [{ port: 80, targetPort: 80 }],
   type: valuesRef('service.type') as 'LoadBalancer' | 'ClusterIP' | 'NodePort' | 'ExternalName',
   selector: { app: 'wordpress' },
