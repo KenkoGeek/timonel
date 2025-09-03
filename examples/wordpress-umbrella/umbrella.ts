@@ -36,6 +36,11 @@ const umbrella = createUmbrella({
         enabled: true,
         size: '8Gi',
       },
+      // Resource quotas for MySQL
+      resources: {
+        limits: { cpu: '500m', memory: '512Mi' },
+        requests: { cpu: '250m', memory: '256Mi' },
+      },
     },
     // WordPress configuration
     wordpress: {
@@ -58,16 +63,29 @@ const umbrella = createUmbrella({
         user: 'wordpress',
         password: 'wordpresspassword',
       },
+      // Resource quotas for WordPress
+      resources: {
+        limits: { cpu: '500m', memory: '512Mi' },
+        requests: { cpu: '250m', memory: '256Mi' },
+      },
     },
   },
   envValues: {
     dev: {
       mysql: {
         persistence: { size: '5Gi' },
+        resources: {
+          limits: { cpu: '250m', memory: '256Mi' },
+          requests: { cpu: '100m', memory: '128Mi' },
+        },
       },
       wordpress: {
         service: { type: 'NodePort' },
         persistence: { size: '5Gi' },
+        resources: {
+          limits: { cpu: '250m', memory: '256Mi' },
+          requests: { cpu: '100m', memory: '128Mi' },
+        },
       },
     },
     prod: {

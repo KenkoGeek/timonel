@@ -30,36 +30,61 @@ export class UmbrellaRutter {
   private readonly props: UmbrellaRutterProps;
 
   constructor(props: UmbrellaRutterProps) {
+    // Validate chart metadata
+    this.validateMetadata(props.meta);
     this.props = props;
+  }
+
+  private validateMetadata(meta: HelmChartMeta): void {
+    // Validate chart name follows Helm conventions
+    // eslint-disable-next-line security/detect-unsafe-regex -- Safe regex for chart name validation
+    if (!/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(meta.name)) {
+      throw new Error('Chart name must contain only lowercase letters, numbers, and dashes');
+    }
+
+    // Validate semantic versioning
+    // eslint-disable-next-line security/detect-unsafe-regex -- Safe regex for semver validation
+    if (!/^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/.test(meta.version)) {
+      throw new Error('Chart version must follow semantic versioning (e.g., 1.0.0)');
+    }
   }
 
   /**
    * Write the umbrella chart with all subcharts to the output directory
    */
   write(outDir: string): void {
+    // Sanitize paths to prevent directory traversal
+    // eslint-disable-next-line @typescript-eslint/no-var-requires -- Dynamic import needed for path operations
+    const path = require('path');
+    const sanitizedOutDir = path.normalize(path.resolve(outDir));
+    const cwd = process.cwd();
+    if (!sanitizedOutDir.startsWith(cwd)) {
+      throw new Error('Output directory must be within current working directory');
+    }
+
     // Create output directory structure
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    mkdirSync(outDir, { recursive: true });
+    mkdirSync(sanitizedOutDir, { recursive: true });
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    mkdirSync(join(outDir, 'charts'), { recursive: true });
+    mkdirSync(join(sanitizedOutDir, 'charts'), { recursive: true });
 
     // Write each subchart to charts/ directory
     for (const subchart of this.props.subcharts) {
-      const subchartDir = join(outDir, 'charts', subchart.name);
+      const subchartDir = join(sanitizedOutDir, 'charts', subchart.name);
       subchart.rutter.write(subchartDir);
     }
 
     // Generate parent Chart.yaml with dependencies
-    this.writeParentChart(outDir);
+    this.writeParentChart(sanitizedOutDir);
 
     // Generate parent values.yaml
-    this.writeParentValues(outDir);
+    this.writeParentValues(sanitizedOutDir);
 
     // Generate empty templates directory (umbrella charts typically don't have templates)
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    mkdirSync(join(outDir, 'templates'), { recursive: true });
+    mkdirSync(join(sanitizedOutDir, 'templates'), { recursive: true });
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    writeFileSync(join(outDir, 'templates', 'NOTES.txt'), this.generateNotesTemplate());
+    writeFileSync(join(sanitizedOutDir, 'templates', 'NOTES.txt'), this.generateNotesTemplate());
   }
 
   private writeParentChart(outDir: string): void {
@@ -110,11 +135,32 @@ export class UmbrellaRutter {
     // Write environment-specific values files
     if (this.props.envValues) {
       for (const [env, envVals] of Object.entries(this.props.envValues)) {
-        const envValues = { ...values, ...envVals };
+        const envValues = this.deepMerge(values, envVals);
         // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
         writeFileSync(join(outDir, `values-${env}.yaml`), YAML.stringify(envValues));
       }
     }
+  }
+
+  private deepMerge(
+    target: Record<string, unknown>,
+    source: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const result = { ...target };
+    for (const [key, value] of Object.entries(source)) {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        // eslint-disable-next-line security/detect-object-injection -- Safe object property access in deep merge
+        result[key] = this.deepMerge(
+          // eslint-disable-next-line security/detect-object-injection -- Safe object property access in deep merge
+          (result[key] as Record<string, unknown>) || {},
+          value as Record<string, unknown>,
+        );
+      } else {
+        // eslint-disable-next-line security/detect-object-injection -- Safe object property access in deep merge
+        result[key] = value;
+      }
+    }
+    return result;
   }
 
   private generateNotesTemplate(): string {

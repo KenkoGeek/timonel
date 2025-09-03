@@ -135,8 +135,16 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
       moduleResolution: 'node',
     },
   });
+  // Validate module path to prevent code injection
+  const allowedPaths = [process.cwd()];
+  const resolvedPath = path.resolve(chartTs);
+  if (!allowedPaths.some((allowedPath) => resolvedPath.startsWith(allowedPath))) {
+    console.error('Module path must be within current working directory');
+    process.exit(1);
+  }
+
   // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
-  const mod = require(chartTs);
+  const mod = require(resolvedPath);
   const runner = mod.default || mod.run || mod.synth;
   if (typeof runner !== 'function') {
     console.error('chart.ts must export a default/run/synth function');
@@ -365,8 +373,16 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
     },
   });
 
+  // Validate module path to prevent code injection
+  const allowedPaths = [process.cwd()];
+  const resolvedPath = path.resolve(umbrellaFile);
+  if (!allowedPaths.some((allowedPath) => resolvedPath.startsWith(allowedPath))) {
+    console.error('Module path must be within current working directory');
+    process.exit(1);
+  }
+
   // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
-  const mod = require(umbrellaFile);
+  const mod = require(resolvedPath);
   const runner = mod.default || mod.run || mod.synth;
   if (typeof runner !== 'function') {
     console.error('umbrella.ts must export a default/run/synth function');
