@@ -1,12 +1,20 @@
 {
-  "name": "wordpress-helm-chart",
-  "version": "1.0.0",
+  "name": "wordpress-example",
+  "version": "0.3.0",
   "description": "WordPress with MySQL Helm chart example using Timonel",
+  "private": true,
   "scripts": {
-    "build": "tl synth . ../dist/wordpress",
-    "package": "tl package ../dist/wordpress ../dist/"
+    "build": "tl synth . ./dist",
+    "package": "tl package ./dist ./"
   },
+  "keywords": [
+    "timonel",
+    "helm",
+    "kubernetes",
+    "wordpress",
+    "mysql"
+  ],
   "dependencies": {
-    "timonel": "^0.2.1"
+    "timonel": "^0.3.0"
   }
 }
