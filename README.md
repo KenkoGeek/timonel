@@ -111,7 +111,7 @@ HELM_BIN=/usr/local/bin/helm tl package charts/my-app charts/
 ## Library API
 
 ```typescript
-import { ChartFactory } from 'timonel';
+import { Rutter } from 'timonel';
 import {
   valuesRef,
   helm,
@@ -123,7 +123,7 @@ import {
   floatRef,
 } from 'timonel';
 
-const factory = new ChartFactory({
+const rutter = new Rutter({
   meta: { name: 'my-app', version: '0.1.0', appVersion: '1.0.0' },
   defaultValues: {
     image: { repository: 'nginx', tag: '1.27' },
@@ -139,17 +139,17 @@ const factory = new ChartFactory({
   ],
 });
 
-factory.addDeployment({
+rutter.addDeployment({
   name: 'my-app',
   image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
   replicas: 2,
   containerPort: 80,
 });
 
-factory.addService({ name: 'my-app', port: 80 });
+rutter.addService({ name: 'my-app', port: 80 });
 
 // Use a named helper in annotations (example)
-factory.addDeployment({
+rutter.addDeployment({
   name: 'annotated',
   image: 'nginx',
   containerPort: 80,
@@ -158,7 +158,7 @@ factory.addDeployment({
   },
 });
 
-factory.write('dist/charts/my-app');
+rutter.write('dist/charts/my-app');
 ```
 
 ## Examples
@@ -181,7 +181,7 @@ Each example includes its own README with deployment instructions.
 
 ## Multi-environment values
 
-Provide `envValues` in the `ChartFactory` constructor to automatically create
+Provide `envValues` in the `Rutter` constructor to automatically create
 `values-<env>.yaml` files. Each environment file overrides defaults from
 `values.yaml`.
 
@@ -199,7 +199,7 @@ Provide `envValues` in the `ChartFactory` constructor to automatically create
   structure and allows Helm placeholders to appear in string fields (e.g.,
   `{{ .Values.image.tag }}`).
 - For advanced templating, Timonel can generate `_helpers.tpl`. Provide `helpersTpl`
-  in `ChartFactory` as a string (verbatim) or as named helpers. Use `template()` or `include()`
+  in `Rutter` as a string (verbatim) or as named helpers. Use `template()` or `include()`
   to reference them in your manifests.
 
 ## Roadmap

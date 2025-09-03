@@ -1,6 +1,6 @@
-import { ChartFactory, valuesRef } from 'timonel';
+import { Rutter, valuesRef } from 'timonel';
 
-const factory = new ChartFactory({
+const rutter = new Rutter({
   meta: {
     name: 'wordpress',
     version: '1.0.0',
@@ -49,7 +49,7 @@ const factory = new ChartFactory({
 });
 
 // MySQL Secret
-factory.addSecret({
+rutter.addSecret({
   name: 'mysql-secret',
   data: {
     'mysql-root-password': '{{ .Values.mysql.rootPassword | b64enc }}',
@@ -58,7 +58,7 @@ factory.addSecret({
 });
 
 // MySQL PersistentVolumeClaim
-factory.addPersistentVolumeClaim({
+rutter.addPersistentVolumeClaim({
   name: 'mysql-pvc',
   accessModes: ['ReadWriteOnce'],
   resources: {
@@ -69,7 +69,7 @@ factory.addPersistentVolumeClaim({
 });
 
 // MySQL Deployment
-factory.addDeployment({
+rutter.addDeployment({
   name: 'mysql-db',
   image: valuesRef('mysql.image') as string,
   replicas: 1,
@@ -95,7 +95,7 @@ factory.addDeployment({
 });
 
 // MySQL Service
-factory.addService({
+rutter.addService({
   name: 'mysql-service',
   ports: [
     {
@@ -110,7 +110,7 @@ factory.addService({
 });
 
 // WordPress Deployment
-factory.addDeployment({
+rutter.addDeployment({
   name: 'wordpress-app',
   image: valuesRef('wordpress.image') as string,
   replicas: 1,
@@ -130,7 +130,7 @@ factory.addDeployment({
 });
 
 // WordPress Service
-factory.addService({
+rutter.addService({
   name: 'wordpress-service',
   type: valuesRef('service.type') as 'LoadBalancer' | 'ClusterIP' | 'NodePort' | 'ExternalName',
   ports: [
@@ -146,7 +146,7 @@ factory.addService({
 });
 
 export default function run(outDir: string) {
-  factory.write(outDir);
+  rutter.write(outDir);
 }
 
-export { factory };
+export { rutter };
