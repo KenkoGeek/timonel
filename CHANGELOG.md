@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-01-02
+
+### BREAKING CHANGES
+
+- **API Change**: Renamed `ChartFactory` class to `Rutter` (maritime pilot concept)
+- **Import Change**: `import { ChartFactory }` → `import { Rutter }`
+- **Constructor Change**: `new ChartFactory()` → `new Rutter()`
+- **File Renamed**: `ChartFactory.ts` → `Rutter.ts`
+
+### Migration Guide
+
+```typescript
+// Before v0.2.0
+import { ChartFactory } from 'timonel';
+const factory = new ChartFactory({ meta: { name: 'my-app' } });
+
+// After v0.2.0
+import { Rutter } from 'timonel';
+const rutter = new Rutter({ meta: { name: 'my-app' } });
+```
+
+### Implementation
+
+- Updated all examples and documentation to use `Rutter` terminology
+- Updated CLI template generation and --set flag integration
+- Updated package.json description: 'chart factory' → 'chart generator'
+- Eliminated all factory references from codebase
+- Enhanced maritime theme consistency (Timonel + Rutter)
+
 ## [0.1.7] - 2025-01-02
 
 ### Breaking Changes
