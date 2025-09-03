@@ -20,11 +20,17 @@ function usageAndExit(msg?: string): never {
       '  tl deploy <projectDir> <release>     Synth and deploy with helm install/upgrade',
       '  tl package <chartDir> [outDir]       Run `helm package` into outDir (requires Helm)',
       '',
+      'Umbrella Charts:',
+      '  tl umbrella init <name>              Create umbrella chart structure',
+      '  tl umbrella add <subchart>           Add subchart to umbrella',
+      '  tl umbrella synth [outDir]           Generate umbrella chart',
+      '',
       'Flags:',
       '  --dry-run                            Show what would be done without executing',
       '  --silent                             Suppress output (useful for CI)',
       '  --env <environment>                  Use environment-specific values',
       '  --set <key=value>                    Override values (can be used multiple times)',
+      '  --version, -v                        Show version information',
       '',
       'Examples:',
       '  tl init my-app',
@@ -129,8 +135,16 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
       moduleResolution: 'node',
     },
   });
+  // Validate module path to prevent code injection
+  const allowedPaths = [process.cwd()];
+  const resolvedPath = path.resolve(chartTs);
+  if (!allowedPaths.some((allowedPath) => resolvedPath.startsWith(allowedPath))) {
+    console.error('Module path must be within current working directory');
+    process.exit(1);
+  }
+
   // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
-  const mod = require(chartTs);
+  const mod = require(resolvedPath);
   const runner = mod.default || mod.run || mod.synth;
   if (typeof runner !== 'function') {
     console.error('chart.ts must export a default/run/synth function');
@@ -247,6 +261,147 @@ async function cmdDeploy(projectDir?: string, releaseName?: string, flags?: CliF
   }
 }
 
+async function cmdUmbrella(subcommand?: string, args?: string[], flags?: CliFlags) {
+  const UMBRELLA_USAGE_MSG = 'Missing umbrella subcommand (init|add|synth)';
+  if (!subcommand) usageAndExit(UMBRELLA_USAGE_MSG);
+
+  switch (subcommand) {
+    case 'init':
+      await cmdUmbrellaInit(args?.[0], flags?.silent);
+      break;
+    case 'add':
+      await cmdUmbrellaAdd(args?.[0], flags?.silent);
+      break;
+    case 'synth':
+      await cmdUmbrellaSynth(args?.[0], flags);
+      break;
+    default:
+      usageAndExit(`Unknown umbrella subcommand: ${subcommand}`);
+  }
+}
+
+const UMBRELLA_CONFIG_FILE = 'umbrella.config.json';
+
+async function cmdUmbrellaInit(name?: string, silent = false) {
+  const MISSING_NAME_MSG = 'Missing umbrella chart name';
+  if (!name) usageAndExit(MISSING_NAME_MSG);
+
+  const base = path.join(process.cwd(), name);
+  const umbrellaFile = path.join(base, 'umbrella.ts');
+  const configFile = path.join(base, UMBRELLA_CONFIG_FILE);
+
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  fs.mkdirSync(base, { recursive: true });
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  fs.mkdirSync(path.join(base, 'charts'), { recursive: true });
+
+  // Create umbrella.ts
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  fs.writeFileSync(umbrellaFile, exampleUmbrellaTs(name));
+
+  // Create config file
+  const config = {
+    name,
+    version: '0.1.0',
+    description: `${name} umbrella chart`,
+    subcharts: [],
+  };
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+
+  log(`Umbrella chart structure created at ${base}`, silent);
+  log(`Add subcharts with: tl umbrella add <subchart-name>`, silent);
+}
+
+async function cmdUmbrellaAdd(subchartName?: string, silent = false) {
+  const MISSING_SUBCHART_MSG = 'Missing subchart name';
+  if (!subchartName) usageAndExit(MISSING_SUBCHART_MSG);
+
+  const configFile = path.join(process.cwd(), UMBRELLA_CONFIG_FILE);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  if (!fs.existsSync(configFile)) {
+    console.error(`${UMBRELLA_CONFIG_FILE} not found. Run \`tl umbrella init\` first.`);
+    process.exit(1);
+  }
+
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+
+  // Create subchart directory and scaffold
+  const subchartDir = path.join(process.cwd(), 'charts', subchartName);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  fs.mkdirSync(subchartDir, { recursive: true });
+
+  const chartFile = path.join(subchartDir, 'chart.ts');
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  fs.writeFileSync(chartFile, exampleSubchartTs(subchartName));
+
+  // Update config
+  config.subcharts.push({
+    name: subchartName,
+    version: '0.1.0',
+    path: `./charts/${subchartName}/chart.ts`,
+  });
+
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+
+  log(`Subchart ${subchartName} added to umbrella`, silent);
+}
+
+async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
+  const configFile = path.join(process.cwd(), UMBRELLA_CONFIG_FILE);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  if (!fs.existsSync(configFile)) {
+    console.error(`${UMBRELLA_CONFIG_FILE} not found. Run \`tl umbrella init\` first.`);
+    process.exit(1);
+  }
+
+  const umbrellaFile = path.join(process.cwd(), 'umbrella.ts');
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  if (!fs.existsSync(umbrellaFile)) {
+    console.error('umbrella.ts not found.');
+    process.exit(1);
+  }
+
+  // Enable TS runtime
+  require('ts-node').register({
+    transpileOnly: true,
+    compilerOptions: {
+      module: 'CommonJS',
+      moduleResolution: 'node',
+    },
+  });
+
+  // Validate module path to prevent code injection
+  const allowedPaths = [process.cwd()];
+  const resolvedPath = path.resolve(umbrellaFile);
+  if (!allowedPaths.some((allowedPath) => resolvedPath.startsWith(allowedPath))) {
+    console.error('Module path must be within current working directory');
+    process.exit(1);
+  }
+
+  // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
+  const mod = require(resolvedPath);
+  const runner = mod.default || mod.run || mod.synth;
+  if (typeof runner !== 'function') {
+    console.error('umbrella.ts must export a default/run/synth function');
+    process.exit(1);
+  }
+
+  const output = outDir || path.join(process.cwd(), 'dist');
+
+  if (flags?.dryRun) {
+    log(`[DRY RUN] Would write umbrella chart to ${output}`, flags.silent);
+    return;
+  }
+
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  fs.mkdirSync(output, { recursive: true });
+  await Promise.resolve(runner(output));
+  log(`Umbrella chart written to ${output}`, flags?.silent);
+}
+
 async function cmdPackage(chartDir?: string, out?: string, silent = false) {
   if (!chartDir) usageAndExit('Missing <chartDir>');
   const src = path.isAbsolute(chartDir) ? chartDir : path.join(process.cwd(), chartDir);
@@ -272,6 +427,90 @@ async function cmdPackage(chartDir?: string, out?: string, silent = false) {
   if (res.status !== 0) {
     process.exit(res.status ?? 1);
   }
+}
+
+function exampleUmbrellaTs(name: string): string {
+  return `import { createUmbrella } from 'timonel';
+import { Rutter } from 'timonel';
+
+// Import subcharts (these will be created with 'tl umbrella add')
+// import { rutter as fluentBit } from './charts/fluent-bit/chart';
+// import { rutter as openObserve } from './charts/openobserve/chart';
+
+// Create umbrella chart
+const umbrella = createUmbrella({
+  meta: {
+    name: '${name}',
+    version: '0.1.0',
+    description: '${name} umbrella chart',
+    appVersion: '1.0.0',
+  },
+  subcharts: [
+    // Add your subcharts here:
+    // { name: 'fluent-bit', rutter: fluentBit },
+    // { name: 'openobserve', rutter: openObserve },
+  ],
+  defaultValues: {
+    global: {
+      // Global values shared across subcharts
+    },
+  },
+  envValues: {
+    dev: {
+      // Development environment overrides
+    },
+    prod: {
+      // Production environment overrides
+    },
+  },
+});
+
+export default function run(outDir: string) {
+  umbrella.write(outDir);
+}
+`;
+}
+
+function exampleSubchartTs(name: string): string {
+  return `import { Rutter } from '../../../src';
+import { valuesRef } from '../../../src/lib/helm';
+
+// Define subchart
+const rutter = new Rutter({
+  meta: {
+    name: '${name}',
+    version: '0.1.0',
+    description: '${name} subchart',
+    appVersion: '1.0.0',
+  },
+  defaultValues: {
+    image: { repository: 'nginx', tag: '1.27' },
+    replicas: 1,
+    service: { port: 80 },
+  },
+});
+
+// Add resources
+rutter.addDeployment({
+  name: '${name}',
+  image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
+  replicas: 1,
+  containerPort: 80,
+});
+
+rutter.addService({
+  name: '${name}',
+  ports: [{ port: 80, targetPort: 80 }],
+  selector: { app: '${name}' },
+});
+
+export default function run(outDir: string) {
+  rutter.write(outDir);
+}
+
+// Export rutter for umbrella chart
+export { rutter };
+`;
 }
 
 function exampleChartTs(name: string): string {
@@ -381,6 +620,9 @@ function parseArgs(): { cmd: string; args: string[]; flags: CliFlags } {
           flags.set[key] = value;
         }
       }
+    } else if (arg === '--version' || arg === '-v') {
+      showVersion();
+      process.exit(0);
     } else if (arg && !arg.startsWith('--')) {
       if (!cmd) {
         cmd = arg;
@@ -392,6 +634,18 @@ function parseArgs(): { cmd: string; args: string[]; flags: CliFlags } {
   /* eslint-enable security/detect-object-injection */
 
   return { cmd, args, flags };
+}
+
+function showVersion() {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI needs to read package.json
+  const packagePath = path.join(__dirname, '..', 'package.json');
+  try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI needs to read package.json
+    const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    console.log(`timonel v${packageJson.version}`);
+  } catch {
+    console.log('timonel (version unknown)');
+  }
 }
 
 function log(message: string, silent = false) {
@@ -421,6 +675,14 @@ async function main() {
       break;
     case 'package':
       await cmdPackage(args[0], args[1], flags.silent);
+      break;
+    case 'umbrella':
+      await cmdUmbrella(args[0], args.slice(1), flags);
+      break;
+    case 'version':
+    case '-v':
+    case '--version':
+      showVersion();
       break;
     case '-h':
     case '--help':

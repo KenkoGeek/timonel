@@ -1,7 +1,7 @@
 {
-  "name": "aws-game-2048-example",
+  "name": "wordpress-umbrella-example",
   "version": "0.3.0",
-  "description": "AWS 2048 game Helm chart example using Timonel",
+  "description": "WordPress umbrella chart example with MySQL and WordPress subcharts",
   "private": true,
   "scripts": {
     "build": "tl synth . ./dist",
@@ -11,9 +11,9 @@
     "timonel",
     "helm",
     "kubernetes",
-    "aws",
-    "2048",
-    "game"
+    "wordpress",
+    "mysql",
+    "umbrella-chart"
   ],
   "dependencies": {
     "timonel": "^0.3.0"
