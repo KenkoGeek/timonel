@@ -17,6 +17,6 @@
     "example"
   ],
   "dependencies": {
-    "timonel": "^0.1.4"
+    "timonel": "^0.2.1"
   }
 }
