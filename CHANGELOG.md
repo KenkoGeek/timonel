@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-09-02
+
+### Added (0.3.0)
+
+- **Umbrella Charts Support**: Complete implementation for managing multiple subcharts
+  - `UmbrellaRutter` class for coordinating multiple Rutter instances
+  - `createUmbrella()` helper function for easy umbrella chart creation
+  - CLI commands: `tl umbrella init`, `tl umbrella add`, `tl umbrella synth`
+  - Automatic Chart.yaml generation with dependencies
+  - Support for environment-specific values in umbrella charts
+  - Example templates for umbrella and subchart scaffolding
+- **WordPress Umbrella Example**: Complete example separating MySQL and WordPress into subcharts
+  - MySQL subchart with persistent storage and secrets
+  - WordPress subchart with database connectivity
+  - Multi-environment configuration (dev/prod)
+  - Comprehensive documentation and deployment guide
+
+### Changed (0.3.0)
+
+- Updated CLI usage to include umbrella chart commands
+- Enhanced example generation with subchart support
+
+### Removed
+
+- **BREAKING**: Removed unused `cdk8s-plus-28` dependency
+  - Project uses `ApiObject` directly for better control
+  - No impact on functionality, only dependency cleanup
+
 ## [0.2.1] - 2025-09-02
 
 ### Fixed
