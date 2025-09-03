@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2025-01-02
+## [0.2.1] - 2025-09-02
+
+### Fixed
+
+- Updated examples package.json versions to 0.2.0 for consistency
+- Fixed examples imports to use relative paths instead of 'timonel' package
+- Updated dependencies to resolve brace-expansion security vulnerability
+- Examples now work correctly with CLI after v0.2.0 breaking changes
+
+### Security
+
+- Updated dependencies to latest versions
+- Resolved brace-expansion vulnerability in transitive dependencies
+
+## [0.2.0] - 2025-09-02
 
 ### BREAKING CHANGES
 
@@ -36,7 +50,7 @@ const rutter = new Rutter({ meta: { name: 'my-app' } });
 - Eliminated all factory references from codebase
 - Enhanced maritime theme consistency (Timonel + Rutter)
 
-## [0.1.7] - 2025-01-02
+## [0.1.7] - 2025-09-01
 
 ### Breaking Changes
 
@@ -45,7 +59,7 @@ const rutter = new Rutter({ meta: { name: 'my-app' } });
 - Renamed `ChartFactory.ts` to `Rutter.ts` for consistency
 - Updated API: `new Rutter()` instead of `new ChartFactory()`
 
-## [0.1.6] - 2025-01-02
+## [0.1.6] - 2025-09-01
 
 ### Structure
 
@@ -53,14 +67,14 @@ const rutter = new Rutter({ meta: { name: 'my-app' } });
 - Updated linting ignore patterns to use `examples/**`
 - Added Examples section to README documenting available examples
 
-## [0.1.5] - 2025-01-02
+## [0.1.5] - 2025-08-31
 
 ### Linting
 
 - Excluded example directories from main lint script to resolve CI errors
 - Ensure both lint and security:lint scripts ignore example imports
 
-## [0.1.4] - 2025-01-02
+## [0.1.4] - 2025-08-31
 
 ### Updated
 
@@ -72,9 +86,9 @@ const rutter = new Rutter({ meta: { name: 'my-app' } });
 
 - Excluded example directories from security linting to resolve CI import errors
 
-## [0.1.3] - 2025-01-02
+## [0.1.3] - 2025-08-31
 
-### Bug Fixes
+### Bug Fixes 0.1.3
 
 - Fixed Helm chart generation issues with numeric values in YAML
 - Corrected environment variable handling for complex objects
@@ -95,7 +109,7 @@ const rutter = new Rutter({ meta: { name: 'my-app' } });
 - Updated example READMEs with working deployment commands
 - Added notes about numeric value handling in Helm templates
 
-## [0.1.2] - 2024-12-19
+## [0.1.2] - 2025-08-30
 
 ### Added
 
@@ -103,12 +117,12 @@ const rutter = new Rutter({ meta: { name: 'my-app' } });
 - Helm installation detection with clear installation instructions
 - Automatic cleanup of temporary validation directories
 
-### Fixed
+### Bug Fixes 0.1.2
 
 - Fixed example chart to use valid Helm template syntax for annotations
 - Improved error messages with installation links for missing Helm binary
 
-## [0.1.1] - 2024-12-19
+## [0.1.1] - 2025-08-30
 
 ### Resolved
 
@@ -116,7 +130,7 @@ const rutter = new Rutter({ meta: { name: 'my-app' } });
 - Added explicit ts-node configuration to prevent module resolution error
 - Added `exports` field to package.json to support subpath imports like `timonel/lib/helm`
 
-## [0.1.0] - 2024-12-19
+## [0.1.0] - 2025-08-30
 
 ### Initial
 
@@ -134,7 +148,7 @@ const rutter = new Rutter({ meta: { name: 'my-app' } });
 - Security-focused development with ESLint security plugin and audit pipeline
 - GitHub Actions workflows for CI/CD with provenance-enabled publishing
 
-### Security
+### Security Features
 
 - ESLint security plugin with 12+ vulnerability detection rules
 - Automated dependency scanning via Dependabot
