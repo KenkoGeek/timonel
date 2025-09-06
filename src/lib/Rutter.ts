@@ -390,6 +390,22 @@ export interface VerticalPodAutoscalerUpdatePolicy {
   minReplicas?: number;
 }
 
+export interface PodDisruptionBudgetSpec {
+  name: string;
+  minAvailable?: number | string;
+  maxUnavailable?: number | string;
+  selector?: {
+    matchLabels?: Record<string, string>;
+    matchExpressions?: Array<{
+      key: string;
+      operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist';
+      values?: string[];
+    }>;
+  };
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
 export interface VerticalPodAutoscalerSpec {
   name: string;
   targetRef: {
@@ -989,6 +1005,25 @@ export class Rutter {
     });
     this.capture(vpa, `${spec.name}-vpa`);
     return vpa;
+  }
+
+  addPodDisruptionBudget(spec: PodDisruptionBudgetSpec) {
+    const pdb = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'policy/v1',
+      kind: 'PodDisruptionBudget',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        ...(spec.minAvailable !== undefined ? { minAvailable: spec.minAvailable } : {}),
+        ...(spec.maxUnavailable !== undefined ? { maxUnavailable: spec.maxUnavailable } : {}),
+        selector: spec.selector,
+      },
+    });
+    this.capture(pdb, `${spec.name}-pdb`);
+    return pdb;
   }
 
   /**
