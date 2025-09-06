@@ -280,6 +280,33 @@ rutter.addAWSEFSPersistentVolumeClaim({
   accessModes: ['ReadWriteMany'],
 });
 
+// AWS IRSA ServiceAccount for WordPress (S3 access)
+rutter.addAWSIRSAServiceAccount({
+  name: 'wordpress-s3-sa',
+  roleArn: 'arn:aws:iam::123456789012:role/WordPressS3Role',
+  audience: 'sts.amazonaws.com',
+  stsEndpointType: 'regional',
+  tokenExpiration: 3600,
+  labels: {
+    app: 'wordpress',
+    component: 's3-access',
+  },
+});
+
+// General ServiceAccount with IRSA support
+rutter.addServiceAccount({
+  name: 'wordpress-app-sa',
+  awsRoleArn: 'arn:aws:iam::123456789012:role/WordPressAppRole',
+  awsAudience: 'sts.amazonaws.com',
+  awsStsEndpointType: 'regional',
+  awsTokenExpiration: 7200,
+  automountServiceAccountToken: true,
+  labels: {
+    app: 'wordpress',
+    component: 'application',
+  },
+});
+
 // AWS ALB Ingress for WordPress
 rutter.addAWSALBIngress({
   name: 'wordpress-ingress',
