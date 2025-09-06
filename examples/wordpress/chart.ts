@@ -307,6 +307,50 @@ rutter.addServiceAccount({
   },
 });
 
+// AWS SecretProviderClass for Secrets Manager
+rutter.addAWSSecretProviderClass({
+  name: 'wordpress-secrets',
+  region: 'us-west-2',
+  objects: [
+    {
+      objectName: 'wordpress/database/credentials',
+      objectType: 'secretsmanager',
+      objectAlias: 'db-credentials',
+    },
+    {
+      objectName: 'wordpress/api/keys',
+      objectType: 'secretsmanager',
+      jmesPath: '["api_key", "secret_key"]',
+    },
+  ],
+  labels: {
+    app: 'wordpress',
+    component: 'secrets',
+  },
+});
+
+// AWS SecretProviderClass for Parameter Store
+rutter.addAWSSecretProviderClass({
+  name: 'wordpress-config',
+  region: 'us-west-2',
+  objects: [
+    {
+      objectName: '/wordpress/config/debug',
+      objectType: 'ssmparameter',
+      objectAlias: 'wp-debug',
+    },
+    {
+      objectName: '/wordpress/config/cache-timeout',
+      objectType: 'ssmparameter',
+      objectAlias: 'cache-timeout',
+    },
+  ],
+  labels: {
+    app: 'wordpress',
+    component: 'config',
+  },
+});
+
 // AWS ALB Ingress for WordPress
 rutter.addAWSALBIngress({
   name: 'wordpress-ingress',
