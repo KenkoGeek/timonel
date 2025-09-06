@@ -8,6 +8,8 @@ const rutter = new Rutter({
     description: 'WordPress application',
     appVersion: '6.4',
   },
+  manifestName: 'wordpress-app',
+  singleManifestFile: false, // Separate files for application components
   defaultValues: {
     image: { repository: 'wordpress', tag: '6.4-apache' },
     service: {
