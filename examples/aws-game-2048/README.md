@@ -5,11 +5,14 @@ game on Amazon EKS with Application Load Balancer (ALB) ingress.
 
 ## Overview
 
-The example creates a complete Kubernetes deployment including:
+The example creates a production-ready Kubernetes deployment including:
 
-- **Deployment**: 5 replicas of the 2048 game container
+- **Deployment**: 5 replicas of the 2048 game container with resource requests
 - **Service**: ClusterIP service to expose the deployment
-- **Ingress**: ALB ingress for internet-facing load balancer
+- **AWS ALB Ingress**: Internet-facing Application Load Balancer with health checks
+- **HorizontalPodAutoscaler (HPA)**: CPU-based auto-scaling (70% utilization)
+- **PodDisruptionBudget (PDB)**: High availability during updates and maintenance
+- **Custom Manifest Naming**: Descriptive file names (`game-2048-deployment-app-2048.yaml`)
 
 ## Prerequisites
 
@@ -78,20 +81,24 @@ The chart includes sensible defaults:
 
 ### Key Features
 
-- **Multi-environment support**: Different replica counts for dev/staging/prod
-- **ALB Integration**: Ready for AWS Load Balancer Controller
-- **Resource management**: CPU requests for proper scheduling
-- **Kubernetes best practices**: Proper labels and selectors
-- **Literal numeric values**: Ensures proper YAML generation without template parsing issues
+- **Multi-environment support**: Different replica counts and scaling policies for dev/staging/prod
+- **AWS ALB Integration**: Production-ready Application Load Balancer with health checks
+- **Auto-scaling**: HPA with intelligent scaling policies and stabilization windows
+- **High Availability**: PDB ensures minimum pod availability during disruptions
+- **Resource management**: CPU and memory requests for proper scheduling
+- **Custom Manifest Naming**: Descriptive file organization with `manifestName: 'game-2048'`
+- **Kubernetes best practices**: Proper labels, selectors, and AWS-specific annotations
 
 ## Architecture
 
 ### Components
 
-1. **Rutter**: Main class that orchestrates the chart creation
-2. **Deployment**: Manages the 2048 game pods with proper scaling
+1. **Rutter**: Main class with custom manifest naming (`manifestName: 'game-2048'`)
+2. **Deployment**: Manages the 2048 game pods with resource requests and proper labels
 3. **Service**: Provides stable networking for the pods
-4. **Ingress**: Exposes the application via AWS ALB
+4. **AWS ALB Ingress**: Production-ready load balancer with health checks and SSL support
+5. **HorizontalPodAutoscaler**: CPU-based auto-scaling with intelligent policies
+6. **PodDisruptionBudget**: Ensures high availability during cluster operations
 
 ### Labels and Selectors
 
@@ -153,9 +160,11 @@ helm uninstall game-2048
 
 This example demonstrates:
 
-1. **Type-safe Helm templating** with Timonel
-2. **Multi-environment configuration** with environment-specific values
-3. **AWS ALB integration** with proper annotations
-4. **Kubernetes best practices** with labels and resource management
-5. **Literal numeric handling** to avoid YAML parsing issues
-6. **Documentation-driven development** with comprehensive comments
+1. **Type-safe Helm templating** with Timonel and custom manifest naming
+2. **Multi-environment configuration** with environment-specific scaling policies
+3. **Production-ready AWS integration** with ALB, HPA, and PDB
+4. **Auto-scaling best practices** with CPU utilization and stabilization windows
+5. **High availability patterns** with pod disruption budgets
+6. **Custom manifest organization** with descriptive file names
+7. **AWS-specific features** showcasing EKS deployment capabilities
+8. **Documentation-driven development** with comprehensive comments

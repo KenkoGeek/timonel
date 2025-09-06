@@ -24,6 +24,7 @@ wordpress-umbrella/
 - Persistent storage for data
 - Secret management for passwords
 - Resource limits and requests
+- **Custom Manifest Naming**: Single file with `manifestName: 'mysql-database'`
 
 ### WordPress Subchart
 
@@ -31,6 +32,7 @@ wordpress-umbrella/
 - Persistent storage for uploads/themes
 - Database connection configuration
 - LoadBalancer service (configurable)
+- **Custom Manifest Naming**: Separate files with `manifestName: 'wordpress-app'`
 
 ## Usage
 
@@ -54,10 +56,14 @@ dist/
 │   │   ├── Chart.yaml
 │   │   ├── values.yaml
 │   │   └── templates/
+│   │       └── mysql-database.yaml    # Single file for all MySQL resources
 │   └── wordpress/          # WordPress subchart
 │       ├── Chart.yaml
 │       ├── values.yaml
 │       └── templates/
+│           ├── 0000-wordpress-app-deployment-wordpress.yaml
+│           ├── 0001-wordpress-app-service-wordpress-service.yaml
+│           └── 0002-wordpress-app-persistentvolumeclaim-wordpress-pvc.yaml
 └── templates/
     └── NOTES.txt
 ```
@@ -188,5 +194,14 @@ helm upgrade --install wordpress ./dist \
   --set wordpress.database.password="$(kubectl get secret mysql-secret -o jsonpath='{.data.mysql-password}' | base64 -d)"
 ```
 
+## Key Features Demonstrated
+
+- **Umbrella Chart Architecture**: Managing multiple subcharts as a single deployable unit
+- **Custom Manifest Naming**: Each subchart uses different naming strategies:
+  - MySQL: Single file approach (`mysql-database.yaml`)
+  - WordPress: Separate files approach (`wordpress-app-*.yaml`)
+- **Multi-environment Configuration**: Environment-specific values for dev/prod
+- **Dependency Management**: Automatic Chart.yaml generation with subchart dependencies
+
 This example showcases the power of umbrella charts for managing complex,
-multi-component applications with Timonel.
+multi-component applications with Timonel's custom manifest naming capabilities.
