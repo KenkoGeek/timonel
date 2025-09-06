@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-09-06
+
+### Added (0.4.0)
+
+- **Custom Manifest Naming**: Complete implementation for customizable Kubernetes
+  manifest file names
+  - `manifestName` option in RutterProps to specify custom base names for manifest
+    files
+  - `singleManifestFile` option to combine all resources into a single manifest
+    file
+  - Enhanced file organization with descriptive names instead of generic numbered
+    files
+  - Support for both single file mode (`application.yaml`) and separate files mode
+    (`0000-my-app-deployment-web.yaml`)
+  - Backward compatibility maintained - default behavior unchanged when options not
+    specified
+  - Updated WordPress example demonstrating custom manifest naming features
+
+### Enhanced (0.4.0)
+
+- **HelmChartWriter**: Added `singleFile` property to SynthAsset interface for
+  improved file handling
+- **Documentation**: Comprehensive Custom Manifest Naming section added to README
+  with examples
+- **Examples**: WordPress example updated to showcase `manifestName:
+  'wordpress-app'` and `singleManifestFile: true`
+
 ## [0.3.0] - 2025-09-02
 
 ### Added (0.3.0)
