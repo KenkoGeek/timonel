@@ -290,7 +290,11 @@ tl umbrella synth ./dist
 
 The `examples/` directory contains complete working examples:
 
-- **aws-game-2048**: AWS 2048 game deployment with Service and Ingress
+- **aws-game-2048**: Production-ready AWS 2048 game deployment showcasing AWS-specific features
+  - AWS ALB Ingress with health checks and SSL support
+  - HorizontalPodAutoscaler (HPA) for automatic scaling based on CPU utilization
+  - PodDisruptionBudget (PDB) for high availability during updates
+  - Multi-environment configuration (dev/staging/prod)
 - **wordpress**: WordPress with MySQL database setup (single chart)
 - **wordpress-umbrella**: WordPress stack using umbrella charts (MySQL + WordPress subcharts)
 

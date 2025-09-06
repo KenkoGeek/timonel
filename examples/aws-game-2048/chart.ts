@@ -31,23 +31,29 @@ const rutter = new Rutter({
       replicas: 5,
       resources: {
         requests: {
-          cpu: '0.5',
+          cpu: '100m',
+          memory: '128Mi',
         },
       },
+    },
+    // Auto-scaling configuration
+    autoscaling: {
+      enabled: true,
+      minReplicas: 2,
+      maxReplicas: 10,
+      targetCPUUtilization: 70,
     },
     // Service configuration
     service: {
       port: 80,
       targetPort: 80,
     },
-    // Ingress configuration for ALB
+    // ALB Ingress configuration
     ingress: {
       enabled: true,
-      className: 'alb',
-      annotations: {
-        scheme: 'internet-facing',
-        targetType: 'ip',
-      },
+      scheme: 'internet-facing',
+      targetType: 'ip',
+      healthCheckPath: '/',
     },
   },
   // Environment-specific values
@@ -56,15 +62,27 @@ const rutter = new Rutter({
       deployment: {
         replicas: 2,
       },
+      autoscaling: {
+        minReplicas: 1,
+        maxReplicas: 5,
+      },
     },
     staging: {
       deployment: {
         replicas: 3,
       },
+      autoscaling: {
+        minReplicas: 2,
+        maxReplicas: 8,
+      },
     },
     prod: {
       deployment: {
         replicas: 5,
+      },
+      autoscaling: {
+        minReplicas: 3,
+        maxReplicas: 15,
       },
     },
   },
@@ -87,6 +105,7 @@ rutter.addDeployment({
   resources: {
     requests: {
       cpu: valuesRef('deployment.resources.requests.cpu') as string,
+      memory: valuesRef('deployment.resources.requests.memory') as string,
     },
   },
   // Standard Kubernetes labels
@@ -122,19 +141,25 @@ rutter.addService({
 });
 
 /**
- * Add the ingress for ALB load balancer
+ * Add AWS ALB Ingress with health checks
  *
- * Creates a Kubernetes Ingress with:
- * - ALB-specific annotations for internet-facing load balancer
+ * Creates an AWS Application Load Balancer with:
+ * - Internet-facing scheme for public access
  * - IP target type for direct pod routing
+ * - Health check configuration
  * - Path-based routing to the service
  */
-rutter.addIngress({
+rutter.addAWSALBIngress({
   name: 'ingress-2048',
-  ingressClassName: valuesRef('ingress.className') as string,
-  annotations: {
-    'alb.ingress.kubernetes.io/scheme': valuesRef('ingress.annotations.scheme') as string,
-    'alb.ingress.kubernetes.io/target-type': valuesRef('ingress.annotations.targetType') as string,
+  scheme: valuesRef('ingress.scheme') as 'internet-facing' | 'internal',
+  targetType: valuesRef('ingress.targetType') as 'ip' | 'instance',
+  healthCheckPath: valuesRef('ingress.healthCheckPath') as string,
+  healthCheckIntervalSeconds: 30,
+  healthyThresholdCount: 2,
+  unhealthyThresholdCount: 3,
+  tags: {
+    Environment: '{{ .Values.global.environment | default "production" }}',
+    Application: 'game-2048',
   },
   rules: [
     {
@@ -154,6 +179,83 @@ rutter.addIngress({
       ],
     },
   ],
+});
+
+/**
+ * Add Horizontal Pod Autoscaler for automatic scaling
+ *
+ * Creates an HPA with:
+ * - CPU-based scaling at 70% utilization
+ * - Configurable min/max replicas per environment
+ * - Scaling policies for controlled scale-up/down
+ */
+rutter.addHorizontalPodAutoscaler({
+  name: 'hpa-2048',
+  scaleTargetRef: {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    name: valuesRef('app.name') as string,
+  },
+  minReplicas: 2,
+  maxReplicas: 10,
+  metrics: [
+    {
+      type: 'Resource',
+      resource: {
+        name: 'cpu',
+        target: {
+          type: 'Utilization',
+          averageUtilization: 70,
+        },
+      },
+    },
+  ],
+  behavior: {
+    scaleUp: {
+      stabilizationWindowSeconds: 60,
+      policies: [
+        {
+          type: 'Percent',
+          value: 100,
+          periodSeconds: 15,
+        },
+        {
+          type: 'Pods',
+          value: 2,
+          periodSeconds: 60,
+        },
+      ],
+      selectPolicy: 'Max',
+    },
+    scaleDown: {
+      stabilizationWindowSeconds: 300,
+      policies: [
+        {
+          type: 'Percent',
+          value: 10,
+          periodSeconds: 60,
+        },
+      ],
+    },
+  },
+});
+
+/**
+ * Add Pod Disruption Budget for high availability
+ *
+ * Ensures at least 1 pod remains available during:
+ * - Rolling updates
+ * - Node maintenance
+ * - Cluster scaling events
+ */
+rutter.addPodDisruptionBudget({
+  name: 'pdb-2048',
+  minAvailable: 1,
+  selector: {
+    matchLabels: {
+      'app.kubernetes.io/name': valuesRef('app.name') as string,
+    },
+  },
 });
 
 /**

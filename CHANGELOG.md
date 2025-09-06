@@ -33,6 +33,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with examples
 - **Examples**: WordPress example updated to showcase `manifestName:
   'wordpress-app'` and `singleManifestFile: true`
+- **Auto-scaling Features**: Properly documented existing production-ready capabilities
+  - HorizontalPodAutoscaler (HPA) with CPU/memory metrics and custom behavior policies
+  - VerticalPodAutoscaler (VPA) with resource policies and update modes
+  - PodDisruptionBudget (PDB) for high availability during updates
+- **AWS Multi-Cloud Support**: Comprehensive documentation of EKS integration features
+  - AWS IRSA ServiceAccount for secure IAM role assumption with regional STS endpoints
+  - AWS EBS StorageClass with GP3, IO1, IO2 support, encryption, and IOPS configuration
+  - AWS EFS StorageClass for shared storage across pods with access points
+  - AWS ALB Ingress with health checks, SSL certificates, and advanced routing
+  - AWS Secrets Manager and Parameter Store integration via SecretProviderClass
+  - Multi-cloud ServiceAccount with workload identity (AWS IRSA, Azure, GCP)
 
 ## [0.3.0] - 2025-09-02
 
