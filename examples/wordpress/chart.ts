@@ -265,6 +265,21 @@ rutter.addPodDisruptionBudget({
   },
 });
 
+// AWS EFS StorageClass for shared storage
+rutter.addAWSEFSStorageClass({
+  name: 'wordpress-efs',
+  reclaimPolicy: 'Retain',
+  volumeBindingMode: 'Immediate',
+});
+
+// EFS PVC for WordPress uploads (shared across pods)
+rutter.addAWSEFSPersistentVolumeClaim({
+  name: 'wordpress-uploads-pvc',
+  storageClassName: 'wordpress-efs',
+  size: '10Gi',
+  accessModes: ['ReadWriteMany'],
+});
+
 export default function run(outDir: string) {
   rutter.write(outDir);
 }
