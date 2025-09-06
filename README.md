@@ -170,6 +170,14 @@ rutter.addPodDisruptionBudget({
   selector: { matchLabels: { app: 'my-app' } },
 });
 
+// Add IRSA ServiceAccount for AWS access
+rutter.addAWSIRSAServiceAccount({
+  name: 'my-app-irsa',
+  roleArn: 'arn:aws:iam::123456789012:role/MyAppRole',
+  stsEndpointType: 'regional',
+  tokenExpiration: 3600,
+});
+
 rutter.write('dist/charts/my-app');
 ```
 
@@ -255,6 +263,73 @@ shared values, and multi-environment support.
   (`toString`, `float64`).
 - For numeric fields (ports, replicas), use literal values or template strings with proper casting.
 
+## AWS Multi-Cloud Support
+
+Timonel provides comprehensive AWS-specific helpers for EKS deployments:
+
+### IRSA (IAM Roles for Service Accounts)
+
+Securely access AWS services from Kubernetes pods using IAM roles:
+
+```typescript
+// Dedicated IRSA ServiceAccount
+rutter.addAWSIRSAServiceAccount({
+  name: 'app-s3-access',
+  roleArn: 'arn:aws:iam::123456789012:role/AppS3Role',
+  audience: 'sts.amazonaws.com', // optional, defaults to sts.amazonaws.com
+  stsEndpointType: 'regional', // recommended for better performance
+  tokenExpiration: 3600, // optional, token lifetime in seconds
+});
+
+// General ServiceAccount with IRSA support
+rutter.addServiceAccount({
+  name: 'my-app-sa',
+  awsRoleArn: 'arn:aws:iam::123456789012:role/MyAppRole',
+  awsStsEndpointType: 'regional',
+  awsTokenExpiration: 7200,
+  automountServiceAccountToken: true,
+});
+```
+
+### AWS Storage Classes
+
+```typescript
+// EBS GP3 StorageClass
+rutter.addAWSEBSStorageClass({
+  name: 'fast-ssd',
+  volumeType: 'gp3',
+  encrypted: true,
+  iops: 3000,
+  throughput: 125,
+});
+
+// EFS StorageClass for shared storage
+rutter.addAWSEFSStorageClass({
+  name: 'shared-storage',
+  reclaimPolicy: 'Retain',
+});
+```
+
+### AWS Load Balancer Controller
+
+```typescript
+// ALB Ingress with health checks
+rutter.addAWSALBIngress({
+  name: 'app-ingress',
+  scheme: 'internet-facing',
+  targetType: 'ip',
+  healthCheckPath: '/health',
+  certificateArn: 'arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012',
+  rules: [{
+    paths: [{
+      path: '/',
+      pathType: 'Prefix',
+      backend: { service: { name: 'my-app', port: { number: 80 } } },
+    }],
+  }],
+});
+```
+
 ## Multi-environment values
 
 Provide `envValues` in the `Rutter` constructor to automatically create
@@ -281,8 +356,10 @@ Provide `envValues` in the `Rutter` constructor to automatically create
 ## Roadmap
 
 - ✅ Auto-scaling helpers (HPA, VPA, PodDisruptionBudget)
+- ✅ AWS multi-cloud support (EBS, EFS, ALB, IRSA)
+- Azure multi-cloud support (AKS-specific helpers)
+- GCP multi-cloud support (GKE-specific helpers)
 - Richer CLI (resource generators, diff)
-- Enhanced multi-cloud support
 - Template validation and testing utilities
 
 ## Contributing

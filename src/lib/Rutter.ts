@@ -495,6 +495,27 @@ export interface AWSIRSAServiceAccountSpec {
   secrets?: string[];
 }
 
+export interface AWSSecretsManagerObject {
+  objectName: string;
+  objectType: 'secretsmanager';
+  objectAlias?: string;
+  jmesPath?: string;
+}
+
+export interface AWSParameterStoreObject {
+  objectName: string;
+  objectType: 'ssmparameter';
+  objectAlias?: string;
+}
+
+export interface AWSSecretProviderClassSpec {
+  name: string;
+  region?: string;
+  objects: (AWSSecretsManagerObject | AWSParameterStoreObject)[];
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
 export interface AWSALBIngressSpec {
   name: string;
   rules: IngressRule[];
@@ -1468,6 +1489,50 @@ export class Rutter {
     });
     this.capture(sa, `${spec.name}-serviceaccount`);
     return sa;
+  }
+
+  addAWSSecretProviderClass(spec: AWSSecretProviderClassSpec) {
+    const objects = spec.objects.map((obj) => {
+      const baseObj: Record<string, string> = {
+        objectName: obj.objectName,
+        objectType: obj.objectType,
+      };
+
+      if ('objectAlias' in obj && obj.objectAlias) {
+        baseObj['objectAlias'] = obj.objectAlias;
+      }
+      if ('jmesPath' in obj && obj.jmesPath) {
+        baseObj['jmesPath'] = obj.jmesPath;
+      }
+
+      return baseObj;
+    });
+
+    const objectsYaml = YAML.stringify(objects, { indent: 2 }).trim();
+
+    const parameters: Record<string, string> = {
+      objects: `|\n  ${objectsYaml.split('\n').join('\n  ')}`,
+    };
+
+    if (spec.region) {
+      parameters['region'] = spec.region;
+    }
+
+    const spc = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'secrets-store.csi.x-k8s.io/v1',
+      kind: 'SecretProviderClass',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        provider: 'aws',
+        parameters,
+      },
+    });
+    this.capture(spc, `${spec.name}-secretproviderclass`);
+    return spc;
   }
 
   /**
