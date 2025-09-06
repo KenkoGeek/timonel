@@ -1,4 +1,5 @@
-import { Rutter, valuesRef } from 'timonel';
+import { Rutter } from '../../dist/lib/Rutter';
+import { valuesRef } from '../../dist/lib/helm';
 
 const rutter = new Rutter({
   meta: {
@@ -117,8 +118,9 @@ rutter.addService({
 });
 
 // WordPress Deployment
+const WORDPRESS_APP_NAME = 'wordpress-app';
 rutter.addDeployment({
-  name: 'wordpress-app',
+  name: WORDPRESS_APP_NAME,
   image: valuesRef('wordpress.image') as string,
   replicas: 1,
   containerPort: 80,
@@ -148,17 +150,18 @@ rutter.addService({
     },
   ],
   selector: {
-    app: 'wordpress-app',
+    app: WORDPRESS_APP_NAME,
   },
 });
 
 // WordPress HorizontalPodAutoscaler
+const UTILIZATION_TYPE = 'Utilization' as const;
 rutter.addHorizontalPodAutoscaler({
   name: 'wordpress-hpa',
   scaleTargetRef: {
     apiVersion: 'apps/v1',
     kind: 'Deployment',
-    name: 'wordpress-app',
+    name: WORDPRESS_APP_NAME,
   },
   minReplicas: 1,
   maxReplicas: 10,
@@ -168,7 +171,7 @@ rutter.addHorizontalPodAutoscaler({
       resource: {
         name: 'cpu',
         target: {
-          type: 'Utilization',
+          type: UTILIZATION_TYPE,
           averageUtilization: 70,
         },
       },
@@ -178,7 +181,7 @@ rutter.addHorizontalPodAutoscaler({
       resource: {
         name: 'memory',
         target: {
-          type: 'Utilization',
+          type: UTILIZATION_TYPE,
           averageUtilization: 80,
         },
       },
@@ -211,6 +214,37 @@ rutter.addHorizontalPodAutoscaler({
         },
       ],
     },
+  },
+});
+
+// WordPress VerticalPodAutoscaler
+rutter.addVerticalPodAutoscaler({
+  name: 'wordpress-vpa',
+  targetRef: {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    name: WORDPRESS_APP_NAME,
+  },
+  updatePolicy: {
+    updateMode: 'Auto',
+  },
+  resourcePolicy: {
+    containerPolicies: [
+      {
+        containerName: WORDPRESS_APP_NAME,
+        mode: 'Auto',
+        minAllowed: {
+          cpu: '100m',
+          memory: '128Mi',
+        },
+        maxAllowed: {
+          cpu: '1000m',
+          memory: '1Gi',
+        },
+        controlledResources: ['cpu', 'memory'],
+        controlledValues: 'RequestsAndLimits',
+      },
+    ],
   },
 });
 
