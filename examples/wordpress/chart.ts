@@ -1,5 +1,4 @@
-import { Rutter } from '../../dist/lib/Rutter';
-import { valuesRef } from '../../dist/lib/helm';
+import { Rutter, valuesRef } from 'timonel';
 
 const rutter = new Rutter({
   meta: {
@@ -65,15 +64,22 @@ rutter.addSecret({
   },
 });
 
-// MySQL PersistentVolumeClaim
-rutter.addPersistentVolumeClaim({
+// AWS EBS StorageClass for MySQL
+rutter.addAWSEBSStorageClass({
+  name: 'mysql-ebs-gp3',
+  volumeType: 'gp3',
+  fsType: 'ext4',
+  encrypted: true,
+  allowVolumeExpansion: true,
+  volumeBindingMode: 'WaitForFirstConsumer',
+});
+
+// MySQL PersistentVolumeClaim using EBS
+rutter.addAWSEBSPersistentVolumeClaim({
   name: 'mysql-pvc',
+  storageClassName: 'mysql-ebs-gp3',
+  size: valuesRef('mysql.storage') as string,
   accessModes: ['ReadWriteOnce'],
-  resources: {
-    requests: {
-      storage: valuesRef('mysql.storage') as string,
-    },
-  },
 });
 
 // MySQL Deployment

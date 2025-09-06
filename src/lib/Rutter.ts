@@ -406,6 +406,30 @@ export interface PodDisruptionBudgetSpec {
   annotations?: Record<string, string>;
 }
 
+export interface AWSEBSStorageClassSpec {
+  name: string;
+  volumeType?: 'gp2' | 'gp3' | 'io1' | 'io2' | 'sc1' | 'st1';
+  fsType?: 'ext4' | 'xfs';
+  encrypted?: boolean;
+  kmsKeyId?: string;
+  iops?: number;
+  throughput?: number;
+  reclaimPolicy?: 'Delete' | 'Retain';
+  allowVolumeExpansion?: boolean;
+  volumeBindingMode?: 'Immediate' | 'WaitForFirstConsumer';
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface AWSEBSPersistentVolumeClaimSpec {
+  name: string;
+  storageClassName: string;
+  size: string;
+  accessModes?: AccessMode[];
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
 export interface VerticalPodAutoscalerSpec {
   name: string;
   targetRef: {
@@ -795,15 +819,16 @@ export class Rutter {
 
   private optimizePVForCloud(spec: PersistentVolumeSpec): PersistentVolumeSpec {
     const optimized = { ...spec };
+    const EBS_CSI_DRIVER = 'ebs.csi.aws.com';
 
     // Apply cloud-specific optimizations
     if (spec.cloudProvider === 'aws') {
       optimized.annotations = {
         ...optimized.annotations,
-        'volume.beta.kubernetes.io/storage-provisioner': 'ebs.csi.aws.com',
+        'volume.beta.kubernetes.io/storage-provisioner': EBS_CSI_DRIVER,
       };
       // Default to gp3 for better performance/cost
-      if (spec.source.csi?.driver === 'ebs.csi.aws.com' && optimized.source.csi) {
+      if (spec.source.csi?.driver === EBS_CSI_DRIVER && optimized.source.csi) {
         optimized.source.csi.volumeAttributes = {
           type: 'gp3',
           ...spec.source.csi.volumeAttributes,
@@ -1024,6 +1049,66 @@ export class Rutter {
     });
     this.capture(pdb, `${spec.name}-pdb`);
     return pdb;
+  }
+
+  addAWSEBSStorageClass(spec: AWSEBSStorageClassSpec) {
+    const DEFAULT_VOLUME_TYPE = 'gp3';
+    const parameters: Record<string, string> = {
+      type: spec.volumeType ?? DEFAULT_VOLUME_TYPE,
+      fsType: spec.fsType ?? 'ext4',
+      encrypted: String(spec.encrypted ?? true),
+    };
+
+    if (spec.kmsKeyId) {
+      parameters['kmsKeyId'] = spec.kmsKeyId;
+    }
+    const IOPS_SUPPORTED_TYPES = ['gp3', 'io1', 'io2'];
+    if (spec.iops && IOPS_SUPPORTED_TYPES.includes(spec.volumeType ?? DEFAULT_VOLUME_TYPE)) {
+      parameters['iops'] = String(spec.iops);
+    }
+    if (spec.throughput && spec.volumeType === DEFAULT_VOLUME_TYPE) {
+      parameters['throughput'] = String(spec.throughput);
+    }
+
+    const sc = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'storage.k8s.io/v1',
+      kind: 'StorageClass',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      provisioner: 'ebs.csi.aws.com',
+      parameters,
+      reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
+      allowVolumeExpansion: spec.allowVolumeExpansion ?? true,
+      volumeBindingMode: spec.volumeBindingMode ?? 'WaitForFirstConsumer',
+    });
+    this.capture(sc, `${spec.name}-storageclass`);
+    return sc;
+  }
+
+  addAWSEBSPersistentVolumeClaim(spec: AWSEBSPersistentVolumeClaimSpec) {
+    const pvc = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'PersistentVolumeClaim',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        accessModes: spec.accessModes ?? ['ReadWriteOnce'],
+        storageClassName: spec.storageClassName,
+        resources: {
+          requests: {
+            storage: spec.size,
+          },
+        },
+      },
+    });
+    this.capture(pvc, `${spec.name}-pvc`);
+    return pvc;
   }
 
   /**
