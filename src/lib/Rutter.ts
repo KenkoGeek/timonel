@@ -376,6 +376,36 @@ export interface HorizontalPodAutoscalerSpec {
   annotations?: Record<string, string>;
 }
 
+export interface VerticalPodAutoscalerResourcePolicy {
+  containerName?: string;
+  mode?: 'Auto' | 'Off';
+  minAllowed?: { cpu?: string; memory?: string };
+  maxAllowed?: { cpu?: string; memory?: string };
+  controlledResources?: Array<'cpu' | 'memory'>;
+  controlledValues?: 'RequestsAndLimits' | 'RequestsOnly';
+}
+
+export interface VerticalPodAutoscalerUpdatePolicy {
+  updateMode?: 'Off' | 'Initial' | 'Recreation' | 'Auto';
+  minReplicas?: number;
+}
+
+export interface VerticalPodAutoscalerSpec {
+  name: string;
+  targetRef: {
+    apiVersion: string;
+    kind: 'Deployment' | 'StatefulSet' | 'ReplicaSet' | 'DaemonSet' | 'Job' | 'CronJob';
+    name: string;
+  };
+  updatePolicy?: VerticalPodAutoscalerUpdatePolicy;
+  resourcePolicy?: {
+    containerPolicies?: VerticalPodAutoscalerResourcePolicy[];
+  };
+  recommenders?: Array<{ name: string }>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
 export interface RutterProps {
   meta: HelmChartMeta;
   defaultValues?: Record<string, unknown>;
@@ -939,6 +969,26 @@ export class Rutter {
     });
     this.capture(hpa, `${spec.name}-hpa`);
     return hpa;
+  }
+
+  addVerticalPodAutoscaler(spec: VerticalPodAutoscalerSpec) {
+    const vpa = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'autoscaling.k8s.io/v1',
+      kind: 'VerticalPodAutoscaler',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        targetRef: spec.targetRef,
+        updatePolicy: spec.updatePolicy ?? { updateMode: 'Auto' },
+        ...(spec.resourcePolicy ? { resourcePolicy: spec.resourcePolicy } : {}),
+        ...(spec.recommenders ? { recommenders: spec.recommenders } : {}),
+      },
+    });
+    this.capture(vpa, `${spec.name}-vpa`);
+    return vpa;
   }
 
   /**
