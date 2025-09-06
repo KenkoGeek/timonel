@@ -11,6 +11,7 @@ This example demonstrates deploying WordPress with MySQL database using Timonel.
 - Multi-environment configuration (dev/staging/prod)
 - Resource requests and limits
 - LoadBalancer service
+- **Custom Manifest Naming**: Single file organization with `manifestName: 'wordpress-app'`
 
 ## Quick Start
 
@@ -20,6 +21,11 @@ This example demonstrates deploying WordPress with MySQL database using Timonel.
    # From project root
    pnpm tl synth examples/wordpress wordpress-chart
    ```
+
+   This generates a single manifest file `templates/wordpress-app.yaml` containing all
+   resources,
+   thanks to the custom manifest naming configuration (`manifestName: 'wordpress-app'`,
+   `singleManifestFile: true`).
 
 2. **Deploy to Kubernetes:**
 
