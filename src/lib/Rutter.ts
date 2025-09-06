@@ -430,6 +430,39 @@ export interface AWSEBSPersistentVolumeClaimSpec {
   annotations?: Record<string, string>;
 }
 
+export interface AWSEFSStorageClassSpec {
+  name: string;
+  reclaimPolicy?: 'Delete' | 'Retain';
+  volumeBindingMode?: 'Immediate' | 'WaitForFirstConsumer';
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface AWSEFSPersistentVolumeSpec {
+  name: string;
+  fileSystemId: string;
+  accessPoint?: string;
+  directoryPerms?: string;
+  gidRangeStart?: number;
+  gidRangeEnd?: number;
+  basePath?: string;
+  subPath?: string;
+  capacity?: string;
+  accessModes?: AccessMode[];
+  storageClassName?: string;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface AWSEFSPersistentVolumeClaimSpec {
+  name: string;
+  storageClassName: string;
+  size?: string;
+  accessModes?: AccessMode[];
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
 export interface VerticalPodAutoscalerSpec {
   name: string;
   targetRef: {
@@ -1103,6 +1136,99 @@ export class Rutter {
         resources: {
           requests: {
             storage: spec.size,
+          },
+        },
+      },
+    });
+    this.capture(pvc, `${spec.name}-pvc`);
+    return pvc;
+  }
+
+  addAWSEFSStorageClass(spec: AWSEFSStorageClassSpec) {
+    const sc = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'storage.k8s.io/v1',
+      kind: 'StorageClass',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      provisioner: 'efs.csi.aws.com',
+      reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
+      volumeBindingMode: spec.volumeBindingMode ?? 'Immediate',
+    });
+    this.capture(sc, `${spec.name}-storageclass`);
+    return sc;
+  }
+
+  addAWSEFSPersistentVolume(spec: AWSEFSPersistentVolumeSpec) {
+    const csiSpec: Record<string, unknown> = {
+      driver: 'efs.csi.aws.com',
+      volumeHandle: spec.fileSystemId,
+    };
+
+    if (spec.accessPoint) {
+      csiSpec['volumeHandle'] = `${spec.fileSystemId}::${spec.accessPoint}`;
+    }
+
+    const volumeAttributes: Record<string, string> = {};
+    if (spec.directoryPerms) {
+      volumeAttributes['directoryPerms'] = spec.directoryPerms;
+    }
+    if (spec.gidRangeStart !== undefined) {
+      volumeAttributes['gidRangeStart'] = String(spec.gidRangeStart);
+    }
+    if (spec.gidRangeEnd !== undefined) {
+      volumeAttributes['gidRangeEnd'] = String(spec.gidRangeEnd);
+    }
+    if (spec.basePath) {
+      volumeAttributes['basePath'] = spec.basePath;
+    }
+    if (spec.subPath) {
+      volumeAttributes['subPath'] = spec.subPath;
+    }
+
+    if (Object.keys(volumeAttributes).length > 0) {
+      csiSpec['volumeAttributes'] = volumeAttributes;
+    }
+
+    const pv = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'PersistentVolume',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        capacity: {
+          storage: spec.capacity ?? '5Gi',
+        },
+        accessModes: spec.accessModes ?? ['ReadWriteMany'],
+        persistentVolumeReclaimPolicy: 'Retain',
+        storageClassName: spec.storageClassName,
+        csi: csiSpec,
+      },
+    });
+    this.capture(pv, `${spec.name}-pv`);
+    return pv;
+  }
+
+  addAWSEFSPersistentVolumeClaim(spec: AWSEFSPersistentVolumeClaimSpec) {
+    const pvc = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'PersistentVolumeClaim',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        accessModes: spec.accessModes ?? ['ReadWriteMany'],
+        storageClassName: spec.storageClassName,
+        resources: {
+          requests: {
+            storage: spec.size ?? '5Gi',
           },
         },
       },
