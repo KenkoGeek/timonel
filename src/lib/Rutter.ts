@@ -284,33 +284,51 @@ export interface ServiceAccountSpec {
   imagePullSecrets?: string[]; // names of Secrets
   secrets?: string[]; // names of Secrets to mount as tokens/files
   /**
-   * EKS IRSA support: if set, adds annotation eks.amazonaws.com/role-arn
+   * EKS IRSA support: IAM role ARN for service account to assume
    * Example: arn:aws:iam::<account-id>:role/<role-name>
+   * Adds annotation eks.amazonaws.com/role-arn
    */
   awsRoleArn?: string;
   /**
-   * Optional custom audience for IRSA (default is sts.amazonaws.com)
-   * Adds annotation eks.amazonaws.com/audience when provided.
+   * IRSA audience for token validation (default: sts.amazonaws.com)
+   * Adds annotation eks.amazonaws.com/audience when provided
    */
   awsAudience?: string;
   /**
-   * AKS Workload Identity: Azure application client ID.
-   * Adds annotation azure.workload.identity/client-id when provided.
+   * AWS STS endpoint type for IRSA (regional recommended for better performance)
+   * Adds annotation eks.amazonaws.com/sts-regional-endpoints when provided
+   * @default 'regional'
+   */
+  awsStsEndpointType?: 'regional' | 'legacy';
+  /**
+   * AWS region for regional STS endpoint (auto-detected if not provided)
+   * Used with awsStsEndpointType: 'regional'
+   */
+  awsRegion?: string;
+  /**
+   * Token expiration time in seconds for IRSA tokens (3600-43200)
+   * Adds annotation eks.amazonaws.com/token-expiration when provided
+   * @default 3600
+   */
+  awsTokenExpiration?: number;
+  /**
+   * AKS Workload Identity: Azure application client ID
+   * Adds annotation azure.workload.identity/client-id when provided
    */
   azureClientId?: string;
   /**
-   * AKS Workload Identity: Azure tenant ID.
-   * Adds annotation azure.workload.identity/tenant-id when provided.
+   * AKS Workload Identity: Azure tenant ID
+   * Adds annotation azure.workload.identity/tenant-id when provided
    */
   azureTenantId?: string;
   /**
-   * AKS Workload Identity: projected SA token expiration (seconds).
-   * Adds annotation azure.workload.identity/service-account-token-expiration.
+   * AKS Workload Identity: projected SA token expiration (seconds)
+   * Adds annotation azure.workload.identity/service-account-token-expiration
    */
   azureServiceAccountTokenExpiration?: number;
   /**
-   * GKE Workload Identity: Google service account email.
-   * Adds annotation iam.gke.io/gcp-service-account when provided.
+   * GKE Workload Identity: Google service account email
+   * Adds annotation iam.gke.io/gcp-service-account when provided
    */
   gcpServiceAccountEmail?: string;
 }
@@ -461,6 +479,20 @@ export interface AWSEFSPersistentVolumeClaimSpec {
   accessModes?: AccessMode[];
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
+}
+
+export interface AWSIRSAServiceAccountSpec {
+  name: string;
+  roleArn: string;
+  audience?: string;
+  stsEndpointType?: 'regional' | 'legacy';
+  region?: string;
+  tokenExpiration?: number;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+  automountServiceAccountToken?: boolean;
+  imagePullSecrets?: string[];
+  secrets?: string[];
 }
 
 export interface AWSALBIngressSpec {
@@ -999,30 +1031,14 @@ export class Rutter {
   }
 
   addServiceAccount(spec: ServiceAccountSpec) {
-    const ann: Record<string, string> = {
-      ...(spec.annotations ?? {}),
-      ...(spec.awsRoleArn ? { 'eks.amazonaws.com/role-arn': spec.awsRoleArn } : {}),
-      ...(spec.awsAudience ? { 'eks.amazonaws.com/audience': spec.awsAudience } : {}),
-      ...(spec.azureClientId ? { 'azure.workload.identity/client-id': spec.azureClientId } : {}),
-      ...(spec.azureTenantId ? { 'azure.workload.identity/tenant-id': spec.azureTenantId } : {}),
-      ...(spec.azureServiceAccountTokenExpiration !== undefined
-        ? {
-            'azure.workload.identity/service-account-token-expiration': String(
-              spec.azureServiceAccountTokenExpiration,
-            ),
-          }
-        : {}),
-      ...(spec.gcpServiceAccountEmail
-        ? { 'iam.gke.io/gcp-service-account': spec.gcpServiceAccountEmail }
-        : {}),
-    };
+    const annotations = this.buildServiceAccountAnnotations(spec);
 
     const sa = new ApiObject(this.chart, spec.name, {
       apiVersion: 'v1',
       kind: 'ServiceAccount',
       metadata: {
         name: spec.name,
-        ...(Object.keys(ann).length ? { annotations: ann } : {}),
+        ...(Object.keys(annotations).length ? { annotations } : {}),
         ...(spec.labels ? { labels: spec.labels } : {}),
       },
       automountServiceAccountToken: spec.automountServiceAccountToken,
@@ -1031,6 +1047,62 @@ export class Rutter {
     });
     this.capture(sa, `${spec.name}-serviceaccount`);
     return sa;
+  }
+
+  private buildServiceAccountAnnotations(spec: ServiceAccountSpec): Record<string, string> {
+    const annotations: Record<string, string> = {
+      ...(spec.annotations ?? {}),
+    };
+
+    this.addAWSIRSAAnnotations(annotations, spec);
+    this.addAzureWorkloadIdentityAnnotations(annotations, spec);
+    this.addGCPWorkloadIdentityAnnotations(annotations, spec);
+
+    return annotations;
+  }
+
+  private addAWSIRSAAnnotations(
+    annotations: Record<string, string>,
+    spec: ServiceAccountSpec,
+  ): void {
+    if (spec.awsRoleArn) {
+      annotations['eks.amazonaws.com/role-arn'] = spec.awsRoleArn;
+    }
+    if (spec.awsAudience) {
+      annotations['eks.amazonaws.com/audience'] = spec.awsAudience;
+    }
+    if (spec.awsStsEndpointType) {
+      annotations['eks.amazonaws.com/sts-regional-endpoints'] = spec.awsStsEndpointType;
+    }
+    if (spec.awsTokenExpiration !== undefined) {
+      annotations['eks.amazonaws.com/token-expiration'] = String(spec.awsTokenExpiration);
+    }
+  }
+
+  private addAzureWorkloadIdentityAnnotations(
+    annotations: Record<string, string>,
+    spec: ServiceAccountSpec,
+  ): void {
+    if (spec.azureClientId) {
+      annotations['azure.workload.identity/client-id'] = spec.azureClientId;
+    }
+    if (spec.azureTenantId) {
+      annotations['azure.workload.identity/tenant-id'] = spec.azureTenantId;
+    }
+    if (spec.azureServiceAccountTokenExpiration !== undefined) {
+      annotations['azure.workload.identity/service-account-token-expiration'] = String(
+        spec.azureServiceAccountTokenExpiration,
+      );
+    }
+  }
+
+  private addGCPWorkloadIdentityAnnotations(
+    annotations: Record<string, string>,
+    spec: ServiceAccountSpec,
+  ): void {
+    if (spec.gcpServiceAccountEmail) {
+      annotations['iam.gke.io/gcp-service-account'] = spec.gcpServiceAccountEmail;
+    }
   }
 
   addHorizontalPodAutoscaler(spec: HorizontalPodAutoscalerSpec) {
@@ -1367,6 +1439,35 @@ export class Rutter {
         .join(',');
       annotations['alb.ingress.kubernetes.io/tags'] = tagString;
     }
+  }
+
+  addAWSIRSAServiceAccount(spec: AWSIRSAServiceAccountSpec) {
+    const annotations: Record<string, string> = {
+      'eks.amazonaws.com/role-arn': spec.roleArn,
+      ...(spec.audience ? { 'eks.amazonaws.com/audience': spec.audience } : {}),
+      ...(spec.stsEndpointType
+        ? { 'eks.amazonaws.com/sts-regional-endpoints': spec.stsEndpointType }
+        : { 'eks.amazonaws.com/sts-regional-endpoints': 'regional' }),
+      ...(spec.tokenExpiration !== undefined
+        ? { 'eks.amazonaws.com/token-expiration': String(spec.tokenExpiration) }
+        : {}),
+      ...(spec.annotations ?? {}),
+    };
+
+    const sa = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'ServiceAccount',
+      metadata: {
+        name: spec.name,
+        annotations,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+      },
+      automountServiceAccountToken: spec.automountServiceAccountToken,
+      imagePullSecrets: spec.imagePullSecrets?.map((n) => ({ name: n })),
+      secrets: spec.secrets?.map((n) => ({ name: n })),
+    });
+    this.capture(sa, `${spec.name}-serviceaccount`);
+    return sa;
   }
 
   /**
