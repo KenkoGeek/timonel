@@ -315,6 +315,67 @@ export interface ServiceAccountSpec {
   gcpServiceAccountEmail?: string;
 }
 
+export interface HorizontalPodAutoscalerMetric {
+  type: 'Resource' | 'Pods' | 'Object' | 'External';
+  resource?: {
+    name: 'cpu' | 'memory';
+    target: {
+      type: 'Utilization' | 'AverageValue';
+      averageUtilization?: number;
+      averageValue?: string;
+    };
+  };
+  pods?: {
+    metric: { name: string; selector?: Record<string, unknown> };
+    target: { type: 'AverageValue'; averageValue: string };
+  };
+  object?: {
+    metric: { name: string; selector?: Record<string, unknown> };
+    describedObject: { apiVersion: string; kind: string; name: string };
+    target: { type: 'Value' | 'AverageValue'; value?: string; averageValue?: string };
+  };
+  external?: {
+    metric: { name: string; selector?: Record<string, unknown> };
+    target: { type: 'Value' | 'AverageValue'; value?: string; averageValue?: string };
+  };
+}
+
+export interface HorizontalPodAutoscalerBehavior {
+  scaleUp?: {
+    stabilizationWindowSeconds?: number;
+    selectPolicy?: 'Max' | 'Min' | 'Disabled';
+    policies?: Array<{
+      type: 'Pods' | 'Percent';
+      value: number;
+      periodSeconds: number;
+    }>;
+  };
+  scaleDown?: {
+    stabilizationWindowSeconds?: number;
+    selectPolicy?: 'Max' | 'Min' | 'Disabled';
+    policies?: Array<{
+      type: 'Pods' | 'Percent';
+      value: number;
+      periodSeconds: number;
+    }>;
+  };
+}
+
+export interface HorizontalPodAutoscalerSpec {
+  name: string;
+  scaleTargetRef: {
+    apiVersion: string;
+    kind: 'Deployment' | 'StatefulSet' | 'ReplicaSet';
+    name: string;
+  };
+  minReplicas?: number;
+  maxReplicas: number;
+  metrics?: HorizontalPodAutoscalerMetric[];
+  behavior?: HorizontalPodAutoscalerBehavior;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
 export interface RutterProps {
   meta: HelmChartMeta;
   defaultValues?: Record<string, unknown>;
@@ -843,6 +904,41 @@ export class Rutter {
     });
     this.capture(sa, `${spec.name}-serviceaccount`);
     return sa;
+  }
+
+  addHorizontalPodAutoscaler(spec: HorizontalPodAutoscalerSpec) {
+    // Default metrics if none provided (CPU utilization at 80%)
+    const defaultMetrics: HorizontalPodAutoscalerMetric[] = [
+      {
+        type: 'Resource',
+        resource: {
+          name: 'cpu',
+          target: {
+            type: 'Utilization',
+            averageUtilization: 80,
+          },
+        },
+      },
+    ];
+
+    const hpa = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'autoscaling/v2',
+      kind: 'HorizontalPodAutoscaler',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        scaleTargetRef: spec.scaleTargetRef,
+        minReplicas: spec.minReplicas ?? 1,
+        maxReplicas: spec.maxReplicas,
+        metrics: spec.metrics ?? defaultMetrics,
+        ...(spec.behavior ? { behavior: spec.behavior } : {}),
+      },
+    });
+    this.capture(hpa, `${spec.name}-hpa`);
+    return hpa;
   }
 
   /**

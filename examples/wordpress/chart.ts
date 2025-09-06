@@ -18,6 +18,13 @@ const rutter = new Rutter({
           memory: '256Mi',
         },
       },
+      autoscaling: {
+        enabled: true,
+        minReplicas: 1,
+        maxReplicas: 10,
+        targetCPUUtilizationPercentage: 70,
+        targetMemoryUtilizationPercentage: 80,
+      },
     },
     mysql: {
       image: 'mysql:8.0',
@@ -142,6 +149,68 @@ rutter.addService({
   ],
   selector: {
     app: 'wordpress-app',
+  },
+});
+
+// WordPress HorizontalPodAutoscaler
+rutter.addHorizontalPodAutoscaler({
+  name: 'wordpress-hpa',
+  scaleTargetRef: {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    name: 'wordpress-app',
+  },
+  minReplicas: 1,
+  maxReplicas: 10,
+  metrics: [
+    {
+      type: 'Resource',
+      resource: {
+        name: 'cpu',
+        target: {
+          type: 'Utilization',
+          averageUtilization: 70,
+        },
+      },
+    },
+    {
+      type: 'Resource',
+      resource: {
+        name: 'memory',
+        target: {
+          type: 'Utilization',
+          averageUtilization: 80,
+        },
+      },
+    },
+  ],
+  behavior: {
+    scaleUp: {
+      stabilizationWindowSeconds: 60,
+      policies: [
+        {
+          type: 'Percent',
+          value: 100,
+          periodSeconds: 15,
+        },
+        {
+          type: 'Pods',
+          value: 2,
+          periodSeconds: 60,
+        },
+      ],
+      selectPolicy: 'Max',
+    },
+    scaleDown: {
+      stabilizationWindowSeconds: 300,
+      policies: [
+        {
+          type: 'Percent',
+          value: 10,
+          periodSeconds: 60,
+        },
+      ],
+    },
   },
 });
 
