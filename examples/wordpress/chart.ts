@@ -280,6 +280,37 @@ rutter.addAWSEFSPersistentVolumeClaim({
   accessModes: ['ReadWriteMany'],
 });
 
+// AWS ALB Ingress for WordPress
+rutter.addAWSALBIngress({
+  name: 'wordpress-ingress',
+  scheme: 'internet-facing',
+  targetType: 'ip',
+  healthCheckPath: '/',
+  healthCheckIntervalSeconds: 30,
+  healthyThresholdCount: 2,
+  unhealthyThresholdCount: 3,
+  tags: {
+    Environment: 'production',
+    Application: 'wordpress',
+  },
+  rules: [
+    {
+      paths: [
+        {
+          path: '/',
+          pathType: 'Prefix',
+          backend: {
+            service: {
+              name: 'wordpress-service',
+              port: { number: 80 },
+            },
+          },
+        },
+      ],
+    },
+  ],
+});
+
 export default function run(outDir: string) {
   rutter.write(outDir);
 }
