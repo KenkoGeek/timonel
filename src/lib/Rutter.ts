@@ -463,6 +463,29 @@ export interface AWSEFSPersistentVolumeClaimSpec {
   annotations?: Record<string, string>;
 }
 
+export interface AWSALBIngressSpec {
+  name: string;
+  rules: IngressRule[];
+  tls?: IngressTLS[];
+  scheme?: 'internet-facing' | 'internal';
+  targetType?: 'instance' | 'ip';
+  ipAddressType?: 'ipv4' | 'dualstack';
+  groupName?: string;
+  groupOrder?: number;
+  subnets?: string[];
+  securityGroups?: string[];
+  certificateArn?: string;
+  sslRedirect?: boolean;
+  healthCheckPath?: string;
+  healthCheckIntervalSeconds?: number;
+  healthCheckTimeoutSeconds?: number;
+  healthyThresholdCount?: number;
+  unhealthyThresholdCount?: number;
+  tags?: Record<string, string>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
 export interface VerticalPodAutoscalerSpec {
   name: string;
   targetRef: {
@@ -1235,6 +1258,115 @@ export class Rutter {
     });
     this.capture(pvc, `${spec.name}-pvc`);
     return pvc;
+  }
+
+  addAWSALBIngress(spec: AWSALBIngressSpec) {
+    const annotations = this.buildALBAnnotations(spec);
+
+    const ingress = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'networking.k8s.io/v1',
+      kind: 'Ingress',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        annotations,
+      },
+      spec: {
+        tls: spec.tls,
+        rules: spec.rules.map((rule) => ({
+          host: rule.host,
+          http: {
+            paths: rule.paths.map((path) => ({
+              path: path.path,
+              pathType: path.pathType,
+              backend: path.backend,
+            })),
+          },
+        })),
+      },
+    });
+    this.capture(ingress, `${spec.name}-ingress`);
+    return ingress;
+  }
+
+  private buildALBAnnotations(spec: AWSALBIngressSpec): Record<string, string> {
+    const annotations: Record<string, string> = {
+      'kubernetes.io/ingress.class': 'alb',
+      'alb.ingress.kubernetes.io/scheme': spec.scheme ?? 'internet-facing',
+      'alb.ingress.kubernetes.io/target-type': spec.targetType ?? 'ip',
+      ...(spec.annotations ?? {}),
+    };
+
+    this.addOptionalALBAnnotations(annotations, spec);
+    this.addHealthCheckAnnotations(annotations, spec);
+    this.addTagsAnnotation(annotations, spec);
+
+    return annotations;
+  }
+
+  private addOptionalALBAnnotations(
+    annotations: Record<string, string>,
+    spec: AWSALBIngressSpec,
+  ): void {
+    if (spec.ipAddressType) {
+      annotations['alb.ingress.kubernetes.io/ip-address-type'] = spec.ipAddressType;
+    }
+    if (spec.groupName) {
+      annotations['alb.ingress.kubernetes.io/group.name'] = spec.groupName;
+    }
+    if (spec.groupOrder !== undefined) {
+      annotations['alb.ingress.kubernetes.io/group.order'] = String(spec.groupOrder);
+    }
+    if (spec.subnets && spec.subnets.length > 0) {
+      annotations['alb.ingress.kubernetes.io/subnets'] = spec.subnets.join(',');
+    }
+    if (spec.securityGroups && spec.securityGroups.length > 0) {
+      annotations['alb.ingress.kubernetes.io/security-groups'] = spec.securityGroups.join(',');
+    }
+    if (spec.certificateArn) {
+      annotations['alb.ingress.kubernetes.io/certificate-arn'] = spec.certificateArn;
+    }
+    if (spec.sslRedirect) {
+      annotations['alb.ingress.kubernetes.io/ssl-redirect'] = '443';
+    }
+  }
+
+  private addHealthCheckAnnotations(
+    annotations: Record<string, string>,
+    spec: AWSALBIngressSpec,
+  ): void {
+    if (spec.healthCheckPath) {
+      annotations['alb.ingress.kubernetes.io/healthcheck-path'] = spec.healthCheckPath;
+    }
+    if (spec.healthCheckIntervalSeconds !== undefined) {
+      annotations['alb.ingress.kubernetes.io/healthcheck-interval-seconds'] = String(
+        spec.healthCheckIntervalSeconds,
+      );
+    }
+    if (spec.healthCheckTimeoutSeconds !== undefined) {
+      annotations['alb.ingress.kubernetes.io/healthcheck-timeout-seconds'] = String(
+        spec.healthCheckTimeoutSeconds,
+      );
+    }
+    if (spec.healthyThresholdCount !== undefined) {
+      annotations['alb.ingress.kubernetes.io/healthy-threshold-count'] = String(
+        spec.healthyThresholdCount,
+      );
+    }
+    if (spec.unhealthyThresholdCount !== undefined) {
+      annotations['alb.ingress.kubernetes.io/unhealthy-threshold-count'] = String(
+        spec.unhealthyThresholdCount,
+      );
+    }
+  }
+
+  private addTagsAnnotation(annotations: Record<string, string>, spec: AWSALBIngressSpec): void {
+    if (spec.tags && Object.keys(spec.tags).length > 0) {
+      const tagString = Object.entries(spec.tags)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(',');
+      annotations['alb.ingress.kubernetes.io/tags'] = tagString;
+    }
   }
 
   /**
