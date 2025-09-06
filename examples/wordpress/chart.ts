@@ -239,12 +239,23 @@ rutter.addVerticalPodAutoscaler({
         },
         maxAllowed: {
           cpu: '1000m',
-          memory: '1Gi',
+          memory: '2Gi',
         },
         controlledResources: ['cpu', 'memory'],
         controlledValues: 'RequestsAndLimits',
       },
     ],
+  },
+});
+
+// WordPress PodDisruptionBudget
+rutter.addPodDisruptionBudget({
+  name: 'wordpress-pdb',
+  minAvailable: 1,
+  selector: {
+    matchLabels: {
+      app: WORDPRESS_APP_NAME,
+    },
   },
 });
 
