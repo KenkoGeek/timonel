@@ -19,6 +19,8 @@ const rutter = new Rutter({
     appVersion: '1.0.0',
     keywords: ['game', '2048', 'aws', 'eks', 'alb'],
   },
+  manifestName: 'game-2048',
+  singleManifestFile: false, // Each resource in its own descriptive file
   defaultValues: {
     // Application configuration
     app: {

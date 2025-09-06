@@ -8,6 +8,8 @@ const rutter = new Rutter({
     description: 'MySQL database for WordPress',
     appVersion: '8.0',
   },
+  manifestName: 'mysql-database',
+  singleManifestFile: true, // Single file for database components
   defaultValues: {
     image: { repository: 'mysql', tag: '8.0' },
     auth: {

@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation**: Comprehensive Custom Manifest Naming section added to README
   with examples
 - **Examples**: WordPress example updated to showcase `manifestName:
-  'wordpress-app'` and `singleManifestFile: true`
+'wordpress-app'` and `singleManifestFile: true`
 - **Auto-scaling Features**: Properly documented existing production-ready capabilities
   - HorizontalPodAutoscaler (HPA) with CPU/memory metrics and custom behavior policies
   - VerticalPodAutoscaler (VPA) with resource policies and update modes
