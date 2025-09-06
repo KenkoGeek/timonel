@@ -164,6 +164,12 @@ rutter.addVerticalPodAutoscaler({
   updatePolicy: { updateMode: 'Auto' },
 });
 
+rutter.addPodDisruptionBudget({
+  name: 'my-app-pdb',
+  minAvailable: 1,
+  selector: { matchLabels: { app: 'my-app' } },
+});
+
 rutter.write('dist/charts/my-app');
 ```
 
@@ -274,7 +280,7 @@ Provide `envValues` in the `Rutter` constructor to automatically create
 
 ## Roadmap
 
-- ✅ Helpers for common patterns (HPA, VPA auto-scaling)
+- ✅ Auto-scaling helpers (HPA, VPA, PodDisruptionBudget)
 - Richer CLI (resource generators, diff)
 - Enhanced multi-cloud support
 - Template validation and testing utilities
