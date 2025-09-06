@@ -1,6 +1,6 @@
 {
   "name": "wordpress-umbrella-example",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "WordPress umbrella chart example with MySQL and WordPress subcharts",
   "private": true,
   "scripts": {
@@ -16,6 +16,6 @@
     "umbrella-chart"
   ],
   "dependencies": {
-    "timonel": "^0.3.0"
+    "timonel": "^0.4.0"
   }
 }

@@ -139,6 +139,9 @@ const rutter = new Rutter({
       body: `{{- printf "%s-%s" .Chart.Name .Release.Name | trunc 63 | trimSuffix "-" -}}`,
     },
   ],
+  // Custom manifest naming options
+  manifestName: 'my-app-resources', // Custom name for manifest files
+  singleManifestFile: true, // Combine all resources into one file
 });
 
 rutter.addDeployment({
@@ -179,6 +182,51 @@ rutter.addAWSIRSAServiceAccount({
 });
 
 rutter.write('dist/charts/my-app');
+```
+
+### Custom Manifest Naming
+
+Timonel provides flexible options for naming your Kubernetes manifest files:
+
+#### Single Manifest File
+
+```typescript
+const rutter = new Rutter({
+  meta: { name: 'my-app', version: '0.1.0' },
+  manifestName: 'application',
+  singleManifestFile: true, // All resources in one file
+});
+
+// Generates: templates/application.yaml
+```
+
+#### Separate Files with Custom Names
+
+```typescript
+const rutter = new Rutter({
+  meta: { name: 'my-app', version: '0.1.0' },
+  manifestName: 'my-app',
+  singleManifestFile: false, // Each resource in its own file (default)
+});
+
+// Generates:
+// templates/0000-my-app-deployment-web.yaml
+// templates/0001-my-app-service-web.yaml
+// templates/0002-my-app-configmap-config.yaml
+```
+
+#### Default Behavior
+
+```typescript
+const rutter = new Rutter({
+  meta: { name: 'my-app', version: '0.1.0' },
+  // No manifestName specified
+});
+
+// Generates:
+// templates/0000-deployment-web.yaml
+// templates/0001-service-web.yaml
+// templates/0002-configmap-config.yaml
 ```
 
 ## Umbrella Charts
@@ -319,14 +367,19 @@ rutter.addAWSALBIngress({
   scheme: 'internet-facing',
   targetType: 'ip',
   healthCheckPath: '/health',
-  certificateArn: 'arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012',
-  rules: [{
-    paths: [{
-      path: '/',
-      pathType: 'Prefix',
-      backend: { service: { name: 'my-app', port: { number: 80 } } },
-    }],
-  }],
+  certificateArn:
+    'arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012',
+  rules: [
+    {
+      paths: [
+        {
+          path: '/',
+          pathType: 'Prefix',
+          backend: { service: { name: 'my-app', port: { number: 80 } } },
+        },
+      ],
+    },
+  ],
 });
 ```
 
@@ -399,6 +452,7 @@ Provide `envValues` in the `Rutter` constructor to automatically create
 
 - ✅ Auto-scaling helpers (HPA, VPA, PodDisruptionBudget)
 - ✅ AWS multi-cloud support (EBS, EFS, ALB, IRSA, Secrets Manager, Parameter Store)
+- ✅ Custom manifest naming and file organization
 - Azure multi-cloud support (AKS-specific helpers)
 - GCP multi-cloud support (GKE-specific helpers)
 - Richer CLI (resource generators, diff)

@@ -1,5 +1,4 @@
-import { Rutter } from '../../src/lib/Rutter';
-import { valuesRef } from '../../src/lib/helm';
+import { Rutter, valuesRef } from 'timonel';
 
 const rutter = new Rutter({
   meta: {
@@ -9,8 +8,8 @@ const rutter = new Rutter({
     appVersion: '6.4.0',
     keywords: ['wordpress', 'cms', 'mysql', 'blog'],
   },
-  manifestName: 'wordpress-resource',
-  singleManifestFile: false,
+  manifestName: 'wordpress-app',
+  singleManifestFile: true,
   defaultValues: {
     wordpress: {
       image: 'wordpress:6.4.0-apache',
