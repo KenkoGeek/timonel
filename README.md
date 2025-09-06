@@ -150,14 +150,18 @@ rutter.addDeployment({
 
 rutter.addService({ name: 'my-app', port: 80 });
 
-// Use a named helper in annotations (example)
-rutter.addDeployment({
-  name: 'annotated',
-  image: 'nginx',
-  containerPort: 80,
-  env: {
-    FULLNAME: include('timonel.fullname'),
-  },
+// Add auto-scaling with HPA and VPA
+rutter.addHorizontalPodAutoscaler({
+  name: 'my-app-hpa',
+  scaleTargetRef: { apiVersion: 'apps/v1', kind: 'Deployment', name: 'my-app' },
+  minReplicas: 1,
+  maxReplicas: 10,
+});
+
+rutter.addVerticalPodAutoscaler({
+  name: 'my-app-vpa',
+  targetRef: { apiVersion: 'apps/v1', kind: 'Deployment', name: 'my-app' },
+  updatePolicy: { updateMode: 'Auto' },
 });
 
 rutter.write('dist/charts/my-app');
@@ -270,7 +274,7 @@ Provide `envValues` in the `Rutter` constructor to automatically create
 
 ## Roadmap
 
-- Helpers for common patterns (HPA, auto-scaling)
+- ✅ Helpers for common patterns (HPA, VPA auto-scaling)
 - Richer CLI (resource generators, diff)
 - Enhanced multi-cloud support
 - Template validation and testing utilities
