@@ -23,7 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (`0000-my-app-deployment-web.yaml`)
   - Backward compatibility maintained - default behavior unchanged when options not
     specified
-  - Updated WordPress example demonstrating custom manifest naming features
 
 ### Enhanced (0.4.0)
 
@@ -31,8 +30,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   improved file handling
 - **Documentation**: Comprehensive Custom Manifest Naming section added to README
   with examples
-- **Examples**: WordPress example updated to showcase `manifestName:
-'wordpress-app'` and `singleManifestFile: true`
+- **Examples**: All examples updated with custom manifest naming demonstrations
+  - **AWS 2048 Game**: Enhanced with production-ready AWS features
+    - AWS ALB Ingress with health checks and SSL support
+    - HorizontalPodAutoscaler (HPA) for CPU-based auto-scaling
+    - PodDisruptionBudget (PDB) for high availability during updates
+    - Custom manifest naming with `manifestName: 'game-2048'`
+    - Multi-environment configuration (dev/staging/prod)
+  - **WordPress**: Updated to showcase `manifestName: 'wordpress-app'` and `singleManifestFile: true`
+    - Comprehensive AWS integration examples (EBS, EFS, IRSA, Secrets Manager)
+    - Auto-scaling with HPA and VPA configurations
+    - Production-ready deployment patterns
+  - **WordPress Umbrella**: Subcharts updated with custom manifest naming
+    - MySQL subchart: `manifestName: 'mysql-database'`, `singleManifestFile: true`
+    - WordPress subchart: `manifestName: 'wordpress-app'`, `singleManifestFile: false`
+- **Example Documentation**: All example READMEs enhanced with custom manifest naming references
+  and comprehensive deployment instructions
 - **Auto-scaling Features**: Properly documented existing production-ready capabilities
   - HorizontalPodAutoscaler (HPA) with CPU/memory metrics and custom behavior policies
   - VerticalPodAutoscaler (VPA) with resource policies and update modes
@@ -222,5 +235,16 @@ const rutter = new Rutter({ meta: { name: 'my-app' } });
 - Security audit in CI/CD pipeline
 - Provenance-enabled npm publishing
 
-[Unreleased]: https://github.com/KenkoGeek/timonel/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/KenkoGeek/timonel/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/KenkoGeek/timonel/releases/tag/v0.4.0
+[0.3.0]: https://github.com/KenkoGeek/timonel/releases/tag/v0.3.0
+[0.2.1]: https://github.com/KenkoGeek/timonel/releases/tag/v0.2.1
+[0.2.0]: https://github.com/KenkoGeek/timonel/releases/tag/v0.2.0
+[0.1.7]: https://github.com/KenkoGeek/timonel/releases/tag/v0.1.7
+[0.1.6]: https://github.com/KenkoGeek/timonel/releases/tag/v0.1.6
+[0.1.5]: https://github.com/KenkoGeek/timonel/releases/tag/v0.1.5
+[0.1.4]: https://github.com/KenkoGeek/timonel/releases/tag/v0.1.4
+[0.1.3]: https://github.com/KenkoGeek/timonel/releases/tag/v0.1.3
+[0.1.2]: https://github.com/KenkoGeek/timonel/releases/tag/v0.1.2
+[0.1.1]: https://github.com/KenkoGeek/timonel/releases/tag/v0.1.1
 [0.1.0]: https://github.com/KenkoGeek/timonel/releases/tag/v0.1.0
