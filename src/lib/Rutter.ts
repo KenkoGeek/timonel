@@ -565,6 +565,14 @@ export interface RutterProps {
   notesTpl?: string;
   /** Optional values.schema.json object */
   valuesSchema?: Record<string, unknown>;
+  /** Optional custom name for the generated manifest file (without extension) */
+  manifestName?: string;
+  /**
+   * If true, all Kubernetes resources will be combined into a single manifest file.
+   * If false (default), each resource will be in its own numbered file.
+   * @default false
+   */
+  singleManifestFile?: boolean;
 }
 
 /**
@@ -580,7 +588,7 @@ export class Rutter {
   constructor(props: RutterProps) {
     this.props = props;
     this.app = new App();
-    this.chart = new Chart(this.app, props.meta.name);
+    this.chart = new Chart(this.app, props.manifestName ?? props.meta.name);
   }
 
   /**
@@ -1545,6 +1553,25 @@ export class Rutter {
   }
 
   /**
+   * Extract a meaningful name from a Kubernetes resource object
+   */
+  private getResourceName(obj: unknown): string {
+    if (obj && typeof obj === 'object') {
+      const resource = obj as {
+        kind?: string;
+        metadata?: { name?: string };
+      };
+      if (resource.kind && resource.metadata?.name) {
+        return `${resource.kind.toLowerCase()}-${resource.metadata.name}`;
+      }
+      if (resource.kind) {
+        return resource.kind.toLowerCase();
+      }
+    }
+    return 'resource';
+  }
+
+  /**
    * Add a raw CRD manifest to the chart (written under crds/).
    */
   addCrd(yaml: string, id = 'crd') {
@@ -1583,13 +1610,29 @@ export class Rutter {
       return obj as Record<string, unknown>;
     });
 
-    const combinedYaml = enriched
-      .map((obj) => YAML.stringify(obj).trim())
-      .filter(Boolean)
-      .map((y) => `---\n${y}`)
-      .join('\n');
-    this.assets.length = 0;
-    this.assets.push({ id: 'manifests', yaml: combinedYaml });
+    if (this.props.singleManifestFile) {
+      // Combine all resources into a single manifest file
+      const combinedYaml = enriched
+        .map((obj) => YAML.stringify(obj).trim())
+        .filter(Boolean)
+        .join('\n---\n');
+      this.assets.length = 0;
+      const manifestId = this.props.manifestName ?? 'manifests';
+      this.assets.push({ id: manifestId, yaml: combinedYaml, singleFile: true });
+    } else {
+      // Create separate files for each resource (default behavior)
+      this.assets.length = 0;
+      enriched.forEach((obj, _index) => {
+        const yaml = YAML.stringify(obj).trim();
+        if (yaml) {
+          const resourceName = this.getResourceName(obj);
+          const manifestId = this.props.manifestName
+            ? `${this.props.manifestName}-${resourceName}`
+            : resourceName;
+          this.assets.push({ id: manifestId, yaml });
+        }
+      });
+    }
 
     const options: HelmChartWriteOptions = {
       outDir,

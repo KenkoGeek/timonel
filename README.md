@@ -330,6 +330,48 @@ rutter.addAWSALBIngress({
 });
 ```
 
+### AWS Secrets Manager and Parameter Store
+
+Integrate with AWS Secrets Manager and Parameter Store using the Secrets Store CSI Driver:
+
+```typescript
+// Secrets Manager integration
+rutter.addAWSSecretProviderClass({
+  name: 'app-secrets',
+  region: 'us-west-2',
+  objects: [
+    {
+      objectName: 'prod/myapp/database',
+      objectType: 'secretsmanager',
+      objectAlias: 'db-credentials',
+    },
+    {
+      objectName: 'prod/myapp/api-keys',
+      objectType: 'secretsmanager',
+      jmesPath: '["api_key", "secret_key"]', // Extract specific keys from JSON
+    },
+  ],
+});
+
+// Parameter Store integration
+rutter.addAWSSecretProviderClass({
+  name: 'app-config',
+  region: 'us-west-2',
+  objects: [
+    {
+      objectName: '/myapp/config/debug-mode',
+      objectType: 'ssmparameter',
+      objectAlias: 'debug-flag',
+    },
+    {
+      objectName: '/myapp/config/cache-ttl',
+      objectType: 'ssmparameter',
+      objectAlias: 'cache-timeout',
+    },
+  ],
+});
+```
+
 ## Multi-environment values
 
 Provide `envValues` in the `Rutter` constructor to automatically create
@@ -356,7 +398,7 @@ Provide `envValues` in the `Rutter` constructor to automatically create
 ## Roadmap
 
 - ✅ Auto-scaling helpers (HPA, VPA, PodDisruptionBudget)
-- ✅ AWS multi-cloud support (EBS, EFS, ALB, IRSA)
+- ✅ AWS multi-cloud support (EBS, EFS, ALB, IRSA, Secrets Manager, Parameter Store)
 - Azure multi-cloud support (AKS-specific helpers)
 - GCP multi-cloud support (GKE-specific helpers)
 - Richer CLI (resource generators, diff)
