@@ -128,10 +128,11 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
     process.exit(1);
   }
   // Enable TS runtime with specific config
-  require('ts-node').register({
+  const { register } = await import('ts-node');
+  register({
     transpileOnly: true,
     compilerOptions: {
-      module: 'CommonJS',
+      module: 'ESNext',
       moduleResolution: 'node',
     },
   });
@@ -143,34 +144,38 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
     process.exit(1);
   }
 
-  // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
-  const mod = require(resolvedPath);
-  const runner = mod.default || mod.run || mod.synth;
-  if (typeof runner !== 'function') {
-    console.error('chart.ts must export a default/run/synth function');
+  try {
+    const mod = await import(resolvedPath);
+    const runner = mod.default || mod.run || mod.synth;
+    if (typeof runner !== 'function') {
+      console.error('chart.ts must export a default/run/synth function');
+      process.exit(1);
+    }
+
+    // Apply --set overrides if provided
+    if (
+      flags?.set &&
+      Object.keys(flags.set).length > 0 &&
+      mod.rutter &&
+      typeof mod.rutter.setValues === 'function'
+    ) {
+      mod.rutter.setValues(flags.set);
+    }
+    const outDir = out || path.join(path.dirname(chartTs), 'dist');
+
+    if (flags?.dryRun) {
+      log(`[DRY RUN] Would write chart to ${outDir}`, flags.silent);
+      return;
+    }
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+    fs.mkdirSync(outDir, { recursive: true });
+    await Promise.resolve(runner(outDir));
+    log(`Chart written to ${outDir}`, flags?.silent);
+  } catch (error) {
+    console.error(`Failed to import module: ${error instanceof Error ? error.message : error}`);
     process.exit(1);
   }
-
-  // Apply --set overrides if provided
-  if (
-    flags?.set &&
-    Object.keys(flags.set).length > 0 &&
-    mod.rutter &&
-    typeof mod.rutter.setValues === 'function'
-  ) {
-    mod.rutter.setValues(flags.set);
-  }
-  const outDir = out || path.join(path.dirname(chartTs), 'dist');
-
-  if (flags?.dryRun) {
-    log(`[DRY RUN] Would write chart to ${outDir}`, flags.silent);
-    return;
-  }
-
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  fs.mkdirSync(outDir, { recursive: true });
-  await Promise.resolve(runner(outDir));
-  log(`Chart written to ${outDir}`, flags?.silent);
 }
 
 async function cmdDiff(projectDir?: string, chartDir?: string, silent = false) {

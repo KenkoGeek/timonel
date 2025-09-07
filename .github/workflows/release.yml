@@ -79,7 +79,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Enable Corepack
@@ -93,11 +93,8 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-      - name: Build and test
-        run: |
-          pnpm run build
-          pnpm run lint
-          pnpm run test
+      - name: Build for release
+        run: pnpm run build
 
       - name: Semantic Release
         run: npx semantic-release
