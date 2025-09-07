@@ -54,7 +54,7 @@ export class UmbrellaRutter {
    */
   write(outDir: string): void {
     // Sanitize paths to prevent directory traversal
-    // eslint-disable-next-line @typescript-eslint/no-var-requires -- Dynamic import needed for path operations
+
     const path = require('path');
     const sanitizedOutDir = path.normalize(path.resolve(outDir));
     const cwd = process.cwd();
