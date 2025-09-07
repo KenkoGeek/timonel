@@ -516,8 +516,16 @@ export interface AWSSecretProviderClassSpec {
   annotations?: Record<string, string>;
 }
 
+/**
+ * Configuration interface for Azure Disk StorageClass.
+ * Defines the parameters for creating an Azure Disk StorageClass in AKS.
+ *
+ * @see https://learn.microsoft.com/en-us/azure/aks/azure-csi-disk-storage-provision
+ */
 export interface AzureDiskStorageClassSpec {
+  /** Name of the StorageClass */
   name: string;
+  /** Azure disk SKU to use */
   skuName?:
     | 'Standard_LRS'
     | 'Premium_LRS'
@@ -526,26 +534,45 @@ export interface AzureDiskStorageClassSpec {
     | 'UltraSSD_LRS'
     | 'Premium_ZRS'
     | 'StandardSSD_ZRS';
+  /** File system type to use */
   fsType?: 'ext4' | 'ext3' | 'ext2' | 'xfs' | 'btrfs' | 'ntfs';
+  /** Host caching mode */
   cachingMode?: 'None' | 'ReadOnly' | 'ReadWrite';
+  /** Resource group where disks will be created */
   resourceGroup?: string;
+  /** IOPS for the disk (UltraSSD_LRS only) */
   diskIOPSReadWrite?: number;
+  /** Throughput in MB/s (UltraSSD_LRS only) */
   diskMBpsReadWrite?: number;
+  /** Logical sector size in bytes */
   logicalSectorSize?: 512 | 4096;
+  /** Tags to apply to the disk */
   tags?: Record<string, string>;
+  /** ID of the disk encryption set */
   diskEncryptionSetID?: string;
+  /** Type of disk encryption */
   diskEncryptionType?:
     | 'EncryptionAtRestWithCustomerKey'
     | 'EncryptionAtRestWithPlatformAndCustomerKeys';
+  /** Enable write accelerator */
   writeAcceleratorEnabled?: boolean;
+  /** Network access policy for the disk */
   networkAccessPolicy?: 'AllowAll' | 'DenyAll' | 'AllowPrivate';
+  /** ID of the disk access resource */
   diskAccessID?: string;
+  /** Enable bursting (Premium SSD only) */
   enableBursting?: boolean;
+  /** Maximum number of hosts that can attach to the disk simultaneously */
   maxShares?: number;
+  /** Volume reclaim policy */
   reclaimPolicy?: 'Delete' | 'Retain';
+  /** Allow volume expansion */
   allowVolumeExpansion?: boolean;
+  /** Volume binding mode */
   volumeBindingMode?: 'Immediate' | 'WaitForFirstConsumer';
+  /** Labels to apply to the StorageClass */
   labels?: Record<string, string>;
+  /** Annotations to apply to the StorageClass */
   annotations?: Record<string, string>;
 }
 
