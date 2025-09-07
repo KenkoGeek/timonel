@@ -479,6 +479,56 @@ rutter.addAzureDiskStorageClass({
 });
 ```
 
+#### Azure Application Gateway Ingress Controller (AGIC)
+
+Comprehensive AGIC support for AKS deployments with advanced features:
+
+```typescript
+// AGIC Ingress with SSL and health checks
+rutter.addAzureAGICIngress({
+  name: 'app-ingress',
+  rules: [
+    {
+      host: 'app.example.com',
+      paths: [
+        {
+          path: '/',
+          pathType: 'Prefix',
+          backend: { service: { name: 'app-service', port: { number: 80 } } },
+        },
+      ],
+    },
+  ],
+  sslRedirect: true,
+  backendProtocol: 'https',
+  healthProbePath: '/health',
+  healthProbeInterval: 30,
+  cookieBasedAffinity: true,
+  requestTimeout: 60,
+  appgwSslCertificate: 'my-ssl-cert',
+  wafPolicyForPath:
+    '/subscriptions/sub-id/resourceGroups/rg/providers/Microsoft.Network/applicationGatewayWebApplicationFirewallPolicies/waf-policy',
+});
+
+// Advanced AGIC features
+rutter.addAzureAGICIngress({
+  name: 'advanced-ingress',
+  rules: [
+    /* rules */
+  ],
+  backendPathPrefix: '/api/v1',
+  backendHostname: 'internal.example.com',
+  usePrivateIp: true,
+  overrideFrontendPort: 8080,
+  connectionDraining: true,
+  connectionDrainingTimeout: 60,
+  hostnameExtension: ['api.example.com', 'admin.example.com'],
+  appgwTrustedRootCertificate: ['root-cert-1', 'root-cert-2'],
+  rewriteRuleSet: 'custom-rewrite-rules',
+  rulePriority: 100,
+});
+```
+
 ## Network Security with NetworkPolicies
 
 Timonel provides comprehensive NetworkPolicy helpers for implementing Zero Trust network security
@@ -741,8 +791,7 @@ Provide `envValues` in the `Rutter` constructor to automatically create
 - ✅ Auto-scaling helpers (HPA, VPA, PodDisruptionBudget)
 - ✅ AWS multi-cloud support (EBS, EFS, ALB, IRSA, Secrets Manager, Parameter Store)
 - ✅ Custom manifest naming and file organization
-- ✅ Azure multi-cloud support (Azure Disk StorageClass)
-- Azure Application Gateway Ingress Controller (AGIC)
+- ✅ Azure multi-cloud support (Azure Disk StorageClass, AGIC)
 - GCP multi-cloud support (GKE-specific helpers)
 - Richer CLI (resource generators, diff)
 - Template validation and testing utilities
