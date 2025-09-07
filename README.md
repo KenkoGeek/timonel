@@ -505,12 +505,14 @@ rutter.addNetworkPolicy({
     },
     // Allow external API calls (with CIDR restrictions)
     {
-      to: [{
-        ipBlock: {
-          cidr: '0.0.0.0/0',
-          except: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'],
+      to: [
+        {
+          ipBlock: {
+            cidr: '0.0.0.0/0',
+            except: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'],
+          },
         },
-      }],
+      ],
       ports: [{ protocol: 'TCP', port: 443 }],
     },
   ],
@@ -605,11 +607,13 @@ rutter.addNetworkPolicy({
   policyTypes: ['Egress'],
   egress: [
     {
-      to: [{
-        ipBlock: {
-          cidr: '203.0.113.0/24', // Specific external service
+      to: [
+        {
+          ipBlock: {
+            cidr: '203.0.113.0/24', // Specific external service
+          },
         },
-      }],
+      ],
       ports: [{ protocol: 'TCP', port: 443 }],
     },
   ],
@@ -632,7 +636,7 @@ rutter.addNetworkPolicy({
   name: 'app-with-dns',
   podSelector: { matchLabels: { app: 'backend' } },
   policyTypes: ['Egress'],
-  egress: [dnsEgressRule, /* other rules */],
+  egress: [dnsEgressRule /* other rules */],
 });
 ```
 
