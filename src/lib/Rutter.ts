@@ -1662,6 +1662,8 @@ export class Rutter {
     const parameters: Record<string, string> = {
       skuName: spec.skuName ?? 'StandardSSD_LRS',
       fsType: spec.fsType ?? 'ext4',
+      // Security best practices: default to private network access and encryption
+      networkAccessPolicy: spec.networkAccessPolicy ?? 'AllowPrivate',
     };
 
     this.addOptionalAzureDiskParameters(parameters, spec);
@@ -1690,7 +1692,8 @@ export class Rutter {
         .join(',');
       parameters['tags'] = tagString;
     }
-    if (spec.networkAccessPolicy) {
+    // networkAccessPolicy is now set as default in buildAzureDiskParameters
+    if (spec.networkAccessPolicy && spec.networkAccessPolicy !== 'AllowPrivate') {
       parameters['networkAccessPolicy'] = spec.networkAccessPolicy;
     }
     if (spec.diskAccessID) {
