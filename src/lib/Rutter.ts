@@ -424,7 +424,7 @@ export interface PodDisruptionBudgetSpec {
   annotations?: Record<string, string>;
 }
 
-export interface AWSEBSStorageClassSpec {
+export interface AWSEBSStorageClassSpec extends CloudResourceTags {
   name: string;
   volumeType?: 'gp2' | 'gp3' | 'io1' | 'io2' | 'sc1' | 'st1';
   fsType?: 'ext4' | 'xfs';
@@ -522,7 +522,16 @@ export interface AWSSecretProviderClassSpec {
  *
  * @see https://learn.microsoft.com/en-us/azure/aks/azure-csi-disk-storage-provision
  */
-export interface AzureDiskStorageClassSpec {
+/**
+ * Cloud resource tags with basic validation.
+ * Provides a consistent interface for tagging resources across cloud providers.
+ */
+export interface CloudResourceTags {
+  /** Resource tags as key-value pairs */
+  tags?: Record<string, string>;
+}
+
+export interface AzureDiskStorageClassSpec extends CloudResourceTags {
   /** Name of the StorageClass */
   name: string;
   /** Azure disk SKU to use */
@@ -546,8 +555,6 @@ export interface AzureDiskStorageClassSpec {
   diskMBpsReadWrite?: number;
   /** Logical sector size in bytes */
   logicalSectorSize?: 512 | 4096;
-  /** Tags to apply to the disk */
-  tags?: Record<string, string>;
   /** ID of the disk encryption set */
   diskEncryptionSetID?: string;
   /** Type of disk encryption */
@@ -576,7 +583,7 @@ export interface AzureDiskStorageClassSpec {
   annotations?: Record<string, string>;
 }
 
-export interface AWSALBIngressSpec {
+export interface AWSALBIngressSpec extends CloudResourceTags {
   name: string;
   rules: IngressRule[];
   tls?: IngressTLS[];
@@ -594,7 +601,6 @@ export interface AWSALBIngressSpec {
   healthCheckTimeoutSeconds?: number;
   healthyThresholdCount?: number;
   unhealthyThresholdCount?: number;
-  tags?: Record<string, string>;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
 }
@@ -1584,9 +1590,7 @@ export class Rutter {
 
   private addTagsAnnotation(annotations: Record<string, string>, spec: AWSALBIngressSpec): void {
     if (spec.tags && Object.keys(spec.tags).length > 0) {
-      const tagString = Object.entries(spec.tags)
-        .map(([key, value]) => `${key}=${value}`)
-        .join(',');
+      const tagString = this.formatCloudResourceTags(spec.tags);
       annotations['alb.ingress.kubernetes.io/tags'] = tagString;
     }
   }
@@ -1717,9 +1721,7 @@ export class Rutter {
       parameters['LogicalSectorSize'] = String(spec.logicalSectorSize);
     }
     if (spec.tags && Object.keys(spec.tags).length > 0) {
-      const tagString = Object.entries(spec.tags)
-        .map(([key, value]) => `${key}=${value}`)
-        .join(',');
+      const tagString = this.formatCloudResourceTags(spec.tags);
       parameters['tags'] = tagString;
     }
     // networkAccessPolicy is now set as default in buildAzureDiskParameters
@@ -1811,6 +1813,32 @@ export class Rutter {
       throw new Error(
         `Azure Disk ${spec.name}: logicalSectorSize must be either 512 or 4096 bytes`,
       );
+    }
+  }
+
+  /**
+   * Format cloud resource tags for provider-specific string format.
+   * Provides basic validation and consistent formatting across cloud providers.
+   */
+  private formatCloudResourceTags(tags: Record<string, string>): string {
+    this.validateCloudResourceTags(tags);
+    return Object.entries(tags)
+      .map(([key, value]) => `${key}=${value}`)
+      .join(',');
+  }
+
+  /**
+   * Validate cloud resource tags with basic rules.
+   * Each cloud provider has specific validation, but these are common basics.
+   */
+  private validateCloudResourceTags(tags: Record<string, string>): void {
+    for (const [key, value] of Object.entries(tags)) {
+      if (!key || key.trim() === '') {
+        throw new Error('Tag key cannot be empty');
+      }
+      if (value === undefined || value === null) {
+        throw new Error(`Tag value for key '${key}' cannot be null or undefined`);
+      }
     }
   }
 
