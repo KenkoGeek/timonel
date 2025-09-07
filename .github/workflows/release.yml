@@ -37,9 +37,12 @@ jobs:
             console.log(`Found ${checks.check_runs.length} check runs`);
 
             const requiredChecks = [
+              // Node.js v20 build and test pipeline
               'build (20)',
+              // Node.js v22 build and test pipeline
               'build (22)',
-              'Code scanning results / CodeQL'
+              // Security audit and vulnerability scanning
+              'security'
             ];
             const failedChecks = [];
 
