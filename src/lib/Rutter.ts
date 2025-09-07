@@ -1762,7 +1762,7 @@ export class Rutter {
     const ipv4Parts = cidr.split('/');
     if (ipv4Parts.length === 2) {
       const [ip, prefix] = ipv4Parts;
-      if (this.isValidIPv4(ip) && this.isValidPrefix(prefix, 32)) {
+      if (ip && prefix && this.isValidIPv4(ip) && this.isValidPrefix(prefix, 32)) {
         return true;
       }
     }
@@ -1770,7 +1770,9 @@ export class Rutter {
     // IPv6 CIDR validation (basic)
     if (cidr.includes(':') && ipv4Parts.length === 2) {
       const [, prefix] = ipv4Parts;
-      return this.isValidPrefix(prefix, 128);
+      if (prefix) {
+        return this.isValidPrefix(prefix, 128);
+      }
     }
 
     return false;
