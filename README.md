@@ -429,6 +429,34 @@ rutter.addAWSSecretProviderClass({
 });
 ```
 
+## Network Security with NetworkPolicies
+
+Timonel provides comprehensive NetworkPolicy helpers for implementing Zero Trust network security
+in Kubernetes:
+
+### Basic NetworkPolicy
+
+```typescript
+// Custom NetworkPolicy with full control
+rutter.addNetworkPolicy({
+  name: 'custom-policy',
+  podSelector: { matchLabels: { app: 'backend' } },
+  policyTypes: ['Ingress', 'Egress'],
+  ingress: [
+    {
+      from: [{ podSelector: { matchLabels: { app: 'frontend' } } }],
+      ports: [{ protocol: 'TCP', port: 8080 }],
+    },
+  ],
+  egress: [
+    {
+      to: [{ podSelector: { matchLabels: { app: 'database' } } }],
+      ports: [{ protocol: 'TCP', port: 5432 }],
+    },
+  ],
+});
+```
+
 ## Multi-environment values
 
 Provide `envValues` in the `Rutter` constructor to automatically create
