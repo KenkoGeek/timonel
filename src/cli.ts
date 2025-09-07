@@ -128,10 +128,11 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
     process.exit(1);
   }
   // Enable TS runtime with specific config
-  require('ts-node').register({
+  const { register } = await import('ts-node');
+  register({
     transpileOnly: true,
     compilerOptions: {
-      module: 'CommonJS',
+      module: 'ESNext',
       moduleResolution: 'node',
     },
   });
@@ -143,8 +144,7 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
     process.exit(1);
   }
 
-  // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
-  const mod = require(resolvedPath);
+  const mod = await import(resolvedPath);
   const runner = mod.default || mod.run || mod.synth;
   if (typeof runner !== 'function') {
     console.error('chart.ts must export a default/run/synth function');

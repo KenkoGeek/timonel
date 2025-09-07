@@ -79,7 +79,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Enable Corepack
@@ -95,8 +95,11 @@ jobs:
 
       - name: Build and test
         run: |
-          pnpm run build
+          pnpm run typecheck
           pnpm run lint
+          pnpm run security:check
+          pnpm run build
+          pnpm run format:check
           pnpm run test
 
       - name: Semantic Release

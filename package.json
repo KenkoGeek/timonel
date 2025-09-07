@@ -30,7 +30,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "security:lint": "eslint . --ext .ts,.tsx --ignore-pattern 'examples/**'",
+    "security:lint": "eslint .",
     "security:audit": "pnpm audit --audit-level=moderate",
     "security:check": "pnpm run security:lint && pnpm run security:audit",
     "deps:check": "pnpm outdated",
