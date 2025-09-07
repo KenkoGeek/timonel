@@ -186,6 +186,11 @@ rutter.write('dist/charts/my-app');
 
 ### Custom Manifest Naming
 
+> **⚠️ Breaking Change Notice**: Starting from v1.1.0, template files no longer include
+> automatic numbering prefixes (0000-, 0001-, etc.). Files now use descriptive names
+> following Helm best practices. If your scripts or tools depend on numbered filenames,
+> please update them accordingly.
+
 Timonel provides flexible options for naming your Kubernetes manifest files:
 
 #### Single Manifest File
@@ -210,9 +215,9 @@ const rutter = new Rutter({
 });
 
 // Generates:
-// templates/0000-my-app-deployment-web.yaml
-// templates/0001-my-app-service-web.yaml
-// templates/0002-my-app-configmap-config.yaml
+// templates/my-app-deployment-web.yaml
+// templates/my-app-service-web.yaml
+// templates/my-app-configmap-config.yaml
 ```
 
 #### Default Behavior
@@ -224,9 +229,9 @@ const rutter = new Rutter({
 });
 
 // Generates:
-// templates/0000-deployment-web.yaml
-// templates/0001-service-web.yaml
-// templates/0002-configmap-config.yaml
+// templates/deployment-web.yaml
+// templates/service-web.yaml
+// templates/configmap-config.yaml
 ```
 
 ## Umbrella Charts

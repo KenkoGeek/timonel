@@ -652,11 +652,20 @@ export interface AzureAGICIngressSpec {
   healthProbeTimeout?: number;
   /** Health probe unhealthy threshold */
   healthProbeUnhealthyThreshold?: number;
-  /** Additional hostnames for multisite listener */
+  /**
+   * Additional hostnames for multisite listener
+   * @security Validate hostname format to prevent injection attacks
+   */
   hostnameExtension?: string[];
-  /** WAF policy resource ID for path-based protection */
+  /**
+   * WAF policy resource ID for path-based protection
+   * @security Validate resource ID format to prevent path traversal attacks
+   */
   wafPolicyForPath?: string;
-  /** Application Gateway SSL certificate name */
+  /**
+   * Application Gateway SSL certificate name
+   * @security Ensure certificate exists and is properly configured
+   */
   appgwSslCertificate?: string;
   /** Application Gateway SSL profile name */
   appgwSslProfile?: string;
@@ -1688,6 +1697,9 @@ export class Rutter {
    * ```
    */
   addAzureAGICIngress(spec: AzureAGICIngressSpec) {
+    this.validateAGICHealthProbeParams(spec);
+    this.validateAGICSecurityParams(spec);
+    this.validateAGICAnnotationConsistency(spec);
     const annotations = this.buildAGICAnnotations(spec);
 
     const ingress = new ApiObject(this.chart, spec.name, {
@@ -2336,6 +2348,66 @@ export class Rutter {
           validateCIDR(except, `${context} except block`);
         }
       }
+    }
+  }
+
+  private validateAGICHealthProbeParams(spec: AzureAGICIngressSpec): void {
+    if (
+      spec.healthProbeInterval !== undefined &&
+      (spec.healthProbeInterval < 1 || spec.healthProbeInterval > 86400)
+    ) {
+      throw new Error('Health probe interval must be between 1 and 86400 seconds');
+    }
+    if (
+      spec.healthProbeTimeout !== undefined &&
+      (spec.healthProbeTimeout < 1 || spec.healthProbeTimeout > 86400)
+    ) {
+      throw new Error('Health probe timeout must be between 1 and 86400 seconds');
+    }
+    if (
+      spec.healthProbeUnhealthyThreshold !== undefined &&
+      (spec.healthProbeUnhealthyThreshold < 1 || spec.healthProbeUnhealthyThreshold > 20)
+    ) {
+      throw new Error('Health probe unhealthy threshold must be between 1 and 20');
+    }
+  }
+
+  private validateAGICSecurityParams(spec: AzureAGICIngressSpec): void {
+    if (
+      spec.wafPolicyForPath &&
+      !/^\/subscriptions\/[^/]+\/resourceGroups\/[^/]+\/providers\/Microsoft\.Network\/applicationGatewayWebApplicationFirewallPolicies\/[^/]+$/.test(
+        spec.wafPolicyForPath,
+      )
+    ) {
+      throw new Error('Invalid WAF policy resource ID format');
+    }
+    if (spec.hostnameExtension?.some((hostname) => !this.isValidHostname(hostname))) {
+      throw new Error('Invalid hostname format in hostnameExtension');
+    }
+  }
+
+  private isValidHostname(hostname: string): boolean {
+    // Basic hostname validation without complex regex to prevent ReDoS
+    if (!hostname || hostname.length > 253) return false;
+    if (hostname.startsWith('.') || hostname.endsWith('.')) return false;
+
+    const labels = hostname.split('.');
+    return labels.every((label) => {
+      if (!label || label.length > 63) return false;
+      if (label.startsWith('-') || label.endsWith('-')) return false;
+      return /^[a-zA-Z0-9-]+$/.test(label);
+    });
+  }
+
+  private validateAGICAnnotationConsistency(spec: AzureAGICIngressSpec): void {
+    if (spec.sslRedirect && !spec.appgwSslCertificate) {
+      throw new Error('SSL redirect requires an SSL certificate to be specified');
+    }
+    if (spec.backendProtocol === 'https' && !spec.appgwTrustedRootCertificate?.length) {
+      throw new Error('HTTPS backend protocol requires trusted root certificates');
+    }
+    if (spec.overrideFrontendPort === 443 && !spec.appgwSslCertificate) {
+      throw new Error('Port 443 requires an SSL certificate to be specified');
     }
   }
 
