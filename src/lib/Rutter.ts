@@ -1665,6 +1665,9 @@ export class Rutter {
   }
 
   addAzureDiskStorageClass(spec: AzureDiskStorageClassSpec) {
+    // Validate numeric parameters to prevent runtime errors
+    this.validateAzureDiskNumericParameters(spec);
+
     const parameters = this.buildAzureDiskParameters(spec);
 
     const sc = new ApiObject(this.chart, spec.name, {
@@ -1758,6 +1761,56 @@ export class Rutter {
     }
     if (spec.enableBursting !== undefined) {
       parameters['enableBursting'] = String(spec.enableBursting);
+    }
+  }
+
+  private validateAzureDiskNumericParameters(spec: AzureDiskStorageClassSpec): void {
+    this.validateAzureDiskIOPS(spec);
+    this.validateAzureDiskThroughput(spec);
+    this.validateAzureDiskShares(spec);
+    this.validateAzureDiskSectorSize(spec);
+  }
+
+  private validateAzureDiskIOPS(spec: AzureDiskStorageClassSpec): void {
+    if (spec.diskIOPSReadWrite === undefined) return;
+
+    if (spec.diskIOPSReadWrite < 100) {
+      throw new Error(`Azure Disk ${spec.name}: diskIOPSReadWrite must be at least 100 IOPS`);
+    }
+    if (spec.diskIOPSReadWrite > 400000) {
+      throw new Error(`Azure Disk ${spec.name}: diskIOPSReadWrite cannot exceed 400,000 IOPS`);
+    }
+  }
+
+  private validateAzureDiskThroughput(spec: AzureDiskStorageClassSpec): void {
+    if (spec.diskMBpsReadWrite === undefined) return;
+
+    if (spec.diskMBpsReadWrite < 1) {
+      throw new Error(`Azure Disk ${spec.name}: diskMBpsReadWrite must be at least 1 MB/s`);
+    }
+    if (spec.diskMBpsReadWrite > 10000) {
+      throw new Error(`Azure Disk ${spec.name}: diskMBpsReadWrite cannot exceed 10,000 MB/s`);
+    }
+  }
+
+  private validateAzureDiskShares(spec: AzureDiskStorageClassSpec): void {
+    if (spec.maxShares === undefined) return;
+
+    if (spec.maxShares < 1) {
+      throw new Error(`Azure Disk ${spec.name}: maxShares must be at least 1`);
+    }
+    if (spec.maxShares > 5) {
+      throw new Error(`Azure Disk ${spec.name}: maxShares cannot exceed 5`);
+    }
+  }
+
+  private validateAzureDiskSectorSize(spec: AzureDiskStorageClassSpec): void {
+    if (spec.logicalSectorSize === undefined) return;
+
+    if (spec.logicalSectorSize !== 512 && spec.logicalSectorSize !== 4096) {
+      throw new Error(
+        `Azure Disk ${spec.name}: logicalSectorSize must be either 512 or 4096 bytes`,
+      );
     }
   }
 
