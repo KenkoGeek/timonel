@@ -16,6 +16,6 @@
     "game"
   ],
   "dependencies": {
-    "timonel": "^0.4.0"
+    "timonel": "^1.0.0"
   }
 }
