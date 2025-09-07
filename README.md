@@ -315,9 +315,13 @@ shared values, and multi-environment support.
   (`toString`, `float64`).
 - For numeric fields (ports, replicas), use literal values or template strings with proper casting.
 
-## AWS Multi-Cloud Support
+## Multi-Cloud Support
 
-Timonel provides comprehensive AWS-specific helpers for EKS deployments:
+Timonel provides comprehensive cloud-specific helpers for major Kubernetes platforms:
+
+### AWS Multi-Cloud Support
+
+Comprehensive AWS-specific helpers for EKS deployments:
 
 ### IRSA (IAM Roles for Service Accounts)
 
@@ -426,6 +430,47 @@ rutter.addAWSSecretProviderClass({
       objectAlias: 'cache-timeout',
     },
   ],
+});
+```
+
+### Azure Multi-Cloud Support
+
+Azure-specific helpers for AKS deployments:
+
+#### Azure Disk Storage Classes
+
+```typescript
+// Premium ZRS disk for production workloads
+rutter.addAzureDiskStorageClass({
+  name: 'azure-premium-zrs',
+  skuName: 'Premium_ZRS',
+  fsType: 'ext4',
+  cachingMode: 'ReadWrite',
+  allowVolumeExpansion: true,
+  volumeBindingMode: 'WaitForFirstConsumer',
+  tags: {
+    Environment: 'production',
+    Application: 'database',
+  },
+});
+
+// Standard SSD for cost-optimized workloads
+rutter.addAzureDiskStorageClass({
+  name: 'azure-standard-ssd',
+  skuName: 'StandardSSD_LRS',
+  fsType: 'ext4',
+  cachingMode: 'ReadOnly',
+});
+
+// Ultra SSD for high-performance workloads
+rutter.addAzureDiskStorageClass({
+  name: 'azure-ultra-ssd',
+  skuName: 'UltraSSD_LRS',
+  fsType: 'ext4',
+  cachingMode: 'None',
+  diskIOPSReadWrite: 2000,
+  diskMBpsReadWrite: 200,
+  logicalSectorSize: 4096,
 });
 ```
 
@@ -691,7 +736,8 @@ Provide `envValues` in the `Rutter` constructor to automatically create
 - ✅ Auto-scaling helpers (HPA, VPA, PodDisruptionBudget)
 - ✅ AWS multi-cloud support (EBS, EFS, ALB, IRSA, Secrets Manager, Parameter Store)
 - ✅ Custom manifest naming and file organization
-- Azure multi-cloud support (AKS-specific helpers)
+- ✅ Azure multi-cloud support (Azure Disk StorageClass)
+- Azure Application Gateway Ingress Controller (AGIC)
 - GCP multi-cloud support (GKE-specific helpers)
 - Richer CLI (resource generators, diff)
 - Template validation and testing utilities
