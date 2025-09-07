@@ -1,5 +1,6 @@
 {
   "name": "timonel",
+  "type": "module",
   "version": "0.4.0",
   "description": "Timonel: programmatic Helm chart generator using cdk8s (TypeScript)",
   "bin": {
@@ -36,6 +37,7 @@
     "deps:update": "pnpm update --latest",
     "md:lint": "markdownlint \"**/*.md\"",
     "md:fix": "markdownlint --fix \"**/*.md\"",
+    "test": "echo \"No tests specified\" && exit 0",
     "ci:check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm build",
     "release": "semantic-release",
     "release:dry": "semantic-release --dry-run",
