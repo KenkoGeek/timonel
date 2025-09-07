@@ -424,7 +424,7 @@ export interface PodDisruptionBudgetSpec {
   annotations?: Record<string, string>;
 }
 
-export interface AWSEBSStorageClassSpec {
+export interface AWSEBSStorageClassSpec extends CloudResourceTags {
   name: string;
   volumeType?: 'gp2' | 'gp3' | 'io1' | 'io2' | 'sc1' | 'st1';
   fsType?: 'ext4' | 'xfs';
@@ -516,7 +516,74 @@ export interface AWSSecretProviderClassSpec {
   annotations?: Record<string, string>;
 }
 
-export interface AWSALBIngressSpec {
+/**
+ * Configuration interface for Azure Disk StorageClass.
+ * Defines the parameters for creating an Azure Disk StorageClass in AKS.
+ *
+ * @see https://learn.microsoft.com/en-us/azure/aks/azure-csi-disk-storage-provision
+ */
+/**
+ * Cloud resource tags with basic validation.
+ * Provides a consistent interface for tagging resources across cloud providers.
+ */
+export interface CloudResourceTags {
+  /** Resource tags as key-value pairs */
+  tags?: Record<string, string>;
+}
+
+export interface AzureDiskStorageClassSpec extends CloudResourceTags {
+  /** Name of the StorageClass */
+  name: string;
+  /** Azure disk SKU to use */
+  skuName?:
+    | 'Standard_LRS'
+    | 'Premium_LRS'
+    | 'StandardSSD_LRS'
+    | 'PremiumV2_LRS'
+    | 'UltraSSD_LRS'
+    | 'Premium_ZRS'
+    | 'StandardSSD_ZRS';
+  /** File system type to use */
+  fsType?: 'ext4' | 'ext3' | 'ext2' | 'xfs' | 'btrfs' | 'ntfs';
+  /** Host caching mode */
+  cachingMode?: 'None' | 'ReadOnly' | 'ReadWrite';
+  /** Resource group where disks will be created */
+  resourceGroup?: string;
+  /** IOPS for the disk (UltraSSD_LRS only) */
+  diskIOPSReadWrite?: number;
+  /** Throughput in MB/s (UltraSSD_LRS only) */
+  diskMBpsReadWrite?: number;
+  /** Logical sector size in bytes */
+  logicalSectorSize?: 512 | 4096;
+  /** ID of the disk encryption set */
+  diskEncryptionSetID?: string;
+  /** Type of disk encryption */
+  diskEncryptionType?:
+    | 'EncryptionAtRestWithCustomerKey'
+    | 'EncryptionAtRestWithPlatformAndCustomerKeys';
+  /** Enable write accelerator */
+  writeAcceleratorEnabled?: boolean;
+  /** Network access policy for the disk */
+  networkAccessPolicy?: 'AllowAll' | 'DenyAll' | 'AllowPrivate';
+  /** ID of the disk access resource */
+  diskAccessID?: string;
+  /** Enable bursting (Premium SSD only) */
+  enableBursting?: boolean;
+  /** Maximum number of hosts that can attach to the disk simultaneously */
+  maxShares?: number;
+  /** Volume reclaim policy */
+  reclaimPolicy?: 'Delete' | 'Retain';
+  /** Allow volume expansion */
+  allowVolumeExpansion?: boolean;
+  /** Volume binding mode */
+  volumeBindingMode?: 'Immediate' | 'WaitForFirstConsumer';
+  /** Labels to apply to the StorageClass */
+  labels?: Record<string, string>;
+  /** Annotations to apply to the StorageClass */
+  annotations?: Record<string, string>;
+}
+
+export interface AWSALBIngressSpec extends CloudResourceTags {
   name: string;
   rules: IngressRule[];
   tls?: IngressTLS[];
@@ -534,7 +601,6 @@ export interface AWSALBIngressSpec {
   healthCheckTimeoutSeconds?: number;
   healthyThresholdCount?: number;
   unhealthyThresholdCount?: number;
-  tags?: Record<string, string>;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
 }
@@ -704,6 +770,10 @@ export class Rutter {
   private static readonly LABEL_INSTANCE = 'app.kubernetes.io/instance';
   private static readonly HELPER_NAME = 'timonel.name';
   private static readonly NETWORKING_API_VERSION = 'networking.k8s.io/v1';
+  private static readonly STORAGE_API_VERSION = 'storage.k8s.io/v1';
+  private static readonly AZURE_DISK_CSI_DRIVER = 'disk.csi.azure.com';
+  private static readonly AZURE_DISK_PROVISIONER_ANNOTATION =
+    'volume.beta.kubernetes.io/storage-provisioner';
 
   addDeployment(spec: DeploymentSpec) {
     const match = spec.matchLabels ?? {
@@ -1011,10 +1081,10 @@ export class Rutter {
     } else if (spec.cloudProvider === 'azure') {
       optimized.annotations = {
         ...optimized.annotations,
-        'volume.beta.kubernetes.io/storage-provisioner': 'disk.csi.azure.com',
+        [Rutter.AZURE_DISK_PROVISIONER_ANNOTATION]: Rutter.AZURE_DISK_CSI_DRIVER,
       };
       // Default to Premium_ZRS for multi-zone clusters
-      if (spec.source.csi?.driver === 'disk.csi.azure.com' && optimized.source.csi) {
+      if (spec.source.csi?.driver === Rutter.AZURE_DISK_CSI_DRIVER && optimized.source.csi) {
         optimized.source.csi.volumeAttributes = {
           skuName: 'Premium_ZRS',
           ...spec.source.csi.volumeAttributes,
@@ -1285,7 +1355,7 @@ export class Rutter {
     }
 
     const sc = new ApiObject(this.chart, spec.name, {
-      apiVersion: 'storage.k8s.io/v1',
+      apiVersion: Rutter.STORAGE_API_VERSION,
       kind: 'StorageClass',
       metadata: {
         name: spec.name,
@@ -1327,7 +1397,7 @@ export class Rutter {
 
   addAWSEFSStorageClass(spec: AWSEFSStorageClassSpec) {
     const sc = new ApiObject(this.chart, spec.name, {
-      apiVersion: 'storage.k8s.io/v1',
+      apiVersion: Rutter.STORAGE_API_VERSION,
       kind: 'StorageClass',
       metadata: {
         name: spec.name,
@@ -1520,9 +1590,7 @@ export class Rutter {
 
   private addTagsAnnotation(annotations: Record<string, string>, spec: AWSALBIngressSpec): void {
     if (spec.tags && Object.keys(spec.tags).length > 0) {
-      const tagString = Object.entries(spec.tags)
-        .map(([key, value]) => `${key}=${value}`)
-        .join(',');
+      const tagString = this.formatCloudResourceTags(spec.tags);
       annotations['alb.ingress.kubernetes.io/tags'] = tagString;
     }
   }
@@ -1598,6 +1666,180 @@ export class Rutter {
     });
     this.capture(spc, `${spec.name}-secretproviderclass`);
     return spc;
+  }
+
+  addAzureDiskStorageClass(spec: AzureDiskStorageClassSpec) {
+    // Validate numeric parameters to prevent runtime errors
+    this.validateAzureDiskNumericParameters(spec);
+
+    const parameters = this.buildAzureDiskParameters(spec);
+
+    const sc = new ApiObject(this.chart, spec.name, {
+      apiVersion: Rutter.STORAGE_API_VERSION,
+      kind: 'StorageClass',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      provisioner: Rutter.AZURE_DISK_CSI_DRIVER,
+      parameters,
+      reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
+      allowVolumeExpansion: spec.allowVolumeExpansion ?? true,
+      volumeBindingMode: spec.volumeBindingMode ?? 'WaitForFirstConsumer',
+    });
+    this.capture(sc, `${spec.name}-storageclass`);
+    return sc;
+  }
+
+  private buildAzureDiskParameters(spec: AzureDiskStorageClassSpec): Record<string, string> {
+    const parameters: Record<string, string> = {
+      skuName: spec.skuName ?? 'StandardSSD_LRS',
+      fsType: spec.fsType ?? 'ext4',
+      // Security best practices: default to private network access and encryption
+      networkAccessPolicy: spec.networkAccessPolicy ?? 'AllowPrivate',
+    };
+
+    this.addOptionalAzureDiskParameters(parameters, spec);
+    this.addAzureDiskEncryptionParameters(parameters, spec);
+    this.addAzureDiskPerformanceParameters(parameters, spec);
+
+    return parameters;
+  }
+
+  private addOptionalAzureDiskParameters(
+    parameters: Record<string, string>,
+    spec: AzureDiskStorageClassSpec,
+  ): void {
+    if (spec.cachingMode) {
+      parameters['cachingMode'] = spec.cachingMode;
+    }
+    if (spec.resourceGroup) {
+      parameters['resourceGroup'] = spec.resourceGroup;
+    }
+    if (spec.logicalSectorSize !== undefined) {
+      parameters['LogicalSectorSize'] = String(spec.logicalSectorSize);
+    }
+    if (spec.tags && Object.keys(spec.tags).length > 0) {
+      const tagString = this.formatCloudResourceTags(spec.tags);
+      parameters['tags'] = tagString;
+    }
+    // networkAccessPolicy is now set as default in buildAzureDiskParameters
+    if (spec.networkAccessPolicy && spec.networkAccessPolicy !== 'AllowPrivate') {
+      parameters['networkAccessPolicy'] = spec.networkAccessPolicy;
+    }
+    if (spec.diskAccessID) {
+      parameters['diskAccessID'] = spec.diskAccessID;
+    }
+    if (spec.maxShares !== undefined) {
+      parameters['maxShares'] = String(spec.maxShares);
+    }
+  }
+
+  private addAzureDiskEncryptionParameters(
+    parameters: Record<string, string>,
+    spec: AzureDiskStorageClassSpec,
+  ): void {
+    if (spec.diskEncryptionSetID) {
+      parameters['diskEncryptionSetID'] = spec.diskEncryptionSetID;
+    }
+    if (spec.diskEncryptionType) {
+      parameters['diskEncryptionType'] = spec.diskEncryptionType;
+    }
+  }
+
+  private addAzureDiskPerformanceParameters(
+    parameters: Record<string, string>,
+    spec: AzureDiskStorageClassSpec,
+  ): void {
+    if (spec.diskIOPSReadWrite !== undefined) {
+      parameters['DiskIOPSReadWrite'] = String(spec.diskIOPSReadWrite);
+    }
+    if (spec.diskMBpsReadWrite !== undefined) {
+      parameters['DiskMBpsReadWrite'] = String(spec.diskMBpsReadWrite);
+    }
+    if (spec.writeAcceleratorEnabled !== undefined) {
+      parameters['writeAcceleratorEnabled'] = String(spec.writeAcceleratorEnabled);
+    }
+    if (spec.enableBursting !== undefined) {
+      parameters['enableBursting'] = String(spec.enableBursting);
+    }
+  }
+
+  private validateAzureDiskNumericParameters(spec: AzureDiskStorageClassSpec): void {
+    this.validateAzureDiskIOPS(spec);
+    this.validateAzureDiskThroughput(spec);
+    this.validateAzureDiskShares(spec);
+    this.validateAzureDiskSectorSize(spec);
+  }
+
+  private validateAzureDiskIOPS(spec: AzureDiskStorageClassSpec): void {
+    if (spec.diskIOPSReadWrite === undefined) return;
+
+    if (spec.diskIOPSReadWrite < 100) {
+      throw new Error(`Azure Disk ${spec.name}: diskIOPSReadWrite must be at least 100 IOPS`);
+    }
+    if (spec.diskIOPSReadWrite > 400000) {
+      throw new Error(`Azure Disk ${spec.name}: diskIOPSReadWrite cannot exceed 400,000 IOPS`);
+    }
+  }
+
+  private validateAzureDiskThroughput(spec: AzureDiskStorageClassSpec): void {
+    if (spec.diskMBpsReadWrite === undefined) return;
+
+    if (spec.diskMBpsReadWrite < 1) {
+      throw new Error(`Azure Disk ${spec.name}: diskMBpsReadWrite must be at least 1 MB/s`);
+    }
+    if (spec.diskMBpsReadWrite > 10000) {
+      throw new Error(`Azure Disk ${spec.name}: diskMBpsReadWrite cannot exceed 10,000 MB/s`);
+    }
+  }
+
+  private validateAzureDiskShares(spec: AzureDiskStorageClassSpec): void {
+    if (spec.maxShares === undefined) return;
+
+    if (spec.maxShares < 1) {
+      throw new Error(`Azure Disk ${spec.name}: maxShares must be at least 1`);
+    }
+    if (spec.maxShares > 5) {
+      throw new Error(`Azure Disk ${spec.name}: maxShares cannot exceed 5`);
+    }
+  }
+
+  private validateAzureDiskSectorSize(spec: AzureDiskStorageClassSpec): void {
+    if (spec.logicalSectorSize === undefined) return;
+
+    if (spec.logicalSectorSize !== 512 && spec.logicalSectorSize !== 4096) {
+      throw new Error(
+        `Azure Disk ${spec.name}: logicalSectorSize must be either 512 or 4096 bytes`,
+      );
+    }
+  }
+
+  /**
+   * Format cloud resource tags for provider-specific string format.
+   * Provides basic validation and consistent formatting across cloud providers.
+   */
+  private formatCloudResourceTags(tags: Record<string, string>): string {
+    this.validateCloudResourceTags(tags);
+    return Object.entries(tags)
+      .map(([key, value]) => `${key}=${value}`)
+      .join(',');
+  }
+
+  /**
+   * Validate cloud resource tags with basic rules.
+   * Each cloud provider has specific validation, but these are common basics.
+   */
+  private validateCloudResourceTags(tags: Record<string, string>): void {
+    for (const [key, value] of Object.entries(tags)) {
+      if (!key || key.trim() === '') {
+        throw new Error('Tag key cannot be empty');
+      }
+      if (value === undefined || value === null) {
+        throw new Error(`Tag value for key '${key}' cannot be null or undefined`);
+      }
+    }
   }
 
   addNetworkPolicy(spec: NetworkPolicySpec) {
