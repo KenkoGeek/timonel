@@ -384,6 +384,38 @@ rutter.addAWSALBIngress({
   ],
 });
 
+// Network Security Policies
+// Deny all ingress traffic by default for security
+rutter.addDenyAllIngressNetworkPolicy('default-deny-ingress');
+
+// Allow WordPress to access MySQL
+rutter.addAllowFromPodsNetworkPolicy({
+  name: 'allow-wordpress-to-mysql',
+  targetPodSelector: { app: 'mysql-db' },
+  sourcePodSelector: { app: WORDPRESS_APP_NAME },
+  ports: [{ protocol: 'TCP', port: 3306 }],
+  labels: {
+    app: 'wordpress',
+    component: 'network-policy',
+  },
+});
+
+// Allow external traffic to WordPress (from ALB)
+rutter.addNetworkPolicy({
+  name: 'allow-external-to-wordpress',
+  podSelector: { matchLabels: { app: WORDPRESS_APP_NAME } },
+  policyTypes: ['Ingress'],
+  ingress: [
+    {
+      ports: [{ protocol: 'TCP', port: 80 }],
+    },
+  ],
+  labels: {
+    app: 'wordpress',
+    component: 'network-policy',
+  },
+});
+
 export default function run(outDir: string) {
   rutter.write(outDir);
 }

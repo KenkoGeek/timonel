@@ -555,6 +555,62 @@ export interface VerticalPodAutoscalerSpec {
   annotations?: Record<string, string>;
 }
 
+export interface NetworkPolicyPeer {
+  podSelector?: {
+    matchLabels?: Record<string, string>;
+    matchExpressions?: Array<{
+      key: string;
+      operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist';
+      values?: string[];
+    }>;
+  };
+  namespaceSelector?: {
+    matchLabels?: Record<string, string>;
+    matchExpressions?: Array<{
+      key: string;
+      operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist';
+      values?: string[];
+    }>;
+  };
+  ipBlock?: {
+    cidr: string;
+    except?: string[];
+  };
+}
+
+export interface NetworkPolicyPort {
+  protocol?: 'TCP' | 'UDP' | 'SCTP';
+  port?: number | string;
+  endPort?: number;
+}
+
+export interface NetworkPolicyIngressRule {
+  from?: NetworkPolicyPeer[];
+  ports?: NetworkPolicyPort[];
+}
+
+export interface NetworkPolicyEgressRule {
+  to?: NetworkPolicyPeer[];
+  ports?: NetworkPolicyPort[];
+}
+
+export interface NetworkPolicySpec {
+  name: string;
+  podSelector?: {
+    matchLabels?: Record<string, string>;
+    matchExpressions?: Array<{
+      key: string;
+      operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist';
+      values?: string[];
+    }>;
+  };
+  policyTypes?: Array<'Ingress' | 'Egress'>;
+  ingress?: NetworkPolicyIngressRule[];
+  egress?: NetworkPolicyEgressRule[];
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
 export interface RutterProps {
   meta: HelmChartMeta;
   defaultValues?: Record<string, unknown>;
@@ -647,6 +703,7 @@ export class Rutter {
   private static readonly LABEL_NAME = 'app.kubernetes.io/name';
   private static readonly LABEL_INSTANCE = 'app.kubernetes.io/instance';
   private static readonly HELPER_NAME = 'timonel.name';
+  private static readonly NETWORKING_API_VERSION = 'networking.k8s.io/v1';
 
   addDeployment(spec: DeploymentSpec) {
     const match = spec.matchLabels ?? {
@@ -838,7 +895,7 @@ export class Rutter {
 
   addIngress(spec: IngressSpec) {
     const ing = new ApiObject(this.chart, spec.name, {
-      apiVersion: 'networking.k8s.io/v1',
+      apiVersion: Rutter.NETWORKING_API_VERSION,
       kind: 'Ingress',
       metadata: {
         name: spec.name,
@@ -1365,7 +1422,7 @@ export class Rutter {
     const annotations = this.buildALBAnnotations(spec);
 
     const ingress = new ApiObject(this.chart, spec.name, {
-      apiVersion: 'networking.k8s.io/v1',
+      apiVersion: Rutter.NETWORKING_API_VERSION,
       kind: 'Ingress',
       metadata: {
         name: spec.name,
@@ -1541,6 +1598,113 @@ export class Rutter {
     });
     this.capture(spc, `${spec.name}-secretproviderclass`);
     return spc;
+  }
+
+  addNetworkPolicy(spec: NetworkPolicySpec) {
+    const np = new ApiObject(this.chart, spec.name, {
+      apiVersion: Rutter.NETWORKING_API_VERSION,
+      kind: 'NetworkPolicy',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        podSelector: spec.podSelector ?? {},
+        policyTypes: spec.policyTypes,
+        ...(spec.ingress ? { ingress: spec.ingress } : {}),
+        ...(spec.egress ? { egress: spec.egress } : {}),
+      },
+    });
+    this.capture(np, `${spec.name}-networkpolicy`);
+    return np;
+  }
+
+  private static readonly EMPTY_POD_SELECTOR = {};
+
+  /**
+   * Create a deny-all ingress NetworkPolicy for the current namespace
+   */
+  addDenyAllIngressNetworkPolicy(name = 'deny-all-ingress') {
+    return this.addNetworkPolicy({
+      name,
+      podSelector: Rutter.EMPTY_POD_SELECTOR,
+      policyTypes: ['Ingress'],
+    });
+  }
+
+  /**
+   * Create a deny-all egress NetworkPolicy for the current namespace
+   */
+  addDenyAllEgressNetworkPolicy(name = 'deny-all-egress') {
+    return this.addNetworkPolicy({
+      name,
+      podSelector: Rutter.EMPTY_POD_SELECTOR,
+      policyTypes: ['Egress'],
+    });
+  }
+
+  /**
+   * Create a deny-all NetworkPolicy for both ingress and egress
+   */
+  addDenyAllNetworkPolicy(name = 'deny-all') {
+    return this.addNetworkPolicy({
+      name,
+      podSelector: Rutter.EMPTY_POD_SELECTOR,
+      policyTypes: ['Ingress', 'Egress'],
+    });
+  }
+
+  /**
+   * Allow traffic from specific pods to target pods on specific ports
+   */
+  addAllowFromPodsNetworkPolicy(spec: {
+    name: string;
+    targetPodSelector: Record<string, string>;
+    sourcePodSelector: Record<string, string>;
+    ports?: NetworkPolicyPort[];
+    labels?: Record<string, string>;
+    annotations?: Record<string, string>;
+  }) {
+    return this.addNetworkPolicy({
+      name: spec.name,
+      podSelector: { matchLabels: spec.targetPodSelector },
+      policyTypes: ['Ingress'],
+      ingress: [
+        {
+          from: [{ podSelector: { matchLabels: spec.sourcePodSelector } }],
+          ...(spec.ports ? { ports: spec.ports } : {}),
+        },
+      ],
+      ...(spec.labels ? { labels: spec.labels } : {}),
+      ...(spec.annotations ? { annotations: spec.annotations } : {}),
+    });
+  }
+
+  /**
+   * Allow traffic from specific namespace to target pods
+   */
+  addAllowFromNamespaceNetworkPolicy(spec: {
+    name: string;
+    targetPodSelector: Record<string, string>;
+    sourceNamespaceSelector: Record<string, string>;
+    ports?: NetworkPolicyPort[];
+    labels?: Record<string, string>;
+    annotations?: Record<string, string>;
+  }) {
+    return this.addNetworkPolicy({
+      name: spec.name,
+      podSelector: { matchLabels: spec.targetPodSelector },
+      policyTypes: ['Ingress'],
+      ingress: [
+        {
+          from: [{ namespaceSelector: { matchLabels: spec.sourceNamespaceSelector } }],
+          ...(spec.ports ? { ports: spec.ports } : {}),
+        },
+      ],
+      ...(spec.labels ? { labels: spec.labels } : {}),
+      ...(spec.annotations ? { annotations: spec.annotations } : {}),
+    });
   }
 
   /**
