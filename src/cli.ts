@@ -109,7 +109,7 @@ async function cmdValidate(projectDir?: string, silent = false) {
     process.exit(1);
   } finally {
     // Cleanup temp directory
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
@@ -197,7 +197,7 @@ async function cmdDiff(projectDir?: string, chartDir?: string, silent = false) {
     }
   } finally {
     // Cleanup temp directory
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
@@ -254,7 +254,7 @@ async function cmdDeploy(projectDir?: string, releaseName?: string, flags?: CliF
     log(`✓ ${action === 'install' ? 'Deployed' : 'Updated'} release ${releaseName}`, flags?.silent);
   } finally {
     // Cleanup temp directory
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
@@ -318,13 +318,12 @@ async function cmdUmbrellaAdd(subchartName?: string, silent = false) {
   if (!subchartName) usageAndExit(MISSING_SUBCHART_MSG);
 
   const configFile = path.join(process.cwd(), UMBRELLA_CONFIG_FILE);
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+
   if (!fs.existsSync(configFile)) {
     console.error(`${UMBRELLA_CONFIG_FILE} not found. Run \`tl umbrella init\` first.`);
     process.exit(1);
   }
 
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
 
   // Create subchart directory and scaffold
@@ -343,7 +342,6 @@ async function cmdUmbrellaAdd(subchartName?: string, silent = false) {
     path: `./charts/${subchartName}/chart.ts`,
   });
 
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
 
   log(`Subchart ${subchartName} added to umbrella`, silent);
@@ -351,14 +349,14 @@ async function cmdUmbrellaAdd(subchartName?: string, silent = false) {
 
 async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
   const configFile = path.join(process.cwd(), UMBRELLA_CONFIG_FILE);
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+
   if (!fs.existsSync(configFile)) {
     console.error(`${UMBRELLA_CONFIG_FILE} not found. Run \`tl umbrella init\` first.`);
     process.exit(1);
   }
 
   const umbrellaFile = path.join(process.cwd(), 'umbrella.ts');
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+
   if (!fs.existsSync(umbrellaFile)) {
     console.error('umbrella.ts not found.');
     process.exit(1);
@@ -381,7 +379,6 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
     process.exit(1);
   }
 
-  // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
   const mod = require(resolvedPath);
   const runner = mod.default || mod.run || mod.synth;
   if (typeof runner !== 'function') {
@@ -637,10 +634,8 @@ function parseArgs(): { cmd: string; args: string[]; flags: CliFlags } {
 }
 
 function showVersion() {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI needs to read package.json
   const packagePath = path.join(__dirname, '..', 'package.json');
   try {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI needs to read package.json
     const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
     console.log(`timonel v${packageJson.version}`);
   } catch {
