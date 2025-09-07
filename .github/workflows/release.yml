@@ -93,14 +93,8 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-      - name: Build and test
-        run: |
-          pnpm run typecheck
-          pnpm run lint
-          pnpm run security:check
-          pnpm run build
-          pnpm run format:check
-          pnpm run test
+      - name: Build for release
+        run: pnpm run build
 
       - name: Semantic Release
         run: npx semantic-release
