@@ -516,6 +516,39 @@ export interface AWSSecretProviderClassSpec {
   annotations?: Record<string, string>;
 }
 
+export interface AzureDiskStorageClassSpec {
+  name: string;
+  skuName?:
+    | 'Standard_LRS'
+    | 'Premium_LRS'
+    | 'StandardSSD_LRS'
+    | 'PremiumV2_LRS'
+    | 'UltraSSD_LRS'
+    | 'Premium_ZRS'
+    | 'StandardSSD_ZRS';
+  fsType?: 'ext4' | 'ext3' | 'ext2' | 'xfs' | 'btrfs' | 'ntfs';
+  cachingMode?: 'None' | 'ReadOnly' | 'ReadWrite';
+  resourceGroup?: string;
+  diskIOPSReadWrite?: number;
+  diskMBpsReadWrite?: number;
+  logicalSectorSize?: 512 | 4096;
+  tags?: Record<string, string>;
+  diskEncryptionSetID?: string;
+  diskEncryptionType?:
+    | 'EncryptionAtRestWithCustomerKey'
+    | 'EncryptionAtRestWithPlatformAndCustomerKeys';
+  writeAcceleratorEnabled?: boolean;
+  networkAccessPolicy?: 'AllowAll' | 'DenyAll' | 'AllowPrivate';
+  diskAccessID?: string;
+  enableBursting?: boolean;
+  maxShares?: number;
+  reclaimPolicy?: 'Delete' | 'Retain';
+  allowVolumeExpansion?: boolean;
+  volumeBindingMode?: 'Immediate' | 'WaitForFirstConsumer';
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
 export interface AWSALBIngressSpec {
   name: string;
   rules: IngressRule[];
@@ -704,6 +737,10 @@ export class Rutter {
   private static readonly LABEL_INSTANCE = 'app.kubernetes.io/instance';
   private static readonly HELPER_NAME = 'timonel.name';
   private static readonly NETWORKING_API_VERSION = 'networking.k8s.io/v1';
+  private static readonly STORAGE_API_VERSION = 'storage.k8s.io/v1';
+  private static readonly AZURE_DISK_CSI_DRIVER = 'disk.csi.azure.com';
+  private static readonly AZURE_DISK_PROVISIONER_ANNOTATION =
+    'volume.beta.kubernetes.io/storage-provisioner';
 
   addDeployment(spec: DeploymentSpec) {
     const match = spec.matchLabels ?? {
@@ -1011,10 +1048,10 @@ export class Rutter {
     } else if (spec.cloudProvider === 'azure') {
       optimized.annotations = {
         ...optimized.annotations,
-        'volume.beta.kubernetes.io/storage-provisioner': 'disk.csi.azure.com',
+        [Rutter.AZURE_DISK_PROVISIONER_ANNOTATION]: Rutter.AZURE_DISK_CSI_DRIVER,
       };
       // Default to Premium_ZRS for multi-zone clusters
-      if (spec.source.csi?.driver === 'disk.csi.azure.com' && optimized.source.csi) {
+      if (spec.source.csi?.driver === Rutter.AZURE_DISK_CSI_DRIVER && optimized.source.csi) {
         optimized.source.csi.volumeAttributes = {
           skuName: 'Premium_ZRS',
           ...spec.source.csi.volumeAttributes,
@@ -1285,7 +1322,7 @@ export class Rutter {
     }
 
     const sc = new ApiObject(this.chart, spec.name, {
-      apiVersion: 'storage.k8s.io/v1',
+      apiVersion: Rutter.STORAGE_API_VERSION,
       kind: 'StorageClass',
       metadata: {
         name: spec.name,
@@ -1327,7 +1364,7 @@ export class Rutter {
 
   addAWSEFSStorageClass(spec: AWSEFSStorageClassSpec) {
     const sc = new ApiObject(this.chart, spec.name, {
-      apiVersion: 'storage.k8s.io/v1',
+      apiVersion: Rutter.STORAGE_API_VERSION,
       kind: 'StorageClass',
       metadata: {
         name: spec.name,
@@ -1598,6 +1635,100 @@ export class Rutter {
     });
     this.capture(spc, `${spec.name}-secretproviderclass`);
     return spc;
+  }
+
+  addAzureDiskStorageClass(spec: AzureDiskStorageClassSpec) {
+    const parameters = this.buildAzureDiskParameters(spec);
+
+    const sc = new ApiObject(this.chart, spec.name, {
+      apiVersion: Rutter.STORAGE_API_VERSION,
+      kind: 'StorageClass',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      provisioner: Rutter.AZURE_DISK_CSI_DRIVER,
+      parameters,
+      reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
+      allowVolumeExpansion: spec.allowVolumeExpansion ?? true,
+      volumeBindingMode: spec.volumeBindingMode ?? 'WaitForFirstConsumer',
+    });
+    this.capture(sc, `${spec.name}-storageclass`);
+    return sc;
+  }
+
+  private buildAzureDiskParameters(spec: AzureDiskStorageClassSpec): Record<string, string> {
+    const parameters: Record<string, string> = {
+      skuName: spec.skuName ?? 'StandardSSD_LRS',
+      fsType: spec.fsType ?? 'ext4',
+    };
+
+    this.addOptionalAzureDiskParameters(parameters, spec);
+    this.addAzureDiskEncryptionParameters(parameters, spec);
+    this.addAzureDiskPerformanceParameters(parameters, spec);
+
+    return parameters;
+  }
+
+  private addOptionalAzureDiskParameters(
+    parameters: Record<string, string>,
+    spec: AzureDiskStorageClassSpec,
+  ): void {
+    if (spec.cachingMode) {
+      parameters['cachingMode'] = spec.cachingMode;
+    }
+    if (spec.resourceGroup) {
+      parameters['resourceGroup'] = spec.resourceGroup;
+    }
+    if (spec.logicalSectorSize !== undefined) {
+      parameters['LogicalSectorSize'] = String(spec.logicalSectorSize);
+    }
+    if (spec.tags && Object.keys(spec.tags).length > 0) {
+      const tagString = Object.entries(spec.tags)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(',');
+      parameters['tags'] = tagString;
+    }
+    if (spec.networkAccessPolicy) {
+      parameters['networkAccessPolicy'] = spec.networkAccessPolicy;
+    }
+    if (spec.diskAccessID) {
+      parameters['diskAccessID'] = spec.diskAccessID;
+    }
+    if (spec.maxShares !== undefined) {
+      parameters['maxShares'] = String(spec.maxShares);
+    }
+  }
+
+  private addAzureDiskEncryptionParameters(
+    parameters: Record<string, string>,
+    spec: AzureDiskStorageClassSpec,
+  ): void {
+    if (spec.diskEncryptionSetID) {
+      parameters['diskEncryptionSetID'] = spec.diskEncryptionSetID;
+    }
+    if (spec.diskEncryptionType) {
+      parameters['diskEncryptionType'] = spec.diskEncryptionType;
+    }
+  }
+
+  private addAzureDiskPerformanceParameters(
+    parameters: Record<string, string>,
+    spec: AzureDiskStorageClassSpec,
+  ): void {
+    if (spec.diskIOPSReadWrite !== undefined) {
+      parameters['DiskIOPSReadWrite'] = String(spec.diskIOPSReadWrite);
+    }
+    if (spec.diskMBpsReadWrite !== undefined) {
+      parameters['DiskMBpsReadWrite'] = String(spec.diskMBpsReadWrite);
+    }
+    if (spec.writeAcceleratorEnabled !== undefined) {
+      parameters['writeAcceleratorEnabled'] = String(spec.writeAcceleratorEnabled);
+    }
+    if (spec.enableBursting !== undefined) {
+      parameters['enableBursting'] = String(spec.enableBursting);
+    }
   }
 
   addNetworkPolicy(spec: NetworkPolicySpec) {
