@@ -39,7 +39,7 @@ jobs:
             const requiredChecks = [
               'build (20)',
               'build (22)',
-              'Code scanning results / CodeQL'
+              'security'
             ];
             const failedChecks = [];
 
