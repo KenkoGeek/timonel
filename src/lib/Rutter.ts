@@ -605,6 +605,73 @@ export interface AWSALBIngressSpec extends CloudResourceTags {
   annotations?: Record<string, string>;
 }
 
+/**
+ * Configuration interface for Azure Application Gateway Ingress Controller (AGIC).
+ * Provides comprehensive support for AGIC annotations and features for AKS deployments.
+ *
+ * @see https://learn.microsoft.com/en-us/azure/application-gateway/ingress-controller-annotations
+ */
+export interface AzureAGICIngressSpec {
+  /** Name of the Ingress resource */
+  name: string;
+  /** Ingress rules defining routing configuration */
+  rules: IngressRule[];
+  /** TLS configuration for HTTPS termination */
+  tls?: IngressTLS[];
+  /** Backend path prefix to rewrite request paths */
+  backendPathPrefix?: string;
+  /** Backend hostname for Application Gateway to use when communicating with pods */
+  backendHostname?: string;
+  /** Backend protocol (http or https) */
+  backendProtocol?: 'http' | 'https';
+  /** Enable SSL redirect from HTTP to HTTPS */
+  sslRedirect?: boolean;
+  /** Use private IP address of Application Gateway */
+  usePrivateIp?: boolean;
+  /** Override frontend port (default: 80 for HTTP, 443 for HTTPS) */
+  overrideFrontendPort?: number;
+  /** Enable cookie-based session affinity */
+  cookieBasedAffinity?: boolean;
+  /** Request timeout in seconds */
+  requestTimeout?: number;
+  /** Enable connection draining */
+  connectionDraining?: boolean;
+  /** Connection draining timeout in seconds */
+  connectionDrainingTimeout?: number;
+  /** Custom health probe hostname */
+  healthProbeHostname?: string;
+  /** Custom health probe port */
+  healthProbePort?: number;
+  /** Custom health probe path */
+  healthProbePath?: string;
+  /** Accepted HTTP status codes for health probe */
+  healthProbeStatusCodes?: string;
+  /** Health probe interval in seconds */
+  healthProbeInterval?: number;
+  /** Health probe timeout in seconds */
+  healthProbeTimeout?: number;
+  /** Health probe unhealthy threshold */
+  healthProbeUnhealthyThreshold?: number;
+  /** Additional hostnames for multisite listener */
+  hostnameExtension?: string[];
+  /** WAF policy resource ID for path-based protection */
+  wafPolicyForPath?: string;
+  /** Application Gateway SSL certificate name */
+  appgwSslCertificate?: string;
+  /** Application Gateway SSL profile name */
+  appgwSslProfile?: string;
+  /** Trusted root certificate names for end-to-end SSL */
+  appgwTrustedRootCertificate?: string[];
+  /** Rewrite rule set name */
+  rewriteRuleSet?: string;
+  /** Rule priority for request routing */
+  rulePriority?: number;
+  /** Labels to apply to the Ingress */
+  labels?: Record<string, string>;
+  /** Additional annotations to apply to the Ingress */
+  annotations?: Record<string, string>;
+}
+
 export interface VerticalPodAutoscalerSpec {
   name: string;
   targetRef: {
@@ -1592,6 +1659,197 @@ export class Rutter {
     if (spec.tags && Object.keys(spec.tags).length > 0) {
       const tagString = this.formatCloudResourceTags(spec.tags);
       annotations['alb.ingress.kubernetes.io/tags'] = tagString;
+    }
+  }
+
+  /**
+   * Add Azure Application Gateway Ingress Controller (AGIC) Ingress.
+   * Creates an Ingress resource with AGIC-specific annotations for AKS deployments.
+   *
+   * @param spec - AGIC Ingress specification
+   * @returns The created Ingress ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addAzureAGICIngress({
+   *   name: 'app-ingress',
+   *   rules: [{
+   *     host: 'app.example.com',
+   *     paths: [{
+   *       path: '/',
+   *       pathType: 'Prefix',
+   *       backend: { service: { name: 'app-service', port: { number: 80 } } }
+   *     }]
+   *   }],
+   *   sslRedirect: true,
+   *   backendProtocol: 'https',
+   *   healthProbePath: '/health'
+   * });
+   * ```
+   */
+  addAzureAGICIngress(spec: AzureAGICIngressSpec) {
+    const annotations = this.buildAGICAnnotations(spec);
+
+    const ingress = new ApiObject(this.chart, spec.name, {
+      apiVersion: Rutter.NETWORKING_API_VERSION,
+      kind: 'Ingress',
+      metadata: {
+        name: spec.name,
+        annotations,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+      },
+      spec: {
+        tls: spec.tls,
+        rules: spec.rules.map((rule) => ({
+          host: rule.host,
+          http: {
+            paths: rule.paths.map((path) => ({
+              path: path.path,
+              pathType: path.pathType,
+              backend: path.backend,
+            })),
+          },
+        })),
+      },
+    });
+    this.capture(ingress, `${spec.name}-ingress`);
+    return ingress;
+  }
+
+  private buildAGICAnnotations(spec: AzureAGICIngressSpec): Record<string, string> {
+    const annotations: Record<string, string> = {
+      'kubernetes.io/ingress.class': 'azure/application-gateway',
+      ...(spec.annotations ?? {}),
+    };
+
+    this.addAGICPathAnnotations(annotations, spec);
+    this.addAGICProtocolAnnotations(annotations, spec);
+    this.addAGICHealthProbeAnnotations(annotations, spec);
+    this.addAGICConnectionAnnotations(annotations, spec);
+    this.addAGICSecurityAnnotations(annotations, spec);
+    this.addAGICAdvancedAnnotations(annotations, spec);
+
+    return annotations;
+  }
+
+  private addAGICPathAnnotations(
+    annotations: Record<string, string>,
+    spec: AzureAGICIngressSpec,
+  ): void {
+    if (spec.backendPathPrefix) {
+      annotations['appgw.ingress.kubernetes.io/backend-path-prefix'] = spec.backendPathPrefix;
+    }
+    if (spec.backendHostname) {
+      annotations['appgw.ingress.kubernetes.io/backend-hostname'] = spec.backendHostname;
+    }
+  }
+
+  private addAGICProtocolAnnotations(
+    annotations: Record<string, string>,
+    spec: AzureAGICIngressSpec,
+  ): void {
+    if (spec.backendProtocol) {
+      annotations['appgw.ingress.kubernetes.io/backend-protocol'] = spec.backendProtocol;
+    }
+    if (spec.sslRedirect) {
+      annotations['appgw.ingress.kubernetes.io/ssl-redirect'] = 'true';
+    }
+    if (spec.usePrivateIp) {
+      annotations['appgw.ingress.kubernetes.io/use-private-ip'] = 'true';
+    }
+    if (spec.overrideFrontendPort !== undefined) {
+      annotations['appgw.ingress.kubernetes.io/override-frontend-port'] = String(
+        spec.overrideFrontendPort,
+      );
+    }
+  }
+
+  private addAGICHealthProbeAnnotations(
+    annotations: Record<string, string>,
+    spec: AzureAGICIngressSpec,
+  ): void {
+    if (spec.healthProbeHostname) {
+      annotations['appgw.ingress.kubernetes.io/health-probe-hostname'] = spec.healthProbeHostname;
+    }
+    if (spec.healthProbePort !== undefined) {
+      annotations['appgw.ingress.kubernetes.io/health-probe-port'] = String(spec.healthProbePort);
+    }
+    if (spec.healthProbePath) {
+      annotations['appgw.ingress.kubernetes.io/health-probe-path'] = spec.healthProbePath;
+    }
+    if (spec.healthProbeStatusCodes) {
+      annotations['appgw.ingress.kubernetes.io/health-probe-status-codes'] =
+        spec.healthProbeStatusCodes;
+    }
+    if (spec.healthProbeInterval !== undefined) {
+      annotations['appgw.ingress.kubernetes.io/health-probe-interval'] = String(
+        spec.healthProbeInterval,
+      );
+    }
+    if (spec.healthProbeTimeout !== undefined) {
+      annotations['appgw.ingress.kubernetes.io/health-probe-timeout'] = String(
+        spec.healthProbeTimeout,
+      );
+    }
+    if (spec.healthProbeUnhealthyThreshold !== undefined) {
+      annotations['appgw.ingress.kubernetes.io/health-probe-unhealthy-threshold'] = String(
+        spec.healthProbeUnhealthyThreshold,
+      );
+    }
+  }
+
+  private addAGICConnectionAnnotations(
+    annotations: Record<string, string>,
+    spec: AzureAGICIngressSpec,
+  ): void {
+    if (spec.cookieBasedAffinity) {
+      annotations['appgw.ingress.kubernetes.io/cookie-based-affinity'] = 'true';
+    }
+    if (spec.requestTimeout !== undefined) {
+      annotations['appgw.ingress.kubernetes.io/request-timeout'] = String(spec.requestTimeout);
+    }
+    if (spec.connectionDraining) {
+      annotations['appgw.ingress.kubernetes.io/connection-draining'] = 'true';
+    }
+    if (spec.connectionDrainingTimeout !== undefined) {
+      annotations['appgw.ingress.kubernetes.io/connection-draining-timeout'] = String(
+        spec.connectionDrainingTimeout,
+      );
+    }
+  }
+
+  private addAGICSecurityAnnotations(
+    annotations: Record<string, string>,
+    spec: AzureAGICIngressSpec,
+  ): void {
+    if (spec.appgwSslCertificate) {
+      annotations['appgw.ingress.kubernetes.io/appgw-ssl-certificate'] = spec.appgwSslCertificate;
+    }
+    if (spec.appgwSslProfile) {
+      annotations['appgw.ingress.kubernetes.io/appgw-ssl-profile'] = spec.appgwSslProfile;
+    }
+    if (spec.appgwTrustedRootCertificate && spec.appgwTrustedRootCertificate.length > 0) {
+      annotations['appgw.ingress.kubernetes.io/appgw-trusted-root-certificate'] =
+        spec.appgwTrustedRootCertificate.join(',');
+    }
+    if (spec.wafPolicyForPath) {
+      annotations['appgw.ingress.kubernetes.io/waf-policy-for-path'] = spec.wafPolicyForPath;
+    }
+  }
+
+  private addAGICAdvancedAnnotations(
+    annotations: Record<string, string>,
+    spec: AzureAGICIngressSpec,
+  ): void {
+    if (spec.hostnameExtension && spec.hostnameExtension.length > 0) {
+      annotations['appgw.ingress.kubernetes.io/hostname-extension'] =
+        spec.hostnameExtension.join(', ');
+    }
+    if (spec.rewriteRuleSet) {
+      annotations['appgw.ingress.kubernetes.io/rewrite-rule-set'] = spec.rewriteRuleSet;
+    }
+    if (spec.rulePriority !== undefined) {
+      annotations['appgw.ingress.kubernetes.io/rule-priority'] = String(spec.rulePriority);
     }
   }
 
