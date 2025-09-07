@@ -3,3 +3,5 @@ node_modules/
 dist/
 coverage/
 .git/
+CHANGELOG.md
+examples/node_modules/
