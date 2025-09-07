@@ -188,7 +188,6 @@ function splitDocs(yamlStr: string): string[] {
 }
 
 function writeAssets(outDir: string, assets: SynthAsset[]) {
-  let counter = 0;
   for (const asset of assets) {
     if (asset.singleFile) {
       // Write as a single file without splitting documents
@@ -199,16 +198,26 @@ function writeAssets(outDir: string, assets: SynthAsset[]) {
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
       fs.writeFileSync(path.join(outDir, dir, filename), asset.yaml + '\n');
     } else {
-      // Split documents and create numbered files (default behavior)
+      // Split documents and create descriptive files following Helm best practices
       const parts = splitDocs(asset.yaml);
-      for (const doc of parts) {
-        const filename = `${String(counter).padStart(4, '0')}-${asset.id}.yaml`;
+      if (parts.length === 1) {
+        // Single document: use asset id as filename
+        const filename = `${asset.id}.yaml`;
         const dir = asset.target === 'crds' ? 'crds' : 'templates';
         // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
         fs.mkdirSync(path.join(outDir, dir), { recursive: true });
         // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-        fs.writeFileSync(path.join(outDir, dir, filename), doc + '\n');
-        counter++;
+        fs.writeFileSync(path.join(outDir, dir, filename), parts[0] + '\n');
+      } else {
+        // Multiple documents: append index to asset id for uniqueness
+        parts.forEach((doc, index) => {
+          const filename = `${asset.id}-${index + 1}.yaml`;
+          const dir = asset.target === 'crds' ? 'crds' : 'templates';
+          // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+          fs.mkdirSync(path.join(outDir, dir), { recursive: true });
+          // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+          fs.writeFileSync(path.join(outDir, dir, filename), doc + '\n');
+        });
       }
     }
   }

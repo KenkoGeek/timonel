@@ -210,9 +210,9 @@ const rutter = new Rutter({
 });
 
 // Generates:
-// templates/0000-my-app-deployment-web.yaml
-// templates/0001-my-app-service-web.yaml
-// templates/0002-my-app-configmap-config.yaml
+// templates/my-app-deployment-web.yaml
+// templates/my-app-service-web.yaml
+// templates/my-app-configmap-config.yaml
 ```
 
 #### Default Behavior
@@ -224,9 +224,9 @@ const rutter = new Rutter({
 });
 
 // Generates:
-// templates/0000-deployment-web.yaml
-// templates/0001-service-web.yaml
-// templates/0002-configmap-config.yaml
+// templates/deployment-web.yaml
+// templates/service-web.yaml
+// templates/configmap-config.yaml
 ```
 
 ## Umbrella Charts
