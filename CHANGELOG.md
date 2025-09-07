@@ -1,3 +1,36 @@
+# [1.0.0](https://github.com/KenkoGeek/timonel/compare/v0.4.0...v1.0.0) (2025-09-07)
+
+
+### Bug Fixes
+
+* **ci:** configure GitHub App token for semantic-release bypass - Use RELEASE_TOKEN from npm-prd environment for checkout and semantic-release ([0d385d1](https://github.com/KenkoGeek/timonel/commit/0d385d1084a45de3ab731094e87196239811e6fb))
+* **ci:** disable body-max-line-length for semantic-release compatibility  - Set body-max-line-length to 0 (disabled) to allow long changelog entries - Fixes semantic-release commit validation failures - Maintains other commitlint rules for developer commits ([b215f65](https://github.com/KenkoGeek/timonel/commit/b215f65bccb69a1cfca79084e6a9c96954fb478a))
+* **ci:** disable footer line length limit for semantic-release commits ([d5ae4dc](https://github.com/KenkoGeek/timonel/commit/d5ae4dc83e68f8fade4a8289d1ce4e2bae5046dd))
+* **ci:** disable footer-leading-blank for semantic-release compatibility  - Set footer-leading-blank to 0 (disabled) to allow semantic-release footer format ([2f8c6c8](https://github.com/KenkoGeek/timonel/commit/2f8c6c863c6aabd1d3f3d8022b43fefecb02f010))
+* **ci:** replace CodeQL with security check in release validation ([#15](https://github.com/KenkoGeek/timonel/issues/15)) ([b8cecea](https://github.com/KenkoGeek/timonel/commit/b8cecea1eaf0bb6af3e6fd2f6bc38c2fb2c09f4d))
+* **ci:** resolve release workflow issues ([#16](https://github.com/KenkoGeek/timonel/issues/16)) ([ed5dc9b](https://github.com/KenkoGeek/timonel/commit/ed5dc9b3d86b531d4495d4d05dd913340333322c))
+
+
+### Features
+
+* add manual release workflow with GitHub Actions ([1035b2e](https://github.com/KenkoGeek/timonel/commit/1035b2e18fbb808e57438353c865ecd129d9e04d))
+* add NetworkPolicy helpers for Zero Trust network security ([#13](https://github.com/KenkoGeek/timonel/issues/13)) ([cee3b58](https://github.com/KenkoGeek/timonel/commit/cee3b5876de839ca3cf16dd6ca6e3b76626392ce))
+* **ci:** add required status checks validation to release workflow ([#14](https://github.com/KenkoGeek/timonel/issues/14)) ([7f8665f](https://github.com/KenkoGeek/timonel/commit/7f8665fa908215cc92a4dbefb7fec00de98464bb))
+* **ci:** implement automated semantic release with conventional commits ([02ce189](https://github.com/KenkoGeek/timonel/commit/02ce18943efd8019168b5f9af29be0140a9e1524))
+* **ci:** implement automated semantic release with conventional commits ([bb94fda](https://github.com/KenkoGeek/timonel/commit/bb94fda3e80bf3e010e7b53bdd1794f88060408a))
+* **core:** add NetworkPolicy helpers for Zero Trust network security ([34ac6bd](https://github.com/KenkoGeek/timonel/commit/34ac6bda3956e5fe326b72e9831bd4bb8bc660da))
+
+
+### Performance Improvements
+
+* **ci:** homogenize CI/CD workflows and optimize release pipeline ([#17](https://github.com/KenkoGeek/timonel/issues/17)) ([4622d11](https://github.com/KenkoGeek/timonel/commit/4622d113e5753a5ff69c82a1e3784ecf61c34689))
+
+
+### BREAKING CHANGES
+
+* **ci:** ESLint configuration migrated to flat config format
+* **ci:** ESLint configuration migrated to flat config format
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
