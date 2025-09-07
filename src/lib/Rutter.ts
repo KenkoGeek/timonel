@@ -555,6 +555,62 @@ export interface VerticalPodAutoscalerSpec {
   annotations?: Record<string, string>;
 }
 
+export interface NetworkPolicyPeer {
+  podSelector?: {
+    matchLabels?: Record<string, string>;
+    matchExpressions?: Array<{
+      key: string;
+      operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist';
+      values?: string[];
+    }>;
+  };
+  namespaceSelector?: {
+    matchLabels?: Record<string, string>;
+    matchExpressions?: Array<{
+      key: string;
+      operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist';
+      values?: string[];
+    }>;
+  };
+  ipBlock?: {
+    cidr: string;
+    except?: string[];
+  };
+}
+
+export interface NetworkPolicyPort {
+  protocol?: 'TCP' | 'UDP' | 'SCTP';
+  port?: number | string;
+  endPort?: number;
+}
+
+export interface NetworkPolicyIngressRule {
+  from?: NetworkPolicyPeer[];
+  ports?: NetworkPolicyPort[];
+}
+
+export interface NetworkPolicyEgressRule {
+  to?: NetworkPolicyPeer[];
+  ports?: NetworkPolicyPort[];
+}
+
+export interface NetworkPolicySpec {
+  name: string;
+  podSelector?: {
+    matchLabels?: Record<string, string>;
+    matchExpressions?: Array<{
+      key: string;
+      operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist';
+      values?: string[];
+    }>;
+  };
+  policyTypes?: Array<'Ingress' | 'Egress'>;
+  ingress?: NetworkPolicyIngressRule[];
+  egress?: NetworkPolicyEgressRule[];
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
 export interface RutterProps {
   meta: HelmChartMeta;
   defaultValues?: Record<string, unknown>;
@@ -647,6 +703,7 @@ export class Rutter {
   private static readonly LABEL_NAME = 'app.kubernetes.io/name';
   private static readonly LABEL_INSTANCE = 'app.kubernetes.io/instance';
   private static readonly HELPER_NAME = 'timonel.name';
+  private static readonly NETWORKING_API_VERSION = 'networking.k8s.io/v1';
 
   addDeployment(spec: DeploymentSpec) {
     const match = spec.matchLabels ?? {
@@ -838,7 +895,7 @@ export class Rutter {
 
   addIngress(spec: IngressSpec) {
     const ing = new ApiObject(this.chart, spec.name, {
-      apiVersion: 'networking.k8s.io/v1',
+      apiVersion: Rutter.NETWORKING_API_VERSION,
       kind: 'Ingress',
       metadata: {
         name: spec.name,
@@ -1365,7 +1422,7 @@ export class Rutter {
     const annotations = this.buildALBAnnotations(spec);
 
     const ingress = new ApiObject(this.chart, spec.name, {
-      apiVersion: 'networking.k8s.io/v1',
+      apiVersion: Rutter.NETWORKING_API_VERSION,
       kind: 'Ingress',
       metadata: {
         name: spec.name,
@@ -1541,6 +1598,245 @@ export class Rutter {
     });
     this.capture(spc, `${spec.name}-secretproviderclass`);
     return spc;
+  }
+
+  addNetworkPolicy(spec: NetworkPolicySpec) {
+    // Validate policy types
+    this.validateNetworkPolicyTypes(spec);
+
+    // Validate CIDR blocks if present
+    this.validateNetworkPolicyCIDRs(spec);
+
+    const np = new ApiObject(this.chart, spec.name, {
+      apiVersion: Rutter.NETWORKING_API_VERSION,
+      kind: 'NetworkPolicy',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        podSelector: spec.podSelector ?? {},
+        policyTypes: spec.policyTypes,
+        ...(spec.ingress ? { ingress: spec.ingress } : {}),
+        ...(spec.egress ? { egress: spec.egress } : {}),
+      },
+    });
+    this.capture(np, `${spec.name}-networkpolicy`);
+    return np;
+  }
+
+  private static readonly EMPTY_POD_SELECTOR = {};
+
+  /**
+   * Create a deny-all ingress NetworkPolicy for the current namespace
+   */
+  addDenyAllIngressNetworkPolicy(name = 'deny-all-ingress') {
+    return this.addNetworkPolicy({
+      name,
+      podSelector: Rutter.EMPTY_POD_SELECTOR,
+      policyTypes: ['Ingress'],
+    });
+  }
+
+  /**
+   * Create a deny-all egress NetworkPolicy for the current namespace
+   */
+  addDenyAllEgressNetworkPolicy(name = 'deny-all-egress') {
+    return this.addNetworkPolicy({
+      name,
+      podSelector: Rutter.EMPTY_POD_SELECTOR,
+      policyTypes: ['Egress'],
+    });
+  }
+
+  /**
+   * Create a deny-all NetworkPolicy for both ingress and egress
+   */
+  addDenyAllNetworkPolicy(name = 'deny-all') {
+    return this.addNetworkPolicy({
+      name,
+      podSelector: Rutter.EMPTY_POD_SELECTOR,
+      policyTypes: ['Ingress', 'Egress'],
+    });
+  }
+
+  /**
+   * Allow traffic from specific pods to target pods on specific ports
+   */
+  addAllowFromPodsNetworkPolicy(spec: {
+    name: string;
+    targetPodSelector: Record<string, string>;
+    sourcePodSelector: Record<string, string>;
+    ports?: NetworkPolicyPort[];
+    labels?: Record<string, string>;
+    annotations?: Record<string, string>;
+  }) {
+    return this.addNetworkPolicy({
+      name: spec.name,
+      podSelector: { matchLabels: spec.targetPodSelector },
+      policyTypes: ['Ingress'],
+      ingress: [
+        {
+          from: [{ podSelector: { matchLabels: spec.sourcePodSelector } }],
+          ...(spec.ports ? { ports: spec.ports } : {}),
+        },
+      ],
+      ...(spec.labels ? { labels: spec.labels } : {}),
+      ...(spec.annotations ? { annotations: spec.annotations } : {}),
+    });
+  }
+
+  /**
+   * Allow traffic from specific namespace to target pods
+   */
+  addAllowFromNamespaceNetworkPolicy(spec: {
+    name: string;
+    targetPodSelector: Record<string, string>;
+    sourceNamespaceSelector: Record<string, string>;
+    ports?: NetworkPolicyPort[];
+    labels?: Record<string, string>;
+    annotations?: Record<string, string>;
+  }) {
+    return this.addNetworkPolicy({
+      name: spec.name,
+      podSelector: { matchLabels: spec.targetPodSelector },
+      policyTypes: ['Ingress'],
+      ingress: [
+        {
+          from: [{ namespaceSelector: { matchLabels: spec.sourceNamespaceSelector } }],
+          ...(spec.ports ? { ports: spec.ports } : {}),
+        },
+      ],
+      ...(spec.labels ? { labels: spec.labels } : {}),
+      ...(spec.annotations ? { annotations: spec.annotations } : {}),
+    });
+  }
+
+  private validateNetworkPolicyTypes(spec: NetworkPolicySpec) {
+    if (!spec.policyTypes || spec.policyTypes.length === 0) {
+      throw new Error(`NetworkPolicy ${spec.name}: policyTypes must be specified`);
+    }
+
+    this.validatePolicyTypeValues(spec);
+    this.validatePolicyTypeRules(spec);
+  }
+
+  private validatePolicyTypeValues(spec: NetworkPolicySpec) {
+    const validTypes = ['Ingress', 'Egress'];
+    for (const type of spec.policyTypes!) {
+      if (!validTypes.includes(type)) {
+        throw new Error(
+          `NetworkPolicy ${spec.name}: invalid policyType '${type}', must be 'Ingress' or 'Egress'`,
+        );
+      }
+    }
+  }
+
+  private validatePolicyTypeRules(spec: NetworkPolicySpec) {
+    if (spec.policyTypes!.includes('Ingress') && spec.ingress === undefined) {
+      console.warn(
+        `NetworkPolicy ${spec.name}: policyType 'Ingress' specified but no ingress rules defined (will deny all ingress)`,
+      );
+    }
+    if (spec.policyTypes!.includes('Egress') && spec.egress === undefined) {
+      console.warn(
+        `NetworkPolicy ${spec.name}: policyType 'Egress' specified but no egress rules defined (will deny all egress)`,
+      );
+    }
+  }
+
+  private validateNetworkPolicyCIDRs(spec: NetworkPolicySpec) {
+    const validateCIDR = (cidr: string, context: string) => {
+      if (!this.isValidCIDR(cidr)) {
+        throw new Error(`NetworkPolicy ${spec.name}: invalid CIDR '${cidr}' in ${context}`);
+      }
+    };
+
+    this.validateIngressCIDRs(spec, validateCIDR);
+    this.validateEgressCIDRs(spec, validateCIDR);
+  }
+
+  private isValidCIDR(cidr: string): boolean {
+    // IPv4 CIDR validation
+    const ipv4Parts = cidr.split('/');
+    if (ipv4Parts.length === 2) {
+      const [ip, prefix] = ipv4Parts;
+      if (ip && prefix && this.isValidIPv4(ip) && this.isValidPrefix(prefix, 32)) {
+        return true;
+      }
+    }
+
+    // IPv6 CIDR validation (basic)
+    if (cidr.includes(':') && ipv4Parts.length === 2) {
+      const [, prefix] = ipv4Parts;
+      if (prefix) {
+        return this.isValidPrefix(prefix, 128);
+      }
+    }
+
+    return false;
+  }
+
+  private isValidIPv4(ip: string): boolean {
+    const parts = ip.split('.');
+    if (parts.length !== 4) return false;
+
+    return parts.every((part) => {
+      const num = parseInt(part, 10);
+      return !isNaN(num) && num >= 0 && num <= 255 && String(num) === part;
+    });
+  }
+
+  private isValidPrefix(prefix: string, maxPrefix: number): boolean {
+    const num = parseInt(prefix, 10);
+    return !isNaN(num) && num >= 0 && num <= maxPrefix && String(num) === prefix;
+  }
+
+  private validateIngressCIDRs(
+    spec: NetworkPolicySpec,
+    validateCIDR: (cidr: string, context: string) => void,
+  ) {
+    if (!spec.ingress) return;
+
+    for (const rule of spec.ingress) {
+      if (rule.from) {
+        for (const peer of rule.from) {
+          this.validatePeerCIDRs(peer, validateCIDR, 'ingress rule');
+        }
+      }
+    }
+  }
+
+  private validateEgressCIDRs(
+    spec: NetworkPolicySpec,
+    validateCIDR: (cidr: string, context: string) => void,
+  ) {
+    if (!spec.egress) return;
+
+    for (const rule of spec.egress) {
+      if (rule.to) {
+        for (const peer of rule.to) {
+          this.validatePeerCIDRs(peer, validateCIDR, 'egress rule');
+        }
+      }
+    }
+  }
+
+  private validatePeerCIDRs(
+    peer: NetworkPolicyPeer,
+    validateCIDR: (cidr: string, context: string) => void,
+    context: string,
+  ) {
+    if (peer.ipBlock?.cidr) {
+      validateCIDR(peer.ipBlock.cidr, context);
+
+      if (peer.ipBlock.except) {
+        for (const except of peer.ipBlock.except) {
+          validateCIDR(except, `${context} except block`);
+        }
+      }
+    }
   }
 
   /**

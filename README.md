@@ -429,6 +429,240 @@ rutter.addAWSSecretProviderClass({
 });
 ```
 
+## Network Security with NetworkPolicies
+
+Timonel provides comprehensive NetworkPolicy helpers for implementing Zero Trust network security
+in Kubernetes:
+
+### Zero Trust Network Security
+
+Implement defense-in-depth with deny-by-default policies:
+
+```typescript
+// 1. Deny all traffic by default (recommended starting point)
+rutter.addDenyAllNetworkPolicy('default-deny-all');
+
+// 2. Allow specific traffic as needed
+rutter.addAllowFromPodsNetworkPolicy({
+  name: 'allow-frontend-to-backend',
+  targetPodSelector: { app: 'backend' },
+  sourcePodSelector: { app: 'frontend' },
+  ports: [{ protocol: 'TCP', port: 8080 }],
+});
+```
+
+### Advanced NetworkPolicy Examples
+
+#### Multi-tier Application Security
+
+```typescript
+// Web tier - allow external traffic on port 80/443
+rutter.addNetworkPolicy({
+  name: 'web-tier-policy',
+  podSelector: { matchLabels: { tier: 'web' } },
+  policyTypes: ['Ingress', 'Egress'],
+  ingress: [
+    {
+      ports: [
+        { protocol: 'TCP', port: 80 },
+        { protocol: 'TCP', port: 443 },
+      ],
+    },
+  ],
+  egress: [
+    // Allow access to app tier
+    {
+      to: [{ podSelector: { matchLabels: { tier: 'app' } } }],
+      ports: [{ protocol: 'TCP', port: 8080 }],
+    },
+    // Allow DNS resolution
+    {
+      to: [{ namespaceSelector: { matchLabels: { name: 'kube-system' } } }],
+      ports: [
+        { protocol: 'UDP', port: 53 },
+        { protocol: 'TCP', port: 53 },
+      ],
+    },
+  ],
+});
+
+// App tier - only allow traffic from web tier
+rutter.addNetworkPolicy({
+  name: 'app-tier-policy',
+  podSelector: { matchLabels: { tier: 'app' } },
+  policyTypes: ['Ingress', 'Egress'],
+  ingress: [
+    {
+      from: [{ podSelector: { matchLabels: { tier: 'web' } } }],
+      ports: [{ protocol: 'TCP', port: 8080 }],
+    },
+  ],
+  egress: [
+    // Allow access to database
+    {
+      to: [{ podSelector: { matchLabels: { tier: 'database' } } }],
+      ports: [{ protocol: 'TCP', port: 5432 }],
+    },
+    // Allow external API calls (with CIDR restrictions)
+    {
+      to: [
+        {
+          ipBlock: {
+            cidr: '0.0.0.0/0',
+            except: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'],
+          },
+        },
+      ],
+      ports: [{ protocol: 'TCP', port: 443 }],
+    },
+  ],
+});
+
+// Database tier - most restrictive
+rutter.addNetworkPolicy({
+  name: 'database-tier-policy',
+  podSelector: { matchLabels: { tier: 'database' } },
+  policyTypes: ['Ingress', 'Egress'],
+  ingress: [
+    {
+      from: [{ podSelector: { matchLabels: { tier: 'app' } } }],
+      ports: [{ protocol: 'TCP', port: 5432 }],
+    },
+  ],
+  egress: [
+    // Only allow DNS resolution
+    {
+      to: [{ namespaceSelector: { matchLabels: { name: 'kube-system' } } }],
+      ports: [
+        { protocol: 'UDP', port: 53 },
+        { protocol: 'TCP', port: 53 },
+      ],
+    },
+  ],
+});
+```
+
+#### Cross-Namespace Communication
+
+```typescript
+// Allow traffic from monitoring namespace
+rutter.addAllowFromNamespaceNetworkPolicy({
+  name: 'allow-monitoring',
+  targetPodSelector: { app: 'backend' },
+  sourceNamespaceSelector: { name: 'monitoring' },
+  ports: [{ protocol: 'TCP', port: 9090 }], // Prometheus metrics
+});
+
+// Allow traffic to shared services namespace
+rutter.addNetworkPolicy({
+  name: 'allow-to-shared-services',
+  podSelector: { matchLabels: { app: 'backend' } },
+  policyTypes: ['Egress'],
+  egress: [
+    {
+      to: [
+        {
+          namespaceSelector: { matchLabels: { name: 'shared-services' } },
+          podSelector: { matchLabels: { app: 'redis' } },
+        },
+      ],
+      ports: [{ protocol: 'TCP', port: 6379 }],
+    },
+  ],
+});
+```
+
+### Security Best Practices
+
+#### 1. Start with Deny-All Policies
+
+```typescript
+// Always start with deny-all for maximum security
+rutter.addDenyAllNetworkPolicy('default-deny-all');
+
+// Then add specific allow rules
+rutter.addAllowFromPodsNetworkPolicy({
+  name: 'allow-specific-communication',
+  targetPodSelector: { app: 'api' },
+  sourcePodSelector: { app: 'frontend' },
+  ports: [{ protocol: 'TCP', port: 8080 }],
+});
+```
+
+#### 2. Separate Ingress and Egress Policies
+
+```typescript
+// Separate policies for better maintainability
+rutter.addDenyAllIngressNetworkPolicy('deny-all-ingress');
+rutter.addDenyAllEgressNetworkPolicy('deny-all-egress');
+```
+
+#### 3. Use CIDR Blocks for External Access
+
+```typescript
+// Restrict external access to specific IP ranges
+rutter.addNetworkPolicy({
+  name: 'external-api-access',
+  podSelector: { matchLabels: { app: 'backend' } },
+  policyTypes: ['Egress'],
+  egress: [
+    {
+      to: [
+        {
+          ipBlock: {
+            cidr: '203.0.113.0/24', // Specific external service
+          },
+        },
+      ],
+      ports: [{ protocol: 'TCP', port: 443 }],
+    },
+  ],
+});
+```
+
+#### 4. Include DNS Resolution
+
+```typescript
+// Always allow DNS for name resolution
+const dnsEgressRule = {
+  to: [{ namespaceSelector: { matchLabels: { name: 'kube-system' } } }],
+  ports: [
+    { protocol: 'UDP', port: 53 },
+    { protocol: 'TCP', port: 53 },
+  ],
+};
+
+rutter.addNetworkPolicy({
+  name: 'app-with-dns',
+  podSelector: { matchLabels: { app: 'backend' } },
+  policyTypes: ['Egress'],
+  egress: [dnsEgressRule /* other rules */],
+});
+```
+
+### Basic NetworkPolicy
+
+```typescript
+// Custom NetworkPolicy with full control
+rutter.addNetworkPolicy({
+  name: 'custom-policy',
+  podSelector: { matchLabels: { app: 'backend' } },
+  policyTypes: ['Ingress', 'Egress'],
+  ingress: [
+    {
+      from: [{ podSelector: { matchLabels: { app: 'frontend' } } }],
+      ports: [{ protocol: 'TCP', port: 8080 }],
+    },
+  ],
+  egress: [
+    {
+      to: [{ podSelector: { matchLabels: { app: 'database' } } }],
+      ports: [{ protocol: 'TCP', port: 5432 }],
+    },
+  ],
+});
+```
+
 ## Multi-environment values
 
 Provide `envValues` in the `Rutter` constructor to automatically create
