@@ -28,7 +28,11 @@ jobs:
               ref: '${{ inputs.branch }}'
             });
 
-            const requiredChecks = ['ci', 'CodeQL'];
+            const requiredChecks = [
+              'build (20)',
+              'build (22)',
+              'Code scanning results / CodeQL'
+            ];
             const failedChecks = [];
 
             for (const checkName of requiredChecks) {
