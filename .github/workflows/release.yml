@@ -17,16 +17,24 @@ permissions:
 jobs:
   check-status:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Check CI Status
         uses: actions/github-script@v7
         with:
           script: |
+            const branchRef = '${{ inputs.branch }}'.replace(/[^a-zA-Z0-9\/_.-]/g, '');
+            console.log(`Checking status for branch: ${branchRef}`);
+
             const { data: checks } = await github.rest.checks.listForRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: '${{ inputs.branch }}'
+              ref: branchRef
             });
+
+            console.log(`Found ${checks.check_runs.length} check runs`);
 
             const requiredChecks = [
               'build (20)',
@@ -37,13 +45,21 @@ jobs:
 
             for (const checkName of requiredChecks) {
               const check = checks.check_runs.find(c => c.name === checkName);
-              if (!check || check.conclusion !== 'success') {
+              if (!check) {
+                console.log(`❌ Missing check: ${checkName}`);
                 failedChecks.push(checkName);
+              } else if (check.conclusion !== 'success') {
+                console.log(`❌ Failed check: ${checkName} (${check.conclusion})`);
+                failedChecks.push(checkName);
+              } else {
+                console.log(`✅ Passed check: ${checkName}`);
               }
             }
 
             if (failedChecks.length > 0) {
               core.setFailed(`Required checks failed: ${failedChecks.join(', ')}`);
+            } else {
+              console.log('✅ All required checks passed - proceeding with release');
             }
 
   release:
