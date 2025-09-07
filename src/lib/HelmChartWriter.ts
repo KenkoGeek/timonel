@@ -200,25 +200,14 @@ function writeAssets(outDir: string, assets: SynthAsset[]) {
     } else {
       // Split documents and create descriptive files following Helm best practices
       const parts = splitDocs(asset.yaml);
-      if (parts.length === 1) {
-        // Single document: use asset id as filename
-        const filename = `${asset.id}.yaml`;
+      parts.forEach((doc, index) => {
+        const filename = `${asset.id}${parts.length > 1 ? `-${index + 1}` : ''}.yaml`;
         const dir = asset.target === 'crds' ? 'crds' : 'templates';
         // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
         fs.mkdirSync(path.join(outDir, dir), { recursive: true });
         // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-        fs.writeFileSync(path.join(outDir, dir, filename), parts[0] + '\n');
-      } else {
-        // Multiple documents: append index to asset id for uniqueness
-        parts.forEach((doc, index) => {
-          const filename = `${asset.id}-${index + 1}.yaml`;
-          const dir = asset.target === 'crds' ? 'crds' : 'templates';
-          // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-          fs.mkdirSync(path.join(outDir, dir), { recursive: true });
-          // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-          fs.writeFileSync(path.join(outDir, dir, filename), doc + '\n');
-        });
-      }
+        fs.writeFileSync(path.join(outDir, dir, filename), doc + '\n');
+      });
     }
   }
 }
