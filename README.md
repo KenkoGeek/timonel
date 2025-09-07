@@ -501,13 +501,16 @@ rutter.addAzureAGICIngress({
   cookieBasedAffinity: true,
   requestTimeout: 60,
   appgwSslCertificate: 'my-ssl-cert',
-  wafPolicyForPath: '/subscriptions/sub-id/resourceGroups/rg/providers/Microsoft.Network/applicationGatewayWebApplicationFirewallPolicies/waf-policy',
+  wafPolicyForPath:
+    '/subscriptions/sub-id/resourceGroups/rg/providers/Microsoft.Network/applicationGatewayWebApplicationFirewallPolicies/waf-policy',
 });
 
 // Advanced AGIC features
 rutter.addAzureAGICIngress({
   name: 'advanced-ingress',
-  rules: [/* rules */],
+  rules: [
+    /* rules */
+  ],
   backendPathPrefix: '/api/v1',
   backendHostname: 'internal.example.com',
   usePrivateIp: true,
