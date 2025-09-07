@@ -1,3 +1,30 @@
+# [2.0.0](https://github.com/KenkoGeek/timonel/compare/v1.0.0...v2.0.0) (2025-09-07)
+
+### Bug Fixes
+
+- **ci:** remove redundant publish workflow and configure release token ([fcea159](https://github.com/KenkoGeek/timonel/commit/fcea15914617e372a2aafc8a30001cc54ec8bff6))
+- **examples:** update timonel dependency to ^1.0.0 ([3d1f692](https://github.com/KenkoGeek/timonel/commit/3d1f6922448648c7efe57cc1fdde9a5808e04d7e))
+- **helm:** remove automatic numbering from template files ([#20](https://github.com/KenkoGeek/timonel/issues/20)) ([f75748a](https://github.com/KenkoGeek/timonel/commit/f75748aee974a254f576807f26396b026262b42c))
+
+### Features
+
+- **ci:** add automatic CHANGELOG.md formatting to semantic-release ([6846b4d](https://github.com/KenkoGeek/timonel/commit/6846b4de2cfd411b7b9b9724d67830cf192ad2b9))
+- **core:** add Azure Application Gateway Ingress Controller (AGIC) support ([#19](https://github.com/KenkoGeek/timonel/issues/19)) ([75bbb99](https://github.com/KenkoGeek/timonel/commit/75bbb998981ca6492b09ad12c54e03050b307c27))
+- **core:** add Azure Disk StorageClass helper for AKS ([#18](https://github.com/KenkoGeek/timonel/issues/18)) ([5fb29de](https://github.com/KenkoGeek/timonel/commit/5fb29de260c4cabf6732520b0834cf0d0421a33a))
+
+### BREAKING CHANGES
+
+- **helm:** Template files no longer have automatic numbering prefixes
+
+- refactor(helm): unify template naming strategy and add breaking change notice
+
+* Simplify file naming logic with unified approach
+* Use consistent naming strategy for single and multiple documents
+* Add breaking change warning in README for numbered filename dependencies
+* Improve code maintainability with cleaner implementation
+
+Addresses PR review feedback for better consistency and user awareness.
+
 # [1.0.0](https://github.com/KenkoGeek/timonel/compare/v0.4.0...v1.0.0) (2025-09-07)
 
 ### Bug Fixes
