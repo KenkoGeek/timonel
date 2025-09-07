@@ -1,5 +1,5 @@
-import type { UmbrellaRutter, UmbrellaRutterProps } from './UmbrellaRutter';
-import { UmbrellaRutter as UmbrellaRutterClass } from './UmbrellaRutter';
+import type { UmbrellaRutter, UmbrellaRutterProps } from './UmbrellaRutter.js';
+import { UmbrellaRutter as UmbrellaRutterClass } from './UmbrellaRutter.js';
 
 /**
  * Create an umbrella chart from multiple Rutter instances
@@ -9,4 +9,4 @@ export function createUmbrella(props: UmbrellaRutterProps): UmbrellaRutter {
 }
 
 // Re-export types for convenience
-export type { UmbrellaRutterProps, SubchartSpec } from './UmbrellaRutter';
+export type { UmbrellaRutterProps, SubchartSpec } from './UmbrellaRutter.js';
