@@ -3,8 +3,8 @@ import { join } from 'path';
 
 import YAML from 'yaml';
 
-import type { Rutter } from './Rutter';
-import type { HelmChartMeta } from './HelmChartWriter';
+import type { Rutter } from './Rutter.js';
+import type { HelmChartMeta } from './HelmChartWriter.js';
 
 export interface SubchartSpec {
   name: string;

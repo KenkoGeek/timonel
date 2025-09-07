@@ -1,14 +1,14 @@
 import { App, Chart, Testing, ApiObject } from 'cdk8s';
 import YAML from 'yaml';
 
-import { include, helm } from './helm';
-import { HelmChartWriter } from './HelmChartWriter';
+import { include, helm } from './helm.js';
+import { HelmChartWriter } from './HelmChartWriter.js';
 import type {
   HelmChartMeta,
   HelmChartWriteOptions,
   SynthAsset,
   HelperDefinition,
-} from './HelmChartWriter';
+} from './HelmChartWriter.js';
 
 export interface HttpHeader {
   name: string;
