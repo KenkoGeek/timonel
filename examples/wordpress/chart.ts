@@ -127,6 +127,10 @@ rutter.addService({
 
 // WordPress Deployment
 const WORDPRESS_APP_NAME = 'wordpress-app';
+const NETWORK_POLICY_LABELS = {
+  app: 'wordpress',
+  component: 'network-policy',
+};
 rutter.addDeployment({
   name: WORDPRESS_APP_NAME,
   image: valuesRef('wordpress.image') as string,
@@ -384,20 +388,17 @@ rutter.addAWSALBIngress({
   ],
 });
 
-// Network Security Policies
-// Deny all ingress traffic by default for security
-rutter.addDenyAllIngressNetworkPolicy('default-deny-ingress');
+// Network Security Policies - Zero Trust Implementation
+// Deny all traffic by default (both ingress and egress)
+rutter.addDenyAllNetworkPolicy('default-deny-all');
 
-// Allow WordPress to access MySQL
+// Allow WordPress to access MySQL database
 rutter.addAllowFromPodsNetworkPolicy({
   name: 'allow-wordpress-to-mysql',
   targetPodSelector: { app: 'mysql-db' },
   sourcePodSelector: { app: WORDPRESS_APP_NAME },
   ports: [{ protocol: 'TCP', port: 3306 }],
-  labels: {
-    app: 'wordpress',
-    component: 'network-policy',
-  },
+  labels: NETWORK_POLICY_LABELS,
 });
 
 // Allow external traffic to WordPress (from ALB)
@@ -410,10 +411,66 @@ rutter.addNetworkPolicy({
       ports: [{ protocol: 'TCP', port: 80 }],
     },
   ],
-  labels: {
-    app: 'wordpress',
-    component: 'network-policy',
-  },
+  labels: NETWORK_POLICY_LABELS,
+});
+
+// Strict egress policy for WordPress - only allow necessary outbound traffic
+rutter.addNetworkPolicy({
+  name: 'wordpress-egress-policy',
+  podSelector: { matchLabels: { app: WORDPRESS_APP_NAME } },
+  policyTypes: ['Egress'],
+  egress: [
+    // Allow access to MySQL database
+    {
+      to: [{ podSelector: { matchLabels: { app: 'mysql-db' } } }],
+      ports: [{ protocol: 'TCP', port: 3306 }],
+    },
+    // Allow DNS resolution
+    {
+      to: [{ namespaceSelector: { matchLabels: { name: 'kube-system' } } }],
+      ports: [
+        { protocol: 'UDP', port: 53 },
+        { protocol: 'TCP', port: 53 },
+      ],
+    },
+    // Allow HTTPS to external services (WordPress updates, plugins)
+    {
+      to: [
+        {
+          ipBlock: { cidr: '0.0.0.0/0', except: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'] },
+        },
+      ],
+      ports: [{ protocol: 'TCP', port: 443 }],
+    },
+    // Allow HTTP to external services (if needed)
+    {
+      to: [
+        {
+          ipBlock: { cidr: '0.0.0.0/0', except: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'] },
+        },
+      ],
+      ports: [{ protocol: 'TCP', port: 80 }],
+    },
+  ],
+  labels: NETWORK_POLICY_LABELS,
+});
+
+// Strict egress policy for MySQL - minimal outbound access
+rutter.addNetworkPolicy({
+  name: 'mysql-egress-policy',
+  podSelector: { matchLabels: { app: 'mysql-db' } },
+  policyTypes: ['Egress'],
+  egress: [
+    // Allow DNS resolution only
+    {
+      to: [{ namespaceSelector: { matchLabels: { name: 'kube-system' } } }],
+      ports: [
+        { protocol: 'UDP', port: 53 },
+        { protocol: 'TCP', port: 53 },
+      ],
+    },
+  ],
+  labels: NETWORK_POLICY_LABELS,
 });
 
 export default function run(outDir: string) {

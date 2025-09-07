@@ -1601,6 +1601,12 @@ export class Rutter {
   }
 
   addNetworkPolicy(spec: NetworkPolicySpec) {
+    // Validate policy types
+    this.validateNetworkPolicyTypes(spec);
+
+    // Validate CIDR blocks if present
+    this.validateNetworkPolicyCIDRs(spec);
+
     const np = new ApiObject(this.chart, spec.name, {
       apiVersion: Rutter.NETWORKING_API_VERSION,
       kind: 'NetworkPolicy',
@@ -1705,6 +1711,130 @@ export class Rutter {
       ...(spec.labels ? { labels: spec.labels } : {}),
       ...(spec.annotations ? { annotations: spec.annotations } : {}),
     });
+  }
+
+  private validateNetworkPolicyTypes(spec: NetworkPolicySpec) {
+    if (!spec.policyTypes || spec.policyTypes.length === 0) {
+      throw new Error(`NetworkPolicy ${spec.name}: policyTypes must be specified`);
+    }
+
+    this.validatePolicyTypeValues(spec);
+    this.validatePolicyTypeRules(spec);
+  }
+
+  private validatePolicyTypeValues(spec: NetworkPolicySpec) {
+    const validTypes = ['Ingress', 'Egress'];
+    for (const type of spec.policyTypes!) {
+      if (!validTypes.includes(type)) {
+        throw new Error(
+          `NetworkPolicy ${spec.name}: invalid policyType '${type}', must be 'Ingress' or 'Egress'`,
+        );
+      }
+    }
+  }
+
+  private validatePolicyTypeRules(spec: NetworkPolicySpec) {
+    if (spec.policyTypes!.includes('Ingress') && spec.ingress === undefined) {
+      console.warn(
+        `NetworkPolicy ${spec.name}: policyType 'Ingress' specified but no ingress rules defined (will deny all ingress)`,
+      );
+    }
+    if (spec.policyTypes!.includes('Egress') && spec.egress === undefined) {
+      console.warn(
+        `NetworkPolicy ${spec.name}: policyType 'Egress' specified but no egress rules defined (will deny all egress)`,
+      );
+    }
+  }
+
+  private validateNetworkPolicyCIDRs(spec: NetworkPolicySpec) {
+    const validateCIDR = (cidr: string, context: string) => {
+      if (!this.isValidCIDR(cidr)) {
+        throw new Error(`NetworkPolicy ${spec.name}: invalid CIDR '${cidr}' in ${context}`);
+      }
+    };
+
+    this.validateIngressCIDRs(spec, validateCIDR);
+    this.validateEgressCIDRs(spec, validateCIDR);
+  }
+
+  private isValidCIDR(cidr: string): boolean {
+    // IPv4 CIDR validation
+    const ipv4Parts = cidr.split('/');
+    if (ipv4Parts.length === 2) {
+      const [ip, prefix] = ipv4Parts;
+      if (this.isValidIPv4(ip) && this.isValidPrefix(prefix, 32)) {
+        return true;
+      }
+    }
+
+    // IPv6 CIDR validation (basic)
+    if (cidr.includes(':') && ipv4Parts.length === 2) {
+      const [, prefix] = ipv4Parts;
+      return this.isValidPrefix(prefix, 128);
+    }
+
+    return false;
+  }
+
+  private isValidIPv4(ip: string): boolean {
+    const parts = ip.split('.');
+    if (parts.length !== 4) return false;
+
+    return parts.every((part) => {
+      const num = parseInt(part, 10);
+      return !isNaN(num) && num >= 0 && num <= 255 && String(num) === part;
+    });
+  }
+
+  private isValidPrefix(prefix: string, maxPrefix: number): boolean {
+    const num = parseInt(prefix, 10);
+    return !isNaN(num) && num >= 0 && num <= maxPrefix && String(num) === prefix;
+  }
+
+  private validateIngressCIDRs(
+    spec: NetworkPolicySpec,
+    validateCIDR: (cidr: string, context: string) => void,
+  ) {
+    if (!spec.ingress) return;
+
+    for (const rule of spec.ingress) {
+      if (rule.from) {
+        for (const peer of rule.from) {
+          this.validatePeerCIDRs(peer, validateCIDR, 'ingress rule');
+        }
+      }
+    }
+  }
+
+  private validateEgressCIDRs(
+    spec: NetworkPolicySpec,
+    validateCIDR: (cidr: string, context: string) => void,
+  ) {
+    if (!spec.egress) return;
+
+    for (const rule of spec.egress) {
+      if (rule.to) {
+        for (const peer of rule.to) {
+          this.validatePeerCIDRs(peer, validateCIDR, 'egress rule');
+        }
+      }
+    }
+  }
+
+  private validatePeerCIDRs(
+    peer: NetworkPolicyPeer,
+    validateCIDR: (cidr: string, context: string) => void,
+    context: string,
+  ) {
+    if (peer.ipBlock?.cidr) {
+      validateCIDR(peer.ipBlock.cidr, context);
+
+      if (peer.ipBlock.except) {
+        for (const except of peer.ipBlock.except) {
+          validateCIDR(except, `${context} except block`);
+        }
+      }
+    }
   }
 
   /**
