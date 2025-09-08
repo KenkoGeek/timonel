@@ -1,6 +1,9 @@
-import { Rutter, valuesRef } from 'timonel';
-
-const rutter = new Rutter({
+'use strict';
+Object.defineProperty(exports, '__esModule', { value: true });
+exports.rutter = void 0;
+exports.default = run;
+const timonel_1 = require('timonel');
+const rutter = new timonel_1.Rutter({
   meta: {
     name: 'wordpress',
     version: '1.0.0',
@@ -56,7 +59,7 @@ const rutter = new Rutter({
     },
   },
 });
-
+exports.rutter = rutter;
 // MySQL Secret
 rutter.addSecret({
   name: 'mysql-secret',
@@ -65,7 +68,6 @@ rutter.addSecret({
     'mysql-password': '{{ .Values.mysql.password | b64enc }}',
   },
 });
-
 // AWS EBS StorageClass for MySQL
 rutter.addAWSEBSStorageClass({
   name: 'mysql-ebs-gp3',
@@ -75,25 +77,23 @@ rutter.addAWSEBSStorageClass({
   allowVolumeExpansion: true,
   volumeBindingMode: 'WaitForFirstConsumer',
 });
-
 // MySQL PersistentVolumeClaim using EBS
 rutter.addAWSEBSPersistentVolumeClaim({
   name: 'mysql-pvc',
   storageClassName: 'mysql-ebs-gp3',
-  size: valuesRef('mysql.storage') as string,
+  size: (0, timonel_1.valuesRef)('mysql.storage'),
   accessModes: ['ReadWriteOnce'],
 });
-
 // MySQL Deployment
 rutter.addDeployment({
   name: 'mysql-db',
-  image: valuesRef('mysql.image') as string,
+  image: (0, timonel_1.valuesRef)('mysql.image'),
   replicas: 1,
   containerPort: 3306,
   env: {
     MYSQL_ROOT_PASSWORD: 'changeme123',
-    MYSQL_DATABASE: valuesRef('mysql.database') as string,
-    MYSQL_USER: valuesRef('mysql.user') as string,
+    MYSQL_DATABASE: (0, timonel_1.valuesRef)('mysql.database'),
+    MYSQL_USER: (0, timonel_1.valuesRef)('mysql.user'),
     MYSQL_PASSWORD: 'wppass123',
   },
   volumeMounts: [
@@ -109,7 +109,6 @@ rutter.addDeployment({
     },
   ],
 });
-
 // MySQL Service
 rutter.addService({
   name: 'mysql-service',
@@ -124,7 +123,6 @@ rutter.addService({
     app: 'mysql-db',
   },
 });
-
 // WordPress Deployment
 const WORDPRESS_APP_NAME = 'wordpress-app';
 const NETWORK_POLICY_LABELS = {
@@ -133,27 +131,26 @@ const NETWORK_POLICY_LABELS = {
 };
 rutter.addDeployment({
   name: WORDPRESS_APP_NAME,
-  image: valuesRef('wordpress.image') as string,
+  image: (0, timonel_1.valuesRef)('wordpress.image'),
   replicas: 1,
   containerPort: 80,
   env: {
     WORDPRESS_DB_HOST: 'mysql-service:3306',
-    WORDPRESS_DB_NAME: valuesRef('mysql.database') as string,
-    WORDPRESS_DB_USER: valuesRef('mysql.user') as string,
+    WORDPRESS_DB_NAME: (0, timonel_1.valuesRef)('mysql.database'),
+    WORDPRESS_DB_USER: (0, timonel_1.valuesRef)('mysql.user'),
     WORDPRESS_DB_PASSWORD: 'wppass123',
   },
   resources: {
     requests: {
-      cpu: valuesRef('wordpress.resources.requests.cpu') as string,
-      memory: valuesRef('wordpress.resources.requests.memory') as string,
+      cpu: (0, timonel_1.valuesRef)('wordpress.resources.requests.cpu'),
+      memory: (0, timonel_1.valuesRef)('wordpress.resources.requests.memory'),
     },
   },
 });
-
 // WordPress Service
 rutter.addService({
   name: 'wordpress-service',
-  type: valuesRef('service.type') as 'LoadBalancer' | 'ClusterIP' | 'NodePort' | 'ExternalName',
+  type: (0, timonel_1.valuesRef)('service.type'),
   ports: [
     {
       port: 80,
@@ -165,9 +162,8 @@ rutter.addService({
     app: WORDPRESS_APP_NAME,
   },
 });
-
 // WordPress HorizontalPodAutoscaler
-const UTILIZATION_TYPE = 'Utilization' as const;
+const UTILIZATION_TYPE = 'Utilization';
 rutter.addHorizontalPodAutoscaler({
   name: 'wordpress-hpa',
   scaleTargetRef: {
@@ -228,7 +224,6 @@ rutter.addHorizontalPodAutoscaler({
     },
   },
 });
-
 // WordPress VerticalPodAutoscaler
 rutter.addVerticalPodAutoscaler({
   name: 'wordpress-vpa',
@@ -259,7 +254,6 @@ rutter.addVerticalPodAutoscaler({
     ],
   },
 });
-
 // WordPress PodDisruptionBudget
 rutter.addPodDisruptionBudget({
   name: 'wordpress-pdb',
@@ -270,14 +264,12 @@ rutter.addPodDisruptionBudget({
     },
   },
 });
-
 // AWS EFS StorageClass for shared storage
 rutter.addAWSEFSStorageClass({
   name: 'wordpress-efs',
   reclaimPolicy: 'Retain',
   volumeBindingMode: 'Immediate',
 });
-
 // EFS PVC for WordPress uploads (shared across pods)
 rutter.addAWSEFSPersistentVolumeClaim({
   name: 'wordpress-uploads-pvc',
@@ -285,7 +277,6 @@ rutter.addAWSEFSPersistentVolumeClaim({
   size: '10Gi',
   accessModes: ['ReadWriteMany'],
 });
-
 // AWS IRSA ServiceAccount for WordPress (S3 access)
 rutter.addAWSIRSAServiceAccount({
   name: 'wordpress-s3-sa',
@@ -298,7 +289,6 @@ rutter.addAWSIRSAServiceAccount({
     component: 's3-access',
   },
 });
-
 // General ServiceAccount with IRSA support
 rutter.addServiceAccount({
   name: 'wordpress-app-sa',
@@ -312,7 +302,6 @@ rutter.addServiceAccount({
     component: 'application',
   },
 });
-
 // AWS SecretProviderClass for Secrets Manager
 rutter.addAWSSecretProviderClass({
   name: 'wordpress-secrets',
@@ -334,7 +323,6 @@ rutter.addAWSSecretProviderClass({
     component: 'secrets',
   },
 });
-
 // AWS SecretProviderClass for Parameter Store
 rutter.addAWSSecretProviderClass({
   name: 'wordpress-config',
@@ -356,7 +344,6 @@ rutter.addAWSSecretProviderClass({
     component: 'config',
   },
 });
-
 // AWS ALB Ingress for WordPress
 rutter.addAWSALBIngress({
   name: 'wordpress-ingress',
@@ -387,11 +374,9 @@ rutter.addAWSALBIngress({
     },
   ],
 });
-
 // Network Security Policies - Zero Trust Implementation
 // Deny all traffic by default (both ingress and egress)
 rutter.addDenyAllNetworkPolicy('default-deny-all');
-
 // Allow WordPress to access MySQL database
 rutter.addAllowFromPodsNetworkPolicy({
   name: 'allow-wordpress-to-mysql',
@@ -400,7 +385,6 @@ rutter.addAllowFromPodsNetworkPolicy({
   ports: [{ protocol: 'TCP', port: 3306 }],
   labels: NETWORK_POLICY_LABELS,
 });
-
 // Allow external traffic to WordPress (from ALB)
 rutter.addNetworkPolicy({
   name: 'allow-external-to-wordpress',
@@ -413,7 +397,6 @@ rutter.addNetworkPolicy({
   ],
   labels: NETWORK_POLICY_LABELS,
 });
-
 // Strict egress policy for WordPress - only allow necessary outbound traffic
 rutter.addNetworkPolicy({
   name: 'wordpress-egress-policy',
@@ -454,7 +437,6 @@ rutter.addNetworkPolicy({
   ],
   labels: NETWORK_POLICY_LABELS,
 });
-
 // Strict egress policy for MySQL - minimal outbound access
 rutter.addNetworkPolicy({
   name: 'mysql-egress-policy',
@@ -472,7 +454,6 @@ rutter.addNetworkPolicy({
   ],
   labels: NETWORK_POLICY_LABELS,
 });
-
 // Database migration Job (one-time)
 rutter.addJob({
   name: 'wordpress-db-migration',
@@ -494,7 +475,6 @@ rutter.addJob({
     component: 'migration',
   },
 });
-
 // WordPress backup CronJob (scheduled)
 rutter.addCronJob({
   name: 'wordpress-backup',
@@ -517,9 +497,6 @@ rutter.addCronJob({
     component: 'backup',
   },
 });
-
-export default function run(outDir: string) {
+function run(outDir) {
   rutter.write(outDir);
 }
-
-export { rutter };

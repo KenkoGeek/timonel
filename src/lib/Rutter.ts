@@ -1106,6 +1106,9 @@ export class Rutter {
   }
 
   addJob(spec: JobSpec) {
+    // Validate Job specification
+    this.validateJobSpec(spec);
+
     const { envEntries, envFromEntries, volumeDefs, volumeMountDefs } =
       this.buildPodEnvironment(spec);
     const jobSpec = this.buildJobSpec(spec);
@@ -1135,6 +1138,9 @@ export class Rutter {
   }
 
   addCronJob(spec: CronJobSpec) {
+    // Validate CronJob specification
+    this.validateCronJobSpec(spec);
+
     const { envEntries, envFromEntries, volumeDefs, volumeMountDefs } =
       this.buildPodEnvironment(spec);
     const cronJobSpec = this.buildCronJobSpec(spec);
@@ -2537,7 +2543,7 @@ export class Rutter {
 
   private buildPodEnvironment(spec: JobSpec | CronJobSpec) {
     const envEntries = spec.env
-      ? Object.entries(spec.env).map(([name, value]) => ({ name, value }))
+      ? Object.entries(spec.env).map(([name, value]) => this.sanitizeEnvVar(name, value))
       : undefined;
     const envFromEntries = spec.envFrom
       ? spec.envFrom
@@ -2619,7 +2625,7 @@ export class Rutter {
             env: envEntries,
             envFrom: envFromEntries,
             volumeMounts: volumeMountDefs,
-            resources: spec.resources,
+            resources: spec.resources ?? this.getDefaultResources(),
           },
         ],
       },
@@ -2686,11 +2692,86 @@ export class Rutter {
                 env: envEntries,
                 envFrom: envFromEntries,
                 volumeMounts: volumeMountDefs,
-                resources: spec.resources,
+                resources: spec.resources ?? this.getDefaultResources(),
               },
             ],
           },
         },
+      },
+    };
+  }
+
+  /**
+   * Validate Job specification for security and best practices
+   */
+  private validateJobSpec(spec: JobSpec): void {
+    if (spec.activeDeadlineSeconds !== undefined && spec.activeDeadlineSeconds <= 0) {
+      throw new Error('activeDeadlineSeconds must be a positive integer');
+    }
+    if (spec.ttlSecondsAfterFinished !== undefined && spec.ttlSecondsAfterFinished < 0) {
+      throw new Error('ttlSecondsAfterFinished must be a non-negative integer');
+    }
+  }
+
+  /**
+   * Validate CronJob specification for security and best practices
+   */
+  private validateCronJobSpec(spec: CronJobSpec): void {
+    this.validateCronSchedule(spec.schedule);
+
+    if (spec.suspend && spec.startingDeadlineSeconds !== undefined) {
+      throw new Error('startingDeadlineSeconds should not be set when job is suspended');
+    }
+    if (spec.successfulJobsHistoryLimit !== undefined && spec.successfulJobsHistoryLimit < 0) {
+      throw new Error('successfulJobsHistoryLimit must be non-negative');
+    }
+    if (spec.failedJobsHistoryLimit !== undefined && spec.failedJobsHistoryLimit < 0) {
+      throw new Error('failedJobsHistoryLimit must be non-negative');
+    }
+    if (spec.activeDeadlineSeconds !== undefined && spec.activeDeadlineSeconds <= 0) {
+      throw new Error('activeDeadlineSeconds must be a positive integer');
+    }
+    if (spec.ttlSecondsAfterFinished !== undefined && spec.ttlSecondsAfterFinished < 0) {
+      throw new Error('ttlSecondsAfterFinished must be a non-negative integer');
+    }
+  }
+
+  /**
+   * Validate cron schedule expression
+   */
+  private validateCronSchedule(schedule: string): void {
+    const cronRegex =
+      /^(\*|([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])|\*\/([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])) (\*|([0-9]|1[0-9]|2[0-3])|\*\/([0-9]|1[0-9]|2[0-3])) (\*|([1-9]|1[0-9]|2[0-9]|3[0-1])|\*\/([1-9]|1[0-9]|2[0-9]|3[0-1])) (\*|([1-9]|1[0-2])|\*\/([1-9]|1[0-2])) (\*|([0-6])|\*\/([0-6]))$/;
+    if (!cronRegex.test(schedule)) {
+      throw new Error('Invalid cron schedule expression');
+    }
+  }
+
+  /**
+   * Sanitize environment variable names and values
+   */
+  private sanitizeEnvVar(name: string, value: string): { name: string; value: string } {
+    const nameRegex = /^[A-Za-z_][A-Za-z0-9_]*$/;
+    if (!nameRegex.test(name)) {
+      throw new Error(`Invalid environment variable name: ${name}`);
+    }
+    // Remove control characters from value (ASCII 0-31 and 127)
+    const sanitizedValue = value.replace(/[\cA-\c_\x7F]/g, '');
+    return { name, value: sanitizedValue };
+  }
+
+  /**
+   * Get default resource limits for Jobs and CronJobs
+   */
+  private getDefaultResources(): ResourceRequirements {
+    return {
+      limits: {
+        cpu: '1',
+        memory: '512Mi',
+      },
+      requests: {
+        cpu: '100m',
+        memory: '128Mi',
       },
     };
   }
