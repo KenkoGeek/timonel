@@ -23,7 +23,7 @@ jobs:
       contents: read
     steps:
       - name: Check CI Status
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const branchRef = '${{ inputs.branch }}'.replace(/[^a-zA-Z0-9\/_.-]/g, '');
