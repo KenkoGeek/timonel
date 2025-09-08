@@ -173,6 +173,30 @@ rutter.addPodDisruptionBudget({
   selector: { matchLabels: { app: 'my-app' } },
 });
 
+// Add one-time Job for database migration
+rutter.addJob({
+  name: 'db-migration',
+  image: 'migrate:latest',
+  command: ['migrate'],
+  args: ['up'],
+  restartPolicy: 'OnFailure',
+  backoffLimit: 3,
+  activeDeadlineSeconds: 600,
+  ttlSecondsAfterFinished: 86400,
+});
+
+// Add scheduled CronJob for backups
+rutter.addCronJob({
+  name: 'backup-job',
+  schedule: '0 2 * * *', // Daily at 2 AM
+  image: 'backup:latest',
+  command: ['backup.sh'],
+  restartPolicy: 'OnFailure',
+  concurrencyPolicy: 'Forbid',
+  successfulJobsHistoryLimit: 3,
+  failedJobsHistoryLimit: 1,
+});
+
 // Add IRSA ServiceAccount for AWS access
 rutter.addAWSIRSAServiceAccount({
   name: 'my-app-irsa',
@@ -792,6 +816,7 @@ Provide `envValues` in the `Rutter` constructor to automatically create
 - ✅ AWS multi-cloud support (EBS, EFS, ALB, IRSA, Secrets Manager, Parameter Store)
 - ✅ Custom manifest naming and file organization
 - ✅ Azure multi-cloud support (Azure Disk StorageClass, AGIC)
+- ✅ Job and CronJob helpers for batch workloads
 - GCP multi-cloud support (GKE-specific helpers)
 - Richer CLI (resource generators, diff)
 - Template validation and testing utilities
