@@ -583,6 +583,206 @@ export interface AWSSecretProviderClassSpec {
 }
 
 /**
+ * Configuration interface for Azure Workload Identity ServiceAccount.
+ * Enables secure authentication to Azure services without storing credentials.
+ *
+ * @see https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview
+ */
+export interface AzureWorkloadIdentityServiceAccountSpec {
+  /** Name of the ServiceAccount */
+  name: string;
+  /** Azure application client ID for workload identity */
+  clientId: string;
+  /** Azure tenant ID where the application is registered */
+  tenantId: string;
+  /** Service account token expiration in seconds (3600-86400) */
+  tokenExpiration?: number;
+  /** Labels to apply to the ServiceAccount */
+  labels?: Record<string, string>;
+  /** Additional annotations to apply to the ServiceAccount */
+  annotations?: Record<string, string>;
+  /** Whether to automount service account token */
+  automountServiceAccountToken?: boolean;
+  /** Names of image pull secrets */
+  imagePullSecrets?: string[];
+  /** Names of secrets to mount */
+  secrets?: string[];
+}
+
+/**
+ * Azure Key Vault object configuration for SecretProviderClass.
+ */
+export interface AzureKeyVaultObject {
+  /** Name of the object in Azure Key Vault */
+  objectName: string;
+  /** Type of object to retrieve */
+  objectType: 'secret' | 'key' | 'cert';
+  /** Optional alias for the object when mounted */
+  objectAlias?: string;
+  /** Optional version of the object */
+  objectVersion?: string;
+}
+
+/**
+ * Configuration interface for Azure Key Vault SecretProviderClass.
+ * Enables mounting secrets from Azure Key Vault using CSI driver.
+ *
+ * @see https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver
+ */
+export interface AzureKeyVaultSecretProviderClassSpec {
+  /** Name of the SecretProviderClass */
+  name: string;
+  /** Name of the Azure Key Vault */
+  keyVaultName: string;
+  /** Azure tenant ID */
+  tenantId: string;
+  /** Objects to retrieve from Key Vault */
+  objects: AzureKeyVaultObject[];
+  /** User-assigned managed identity client ID for authentication */
+  userAssignedIdentityID?: string;
+  /** Azure cloud environment */
+  cloudName?: 'AzurePublicCloud' | 'AzureUSGovernmentCloud' | 'AzureChinaCloud';
+  /** Labels to apply to the SecretProviderClass */
+  labels?: Record<string, string>;
+  /** Additional annotations to apply to the SecretProviderClass */
+  annotations?: Record<string, string>;
+}
+
+/**
+ * Configuration interface for Azure Files StorageClass.
+ * Defines parameters for creating Azure Files StorageClass in AKS.
+ *
+ * @see https://learn.microsoft.com/en-us/azure/aks/azure-csi-files-storage-provision
+ */
+export interface AzureFilesStorageClassSpec {
+  /** Name of the StorageClass */
+  name: string;
+  /** Azure Files SKU */
+  skuName?:
+    | 'Standard_LRS'
+    | 'Standard_GRS'
+    | 'Standard_RAGRS'
+    | 'Standard_ZRS'
+    | 'Premium_LRS'
+    | 'Premium_ZRS';
+  /** File share protocol */
+  protocol?: 'smb' | 'nfs';
+  /** Allow shared access across multiple pods */
+  allowSharedAccess?: boolean;
+  /** Resource group for storage account */
+  resourceGroup?: string;
+  /** Storage account name */
+  storageAccount?: string;
+  /** Location for storage account */
+  location?: string;
+  /** Network endpoints for storage account */
+  networkEndpointType?: 'publicEndpoint' | 'privateEndpoint';
+  /** Mount permissions for NFS (e.g., '0777') */
+  mountPermissions?: string;
+  /** Root squash type for NFS */
+  rootSquashType?: 'NoRootSquash' | 'RootSquash' | 'AllSquash';
+  /** Volume reclaim policy */
+  reclaimPolicy?: 'Delete' | 'Retain';
+  /** Allow volume expansion */
+  allowVolumeExpansion?: boolean;
+  /** Volume binding mode */
+  volumeBindingMode?: 'Immediate' | 'WaitForFirstConsumer';
+  /** Mount options for the storage class */
+  mountOptions?: string[];
+  /** Labels to apply to the StorageClass */
+  labels?: Record<string, string>;
+  /** Annotations to apply to the StorageClass */
+  annotations?: Record<string, string>;
+}
+
+/**
+ * Configuration interface for Azure Files PersistentVolume.
+ * Defines parameters for static Azure Files volume provisioning.
+ */
+export interface AzureFilesPersistentVolumeSpec {
+  /** Name of the PersistentVolume */
+  name: string;
+  /** Storage capacity */
+  capacity: string;
+  /** Access modes */
+  accessModes?: AccessMode[];
+  /** Storage account name */
+  storageAccount: string;
+  /** File share name */
+  shareName: string;
+  /** Resource group name */
+  resourceGroup?: string;
+  /** File share protocol */
+  protocol?: 'smb' | 'nfs';
+  /** Secret name containing storage account key (SMB only) */
+  secretName?: string;
+  /** Secret namespace (SMB only) */
+  secretNamespace?: string;
+  /** Server address override */
+  server?: string;
+  /** Folder name within share */
+  folderName?: string;
+  /** Mount permissions for NFS */
+  mountPermissions?: string;
+  /** Volume reclaim policy */
+  reclaimPolicy?: ReclaimPolicy;
+  /** Storage class name */
+  storageClassName?: string;
+  /** Mount options */
+  mountOptions?: string[];
+  /** Labels to apply to the PersistentVolume */
+  labels?: Record<string, string>;
+  /** Annotations to apply to the PersistentVolume */
+  annotations?: Record<string, string>;
+}
+
+/**
+ * Configuration interface for Azure Files PersistentVolumeClaim.
+ * Simplifies creation of PVCs for Azure Files.
+ */
+export interface AzureFilesPersistentVolumeClaimSpec {
+  /** Name of the PersistentVolumeClaim */
+  name: string;
+  /** Storage class name */
+  storageClassName: string;
+  /** Storage size request */
+  size: string;
+  /** Access modes */
+  accessModes?: AccessMode[];
+  /** Labels to apply to the PersistentVolumeClaim */
+  labels?: Record<string, string>;
+  /** Annotations to apply to the PersistentVolumeClaim */
+  annotations?: Record<string, string>;
+}
+
+/**
+ * Configuration interface for Azure Container Registry ServiceAccount.
+ * Simplifies ACR integration with AKS using managed identity.
+ */
+export interface AzureACRServiceAccountSpec {
+  /** Name of the ServiceAccount */
+  name: string;
+  /** Azure Container Registry name */
+  acrName: string;
+  /** Resource group containing the ACR */
+  resourceGroup: string;
+  /** Client ID for Workload Identity (optional) */
+  clientId?: string;
+  /** Tenant ID for Workload Identity (optional) */
+  tenantId?: string;
+  /** Labels to apply to the ServiceAccount */
+  labels?: Record<string, string>;
+  /** Additional annotations to apply to the ServiceAccount */
+  annotations?: Record<string, string>;
+  /** Whether to automount service account token */
+  automountServiceAccountToken?: boolean;
+  /** Names of additional image pull secrets */
+  imagePullSecrets?: string[];
+  /** Names of secrets to mount */
+  secrets?: string[];
+}
+
+/**
  * Configuration interface for Azure Disk StorageClass.
  * Defines the parameters for creating an Azure Disk StorageClass in AKS.
  *
@@ -916,6 +1116,7 @@ export class Rutter {
   private static readonly AZURE_DISK_CSI_DRIVER = 'disk.csi.azure.com';
   private static readonly AZURE_DISK_PROVISIONER_ANNOTATION =
     'volume.beta.kubernetes.io/storage-provisioner';
+  private static readonly AZURE_FILES_CSI_DRIVER = 'file.csi.azure.com';
 
   addDeployment(spec: DeploymentSpec) {
     const match = spec.matchLabels ?? {
@@ -2068,6 +2269,267 @@ export class Rutter {
     return spc;
   }
 
+  /**
+   * Add Azure Workload Identity ServiceAccount.
+   * Creates a ServiceAccount with Azure Workload Identity annotations for secure authentication.
+   *
+   * @param spec - Azure Workload Identity ServiceAccount specification
+   * @returns The created ServiceAccount ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addAzureWorkloadIdentityServiceAccount({
+   *   name: 'workload-identity-sa',
+   *   clientId: '12345678-1234-1234-1234-123456789012',
+   *   tenantId: '87654321-4321-4321-4321-210987654321',
+   *   tokenExpiration: 3600
+   * });
+   * ```
+   */
+  addAzureWorkloadIdentityServiceAccount(spec: AzureWorkloadIdentityServiceAccountSpec) {
+    // Validate token expiration range
+    if (
+      spec.tokenExpiration !== undefined &&
+      (spec.tokenExpiration < 3600 || spec.tokenExpiration > 86400)
+    ) {
+      throw new Error(
+        `Azure Workload Identity ${spec.name}: tokenExpiration must be between 3600 and 86400 seconds`,
+      );
+    }
+
+    const annotations: Record<string, string> = {
+      'azure.workload.identity/client-id': spec.clientId,
+      'azure.workload.identity/tenant-id': spec.tenantId,
+      ...(spec.tokenExpiration !== undefined
+        ? {
+            'azure.workload.identity/service-account-token-expiration': String(
+              spec.tokenExpiration,
+            ),
+          }
+        : {}),
+      ...(spec.annotations ?? {}),
+    };
+
+    const sa = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'ServiceAccount',
+      metadata: {
+        name: spec.name,
+        annotations,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+      },
+      automountServiceAccountToken: spec.automountServiceAccountToken,
+      imagePullSecrets: spec.imagePullSecrets?.map((n) => ({ name: n })),
+      secrets: spec.secrets?.map((n) => ({ name: n })),
+    });
+    this.capture(sa, `${spec.name}-serviceaccount`);
+    return sa;
+  }
+
+  /**
+   * Add Azure Key Vault SecretProviderClass.
+   * Creates a SecretProviderClass for mounting secrets from Azure Key Vault using CSI driver.
+   *
+   * @param spec - Azure Key Vault SecretProviderClass specification
+   * @returns The created SecretProviderClass ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addAzureKeyVaultSecretProviderClass({
+   *   name: 'app-secrets',
+   *   keyVaultName: 'my-keyvault',
+   *   tenantId: '87654321-4321-4321-4321-210987654321',
+   *   objects: [
+   *     { objectName: 'database-password', objectType: 'secret' },
+   *     { objectName: 'api-key', objectType: 'secret', objectAlias: 'API_KEY' }
+   *   ],
+   *   userAssignedIdentityID: '12345678-1234-1234-1234-123456789012'
+   * });
+   * ```
+   */
+  addAzureKeyVaultSecretProviderClass(spec: AzureKeyVaultSecretProviderClassSpec) {
+    const objects = spec.objects.map((obj) => {
+      const baseObj: Record<string, string> = {
+        objectName: obj.objectName,
+        objectType: obj.objectType,
+      };
+
+      if (obj.objectAlias) {
+        baseObj['objectAlias'] = obj.objectAlias;
+      }
+      if (obj.objectVersion) {
+        baseObj['objectVersion'] = obj.objectVersion;
+      }
+
+      return baseObj;
+    });
+
+    const objectsYaml = YAML.stringify(objects, { indent: 2 }).trim();
+
+    const parameters: Record<string, string> = {
+      keyvaultName: spec.keyVaultName,
+      tenantId: spec.tenantId,
+      objects: `|\n  ${objectsYaml.split('\n').join('\n  ')}`,
+    };
+
+    if (spec.userAssignedIdentityID) {
+      parameters['userAssignedIdentityID'] = spec.userAssignedIdentityID;
+    }
+    if (spec.cloudName) {
+      parameters['cloudName'] = spec.cloudName;
+    }
+
+    const spc = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'secrets-store.csi.x-k8s.io/v1',
+      kind: 'SecretProviderClass',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        provider: 'azure',
+        parameters,
+      },
+    });
+    this.capture(spc, `${spec.name}-secretproviderclass`);
+    return spc;
+  }
+
+  /**
+   * Add Azure Files StorageClass.
+   * Creates a StorageClass for dynamic provisioning of Azure Files volumes.
+   *
+   * @param spec - Azure Files StorageClass specification
+   * @returns The created StorageClass ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addAzureFilesStorageClass({
+   *   name: 'azure-files-premium',
+   *   skuName: 'Premium_LRS',
+   *   protocol: 'smb',
+   *   allowSharedAccess: true
+   * });
+   * ```
+   */
+  addAzureFilesStorageClass(spec: AzureFilesStorageClassSpec) {
+    const parameters = this.buildAzureFilesParameters(spec);
+
+    const sc = new ApiObject(this.chart, spec.name, {
+      apiVersion: Rutter.STORAGE_API_VERSION,
+      kind: 'StorageClass',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      provisioner: Rutter.AZURE_FILES_CSI_DRIVER,
+      parameters,
+      reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
+      allowVolumeExpansion: spec.allowVolumeExpansion ?? true,
+      volumeBindingMode: spec.volumeBindingMode ?? 'Immediate',
+      ...(spec.mountOptions ? { mountOptions: spec.mountOptions } : {}),
+    });
+    this.capture(sc, `${spec.name}-storageclass`);
+    return sc;
+  }
+
+  /**
+   * Add Azure Files PersistentVolume.
+   * Creates a PersistentVolume for static Azure Files volume provisioning.
+   *
+   * @param spec - Azure Files PersistentVolume specification
+   * @returns The created PersistentVolume ApiObject
+   */
+  addAzureFilesPersistentVolume(spec: AzureFilesPersistentVolumeSpec) {
+    const csiSpec = this.buildAzureFilesPVCSISpec(spec);
+
+    const pv = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'PersistentVolume',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        capacity: { storage: spec.capacity },
+        accessModes: spec.accessModes ?? ['ReadWriteMany'],
+        persistentVolumeReclaimPolicy: spec.reclaimPolicy ?? 'Retain',
+        storageClassName: spec.storageClassName,
+        ...(spec.mountOptions ? { mountOptions: spec.mountOptions } : {}),
+        csi: csiSpec,
+      },
+    });
+    this.capture(pv, `${spec.name}-pv`);
+    return pv;
+  }
+
+  /**
+   * Add Azure Files PersistentVolumeClaim.
+   * Creates a PersistentVolumeClaim for Azure Files storage.
+   *
+   * @param spec - Azure Files PersistentVolumeClaim specification
+   * @returns The created PersistentVolumeClaim ApiObject
+   */
+  addAzureFilesPersistentVolumeClaim(spec: AzureFilesPersistentVolumeClaimSpec) {
+    const pvc = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'PersistentVolumeClaim',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        accessModes: spec.accessModes ?? ['ReadWriteMany'],
+        storageClassName: spec.storageClassName,
+        resources: {
+          requests: { storage: spec.size },
+        },
+      },
+    });
+    this.capture(pvc, `${spec.name}-pvc`);
+    return pvc;
+  }
+
+  /**
+   * Add Azure Container Registry ServiceAccount.
+   * Creates a ServiceAccount configured for ACR access.
+   *
+   * @param spec - Azure ACR ServiceAccount specification
+   * @returns The created ServiceAccount ApiObject
+   */
+  addAzureACRServiceAccount(spec: AzureACRServiceAccountSpec) {
+    const annotations: Record<string, string> = {
+      ...(spec.annotations ?? {}),
+    };
+
+    // Add Workload Identity annotations if provided
+    if (spec.clientId) {
+      annotations['azure.workload.identity/client-id'] = spec.clientId;
+    }
+    if (spec.tenantId) {
+      annotations['azure.workload.identity/tenant-id'] = spec.tenantId;
+    }
+
+    const sa = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'v1',
+      kind: 'ServiceAccount',
+      metadata: {
+        name: spec.name,
+        ...(Object.keys(annotations).length ? { annotations } : {}),
+        ...(spec.labels ? { labels: spec.labels } : {}),
+      },
+      automountServiceAccountToken: spec.automountServiceAccountToken,
+      imagePullSecrets: spec.imagePullSecrets?.map((n) => ({ name: n })),
+      secrets: spec.secrets?.map((n) => ({ name: n })),
+    });
+    this.capture(sa, `${spec.name}-serviceaccount`);
+    return sa;
+  }
+
   addAzureDiskStorageClass(spec: AzureDiskStorageClassSpec) {
     // Validate numeric parameters to prevent runtime errors
     this.validateAzureDiskNumericParameters(spec);
@@ -2539,6 +3001,80 @@ export class Rutter {
     if (spec.overrideFrontendPort === 443 && !spec.appgwSslCertificate) {
       throw new Error('Port 443 requires an SSL certificate to be specified');
     }
+  }
+
+  private buildAzureFilesParameters(spec: AzureFilesStorageClassSpec): Record<string, string> {
+    const parameters: Record<string, string> = {
+      skuName: spec.skuName ?? 'Standard_LRS',
+    };
+
+    if (spec.protocol) {
+      parameters['protocol'] = spec.protocol;
+    }
+    if (spec.allowSharedAccess !== undefined) {
+      parameters['allowSharedAccess'] = String(spec.allowSharedAccess);
+    }
+    if (spec.resourceGroup) {
+      parameters['resourceGroup'] = spec.resourceGroup;
+    }
+    if (spec.storageAccount) {
+      parameters['storageAccount'] = spec.storageAccount;
+    }
+    if (spec.location) {
+      parameters['location'] = spec.location;
+    }
+    if (spec.networkEndpointType) {
+      parameters['networkEndpointType'] = spec.networkEndpointType;
+    }
+
+    // NFS-specific parameters
+    if (spec.protocol === 'nfs' && spec.mountPermissions) {
+      parameters['mountPermissions'] = spec.mountPermissions;
+    }
+    if (spec.protocol === 'nfs' && spec.rootSquashType) {
+      parameters['rootSquashType'] = spec.rootSquashType;
+    }
+
+    return parameters;
+  }
+
+  private buildAzureFilesPVCSISpec(spec: AzureFilesPersistentVolumeSpec): Record<string, unknown> {
+    const volumeAttributes: Record<string, string> = {
+      storageAccount: spec.storageAccount,
+      shareName: spec.shareName,
+    };
+
+    if (spec.resourceGroup) {
+      volumeAttributes['resourceGroup'] = spec.resourceGroup;
+    }
+    if (spec.protocol) {
+      volumeAttributes['protocol'] = spec.protocol;
+    }
+    if (spec.server) {
+      volumeAttributes['server'] = spec.server;
+    }
+    if (spec.folderName) {
+      volumeAttributes['folderName'] = spec.folderName;
+    }
+    if (spec.mountPermissions) {
+      volumeAttributes['mountPermissions'] = spec.mountPermissions;
+    }
+
+    const csiSpec: Record<string, unknown> = {
+      driver: Rutter.AZURE_FILES_CSI_DRIVER,
+      volumeHandle: `${spec.storageAccount}#${spec.shareName}`,
+      volumeAttributes,
+    };
+
+    // Add secret reference for SMB protocol
+    if (spec.protocol !== 'nfs' && spec.secretName) {
+      csiSpec['nodeStageSecretRef'] = {
+        name: spec.secretName,
+        namespace: spec.secretNamespace ?? 'default',
+      };
+    }
+
+    return csiSpec;
   }
 
   private buildPodEnvironment(spec: JobSpec | CronJobSpec) {
