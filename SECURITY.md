@@ -25,11 +25,11 @@
 
 We provide security updates for the following versions:
 
-| Version | Supported          | Notes                    |
-| ------- | ------------------ | ------------------------ |
-| 2.x.x   | ✅ Current         | Active development       |
-| 1.x.x   | ❌ End of life     | No security updates     |
-| < 1.0   | ❌ End of life     | No security updates     |
+| Version | Supported      | Notes               |
+| ------- | -------------- | ------------------- |
+| 2.x.x   | ✅ Current     | Active development  |
+| 1.x.x   | ❌ End of life | No security updates |
+| < 1.0   | ❌ End of life | No security updates |
 
 ## Development Security
 
