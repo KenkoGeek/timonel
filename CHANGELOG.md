@@ -1,3 +1,9 @@
+## [2.1.1](https://github.com/KenkoGeek/timonel/compare/v2.1.0...v2.1.1) (2025-09-09)
+
+### Bug Fixes
+
+- **cli:** enable TypeScript execution with enhanced security and strict mode validation ([cf468d2](https://github.com/KenkoGeek/timonel/commit/cf468d2c402359827f7678dcac49f38b8afa4052))
+
 # [2.1.0](https://github.com/KenkoGeek/timonel/compare/v2.0.0...v2.1.0) (2025-09-08)
 
 ### Features
