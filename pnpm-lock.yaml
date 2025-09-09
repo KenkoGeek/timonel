@@ -10,7 +10,7 @@ importers:
     dependencies:
       cdk8s:
         specifier: ^2.70.11
-        version: 2.70.11(constructs@10.4.2)
+        version: 2.70.12(constructs@10.4.2)
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@24.3.1)(typescript@5.9.2)
@@ -777,8 +777,8 @@ packages:
     resolution: {integrity: sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ==}
     engines: {node: '>=6'}
 
-  cdk8s@2.70.11:
-    resolution: {integrity: sha512-2/ZNODF17C1FOvLmvI/IYAe0G1vFZNA1/QVIP5+C/M7M9PSQKt4JyhCztR9LWAbCEhvzocWQzhRQfmfJg86+Iw==}
+  cdk8s@2.70.12:
+    resolution: {integrity: sha512-h2+wle8uVdYXvU2hPnpL1iSFNidAO+PqNf3vME9YxmvIXastdQYodFKe9aMMtWrUiBtZujPR+VbqYE5tKqL2Qw==}
     engines: {node: '>= 16.20.0'}
     peerDependencies:
       constructs: ^10
@@ -3844,7 +3844,7 @@ snapshots:
 
   callsites@3.1.0: {}
 
-  cdk8s@2.70.11(constructs@10.4.2):
+  cdk8s@2.70.12(constructs@10.4.2):
     dependencies:
       constructs: 10.4.2
 
