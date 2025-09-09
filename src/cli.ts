@@ -2,6 +2,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cp from 'child_process';
+import { createRequire } from 'module';
 
 const HELM_INSTALL_URL = 'https://helm.sh/docs/intro/install/';
 const HELM_ENV_VAR_MSG = 'Or set HELM_BIN environment variable to helm binary path.';
@@ -127,15 +128,19 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
     console.error(`chart.ts not found at ${chartTs}`);
     process.exit(1);
   }
-  // Enable TS runtime with specific config
+  // Enable TS runtime with project-specific config
   const { register } = await import('ts-node');
   register({
+    project: path.join(path.dirname(chartTs), 'tsconfig.json'),
     transpileOnly: true,
     compilerOptions: {
-      module: 'ESNext',
+      module: 'CommonJS',
       moduleResolution: 'node',
+      esModuleInterop: true,
+      allowSyntheticDefaultImports: true,
     },
   });
+
   // Validate module path to prevent code injection
   const allowedPaths = [process.cwd()];
   const resolvedPath = path.resolve(chartTs);
@@ -145,7 +150,10 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
   }
 
   try {
-    const mod = await import(resolvedPath);
+    // Use createRequire for CommonJS compatibility in ES modules
+    const require = createRequire(import.meta.url);
+    // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
+    const mod = require(resolvedPath);
     const runner = mod.default || mod.run || mod.synth;
     if (typeof runner !== 'function') {
       console.error('chart.ts must export a default/run/synth function');
