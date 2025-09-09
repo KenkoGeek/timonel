@@ -15,6 +15,6 @@
     "mysql"
   ],
   "dependencies": {
-    "timonel": "^2.1.1"
+    "timonel": "^2.2.1"
   }
 }

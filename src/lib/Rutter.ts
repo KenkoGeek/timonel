@@ -2287,7 +2287,7 @@ export class Rutter {
    * ```
    */
   addAzureWorkloadIdentityServiceAccount(spec: AzureWorkloadIdentityServiceAccountSpec) {
-    // Validate token expiration range
+    // Validate all inputs first for security
     if (
       spec.tokenExpiration !== undefined &&
       (spec.tokenExpiration < 3600 || spec.tokenExpiration > 86400)
@@ -2295,6 +2295,14 @@ export class Rutter {
       throw new Error(
         `Azure Workload Identity ${spec.name}: tokenExpiration must be between 3600 and 86400 seconds`,
       );
+    }
+
+    if (!spec.clientId?.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      throw new Error(`Azure Workload Identity ${spec.name}: Invalid client ID format`);
+    }
+
+    if (!spec.tenantId?.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      throw new Error(`Azure Workload Identity ${spec.name}: Invalid tenant ID format`);
     }
 
     const annotations: Record<string, string> = {
@@ -2348,6 +2356,15 @@ export class Rutter {
    * ```
    */
   addAzureKeyVaultSecretProviderClass(spec: AzureKeyVaultSecretProviderClassSpec) {
+    // Validate object names for security - prevent path traversal attacks
+    spec.objects.forEach((obj) => {
+      if (obj.objectName.includes('../') || obj.objectName.includes('..\\')) {
+        throw new Error(
+          `Azure Key Vault ${spec.name}: Object name '${obj.objectName}' contains invalid path traversal sequences`,
+        );
+      }
+    });
+
     const objects = spec.objects.map((obj) => {
       const baseObj: Record<string, string> = {
         objectName: obj.objectName,
@@ -2414,6 +2431,9 @@ export class Rutter {
    * ```
    */
   addAzureFilesStorageClass(spec: AzureFilesStorageClassSpec) {
+    // Validate Azure Files parameters for security and compliance
+    this.validateAzureFilesParameters(spec);
+
     const parameters = this.buildAzureFilesParameters(spec);
 
     const sc = new ApiObject(this.chart, spec.name, {
@@ -3039,6 +3059,15 @@ export class Rutter {
   }
 
   private buildAzureFilesPVCSISpec(spec: AzureFilesPersistentVolumeSpec): Record<string, unknown> {
+    // Validate protocol and secret configuration
+    if (spec.protocol === 'nfs' && spec.secretName) {
+      throw new Error(
+        `Azure Files PV ${spec.name}: NFS protocol does not use secrets for authentication`,
+      );
+    }
+
+    const volumeHandle = this.sanitizeVolumeHandle(spec.storageAccount, spec.shareName);
+
     const volumeAttributes: Record<string, string> = {
       storageAccount: spec.storageAccount,
       shareName: spec.shareName,
@@ -3062,7 +3091,7 @@ export class Rutter {
 
     const csiSpec: Record<string, unknown> = {
       driver: Rutter.AZURE_FILES_CSI_DRIVER,
-      volumeHandle: `${spec.storageAccount}#${spec.shareName}`,
+      volumeHandle,
       volumeAttributes,
     };
 
@@ -3310,6 +3339,43 @@ export class Rutter {
         memory: '128Mi',
       },
     };
+  }
+
+  /**
+   * Validate Azure Files parameters for security and compliance
+   */
+  private validateAzureFilesParameters(spec: AzureFilesStorageClassSpec): void {
+    const validSkuNames = [
+      'Standard_LRS',
+      'Standard_GRS',
+      'Standard_RAGRS',
+      'Standard_ZRS',
+      'Premium_LRS',
+      'Premium_ZRS',
+    ];
+
+    if (spec.skuName && !validSkuNames.includes(spec.skuName)) {
+      throw new Error(
+        `Invalid skuName: ${spec.skuName}. Must be one of: ${validSkuNames.join(', ')}`,
+      );
+    }
+
+    if (spec.protocol === 'nfs' && spec.mountPermissions) {
+      const permRegex = /^[0-7]{3,4}$/;
+      if (!permRegex.test(spec.mountPermissions)) {
+        throw new Error('mountPermissions must be a valid octal permission string (e.g., "0777")');
+      }
+    }
+  }
+
+  /**
+   * Sanitize volume handle to ensure valid format for CSI driver
+   */
+  private sanitizeVolumeHandle(account: string, share: string): string {
+    // Remove special characters and ensure valid format
+    const sanitizedAccount = account.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const sanitizedShare = share.replace(/[^a-z0-9-]/gi, '').toLowerCase();
+    return `${sanitizedAccount}#${sanitizedShare}`;
   }
 
   /**
