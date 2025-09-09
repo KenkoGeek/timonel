@@ -128,16 +128,17 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
     console.error(`chart.ts not found at ${chartTs}`);
     process.exit(1);
   }
-  // Enable TS runtime with project-specific config
+  // Enable TS runtime with inline config
   const { register } = await import('ts-node');
   register({
-    project: path.join(path.dirname(chartTs), 'tsconfig.json'),
     transpileOnly: true,
     compilerOptions: {
       module: 'CommonJS',
       moduleResolution: 'node',
       esModuleInterop: true,
       allowSyntheticDefaultImports: true,
+      strict: true,
+      target: 'ES2020',
     },
   });
 
@@ -392,12 +393,16 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
     process.exit(1);
   }
 
-  // Enable TS runtime
+  // Enable TS runtime with inline config
   require('ts-node').register({
     transpileOnly: true,
     compilerOptions: {
       module: 'CommonJS',
       moduleResolution: 'node',
+      esModuleInterop: true,
+      allowSyntheticDefaultImports: true,
+      strict: true,
+      target: 'ES2020',
     },
   });
 
