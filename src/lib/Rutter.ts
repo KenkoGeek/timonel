@@ -189,6 +189,72 @@ export interface ReplicaSetSpec {
   podAnnotations?: Record<string, string>;
 }
 
+export interface JobSpec {
+  name: string;
+  image: string;
+  command?: string[];
+  args?: string[];
+  env?: Record<string, string>;
+  envFrom?: EnvFromSource[];
+  volumes?: VolumeSourceSpec[];
+  volumeMounts?: VolumeMountSpec[];
+  resources?: ResourceRequirements;
+  restartPolicy?: 'Never' | 'OnFailure';
+  backoffLimit?: number;
+  activeDeadlineSeconds?: number;
+  ttlSecondsAfterFinished?: number;
+  completions?: number;
+  parallelism?: number;
+  completionMode?: 'NonIndexed' | 'Indexed';
+  suspend?: boolean;
+  imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never';
+  serviceAccountName?: string;
+  /** Optional extra labels on the Job metadata */
+  labels?: Record<string, string>;
+  /** Optional annotations on the Job metadata */
+  annotations?: Record<string, string>;
+  /** Optional extra labels on the pod template */
+  podLabels?: Record<string, string>;
+  /** Optional annotations on the pod template */
+  podAnnotations?: Record<string, string>;
+}
+
+export interface CronJobSpec {
+  name: string;
+  schedule: string;
+  image: string;
+  command?: string[];
+  args?: string[];
+  env?: Record<string, string>;
+  envFrom?: EnvFromSource[];
+  volumes?: VolumeSourceSpec[];
+  volumeMounts?: VolumeMountSpec[];
+  resources?: ResourceRequirements;
+  restartPolicy?: 'Never' | 'OnFailure';
+  backoffLimit?: number;
+  activeDeadlineSeconds?: number;
+  ttlSecondsAfterFinished?: number;
+  completions?: number;
+  parallelism?: number;
+  completionMode?: 'NonIndexed' | 'Indexed';
+  suspend?: boolean;
+  startingDeadlineSeconds?: number;
+  concurrencyPolicy?: 'Allow' | 'Forbid' | 'Replace';
+  successfulJobsHistoryLimit?: number;
+  failedJobsHistoryLimit?: number;
+  timeZone?: string;
+  imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never';
+  serviceAccountName?: string;
+  /** Optional extra labels on the CronJob metadata */
+  labels?: Record<string, string>;
+  /** Optional annotations on the CronJob metadata */
+  annotations?: Record<string, string>;
+  /** Optional extra labels on the pod template */
+  podLabels?: Record<string, string>;
+  /** Optional annotations on the pod template */
+  podAnnotations?: Record<string, string>;
+}
+
 export interface ServiceSpec {
   name: string;
   ports: Array<{
@@ -1037,6 +1103,70 @@ export class Rutter {
     });
     this.capture(rs, `${spec.name}-replicaset`);
     return rs;
+  }
+
+  addJob(spec: JobSpec) {
+    // Validate Job specification
+    this.validateJobSpec(spec);
+
+    const { envEntries, envFromEntries, volumeDefs, volumeMountDefs } =
+      this.buildPodEnvironment(spec);
+    const jobSpec = this.buildJobSpec(spec);
+    const podTemplate = this.buildJobPodTemplate(
+      spec,
+      envEntries,
+      envFromEntries,
+      volumeDefs,
+      volumeMountDefs,
+    );
+
+    const job = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'batch/v1',
+      kind: 'Job',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        ...jobSpec,
+        template: podTemplate,
+      },
+    });
+    this.capture(job, `${spec.name}-job`);
+    return job;
+  }
+
+  addCronJob(spec: CronJobSpec) {
+    // Validate CronJob specification
+    this.validateCronJobSpec(spec);
+
+    const { envEntries, envFromEntries, volumeDefs, volumeMountDefs } =
+      this.buildPodEnvironment(spec);
+    const cronJobSpec = this.buildCronJobSpec(spec);
+    const jobTemplate = this.buildCronJobTemplate(
+      spec,
+      envEntries,
+      envFromEntries,
+      volumeDefs,
+      volumeMountDefs,
+    );
+
+    const cronJob = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'batch/v1',
+      kind: 'CronJob',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        ...cronJobSpec,
+        jobTemplate,
+      },
+    });
+    this.capture(cronJob, `${spec.name}-cronjob`);
+    return cronJob;
   }
 
   addIngress(spec: IngressSpec) {
@@ -2409,6 +2539,241 @@ export class Rutter {
     if (spec.overrideFrontendPort === 443 && !spec.appgwSslCertificate) {
       throw new Error('Port 443 requires an SSL certificate to be specified');
     }
+  }
+
+  private buildPodEnvironment(spec: JobSpec | CronJobSpec) {
+    const envEntries = spec.env
+      ? Object.entries(spec.env).map(([name, value]) => this.sanitizeEnvVar(name, value))
+      : undefined;
+    const envFromEntries = spec.envFrom
+      ? spec.envFrom
+          .map((s) => {
+            const entry: { configMapRef?: { name: string }; secretRef?: { name: string } } = {};
+            if (s.configMapRef) {
+              entry.configMapRef = { name: s.configMapRef };
+            }
+            if (s.secretRef) {
+              entry.secretRef = { name: s.secretRef };
+            }
+            return entry;
+          })
+          .filter((entry) => entry.configMapRef || entry.secretRef)
+      : undefined;
+    const volumeDefs = spec.volumes
+      ? spec.volumes.map((v) => ({
+          name: v.name,
+          configMap: v.configMap ? { name: v.configMap } : undefined,
+          secret: v.secret ? { secretName: v.secret } : undefined,
+          persistentVolumeClaim: v.persistentVolumeClaim
+            ? { claimName: v.persistentVolumeClaim }
+            : undefined,
+        }))
+      : undefined;
+    const volumeMountDefs = spec.volumeMounts
+      ? spec.volumeMounts.map((m) => ({
+          name: m.name,
+          mountPath: m.mountPath,
+          readOnly: m.readOnly,
+          subPath: m.subPath,
+        }))
+      : undefined;
+
+    return { envEntries, envFromEntries, volumeDefs, volumeMountDefs };
+  }
+
+  private buildJobSpec(spec: JobSpec): Record<string, unknown> {
+    return {
+      ...(spec.backoffLimit !== undefined ? { backoffLimit: spec.backoffLimit } : {}),
+      ...(spec.activeDeadlineSeconds !== undefined
+        ? { activeDeadlineSeconds: spec.activeDeadlineSeconds }
+        : {}),
+      ...(spec.ttlSecondsAfterFinished !== undefined
+        ? { ttlSecondsAfterFinished: spec.ttlSecondsAfterFinished }
+        : {}),
+      ...(spec.completions !== undefined ? { completions: spec.completions } : {}),
+      ...(spec.parallelism !== undefined ? { parallelism: spec.parallelism } : {}),
+      ...(spec.completionMode !== undefined ? { completionMode: spec.completionMode } : {}),
+      ...(spec.suspend !== undefined ? { suspend: spec.suspend } : {}),
+    };
+  }
+
+  private buildJobPodTemplate(
+    spec: JobSpec,
+    envEntries: Array<{ name: string; value: string }> | undefined,
+    envFromEntries:
+      | Array<{ configMapRef?: { name: string }; secretRef?: { name: string } }>
+      | undefined,
+    volumeDefs: Array<Record<string, unknown>> | undefined,
+    volumeMountDefs: Array<Record<string, unknown>> | undefined,
+  ): Record<string, unknown> {
+    return {
+      metadata: {
+        ...(spec.podLabels ? { labels: spec.podLabels } : {}),
+        ...(spec.podAnnotations ? { annotations: spec.podAnnotations } : {}),
+      },
+      spec: {
+        restartPolicy: spec.restartPolicy ?? 'Never',
+        serviceAccountName: spec.serviceAccountName,
+        volumes: volumeDefs,
+        containers: [
+          {
+            name: spec.name,
+            image: spec.image,
+            imagePullPolicy: spec.imagePullPolicy,
+            ...(spec.command ? { command: spec.command } : {}),
+            ...(spec.args ? { args: spec.args } : {}),
+            env: envEntries,
+            envFrom: envFromEntries,
+            volumeMounts: volumeMountDefs,
+            resources: spec.resources ?? this.getDefaultResources(),
+          },
+        ],
+      },
+    };
+  }
+
+  private buildCronJobSpec(spec: CronJobSpec): Record<string, unknown> {
+    return {
+      schedule: spec.schedule,
+      ...(spec.startingDeadlineSeconds !== undefined
+        ? { startingDeadlineSeconds: spec.startingDeadlineSeconds }
+        : {}),
+      ...(spec.concurrencyPolicy !== undefined
+        ? { concurrencyPolicy: spec.concurrencyPolicy }
+        : {}),
+      ...(spec.suspend !== undefined ? { suspend: spec.suspend } : {}),
+      ...(spec.successfulJobsHistoryLimit !== undefined
+        ? { successfulJobsHistoryLimit: spec.successfulJobsHistoryLimit }
+        : {}),
+      ...(spec.failedJobsHistoryLimit !== undefined
+        ? { failedJobsHistoryLimit: spec.failedJobsHistoryLimit }
+        : {}),
+      ...(spec.timeZone !== undefined ? { timeZone: spec.timeZone } : {}),
+    };
+  }
+
+  private buildCronJobTemplate(
+    spec: CronJobSpec,
+    envEntries: Array<{ name: string; value: string }> | undefined,
+    envFromEntries:
+      | Array<{ configMapRef?: { name: string }; secretRef?: { name: string } }>
+      | undefined,
+    volumeDefs: Array<Record<string, unknown>> | undefined,
+    volumeMountDefs: Array<Record<string, unknown>> | undefined,
+  ): Record<string, unknown> {
+    return {
+      spec: {
+        ...(spec.backoffLimit !== undefined ? { backoffLimit: spec.backoffLimit } : {}),
+        ...(spec.activeDeadlineSeconds !== undefined
+          ? { activeDeadlineSeconds: spec.activeDeadlineSeconds }
+          : {}),
+        ...(spec.ttlSecondsAfterFinished !== undefined
+          ? { ttlSecondsAfterFinished: spec.ttlSecondsAfterFinished }
+          : {}),
+        ...(spec.completions !== undefined ? { completions: spec.completions } : {}),
+        ...(spec.parallelism !== undefined ? { parallelism: spec.parallelism } : {}),
+        ...(spec.completionMode !== undefined ? { completionMode: spec.completionMode } : {}),
+        template: {
+          metadata: {
+            ...(spec.podLabels ? { labels: spec.podLabels } : {}),
+            ...(spec.podAnnotations ? { annotations: spec.podAnnotations } : {}),
+          },
+          spec: {
+            restartPolicy: spec.restartPolicy ?? 'Never',
+            serviceAccountName: spec.serviceAccountName,
+            volumes: volumeDefs,
+            containers: [
+              {
+                name: spec.name,
+                image: spec.image,
+                imagePullPolicy: spec.imagePullPolicy,
+                ...(spec.command ? { command: spec.command } : {}),
+                ...(spec.args ? { args: spec.args } : {}),
+                env: envEntries,
+                envFrom: envFromEntries,
+                volumeMounts: volumeMountDefs,
+                resources: spec.resources ?? this.getDefaultResources(),
+              },
+            ],
+          },
+        },
+      },
+    };
+  }
+
+  /**
+   * Validate Job specification for security and best practices
+   */
+  private validateJobSpec(spec: JobSpec): void {
+    if (spec.activeDeadlineSeconds !== undefined && spec.activeDeadlineSeconds <= 0) {
+      throw new Error('activeDeadlineSeconds must be a positive integer');
+    }
+    if (spec.ttlSecondsAfterFinished !== undefined && spec.ttlSecondsAfterFinished < 0) {
+      throw new Error('ttlSecondsAfterFinished must be a non-negative integer');
+    }
+  }
+
+  /**
+   * Validate CronJob specification for security and best practices
+   */
+  private validateCronJobSpec(spec: CronJobSpec): void {
+    this.validateCronSchedule(spec.schedule);
+
+    if (spec.suspend && spec.startingDeadlineSeconds !== undefined) {
+      throw new Error('startingDeadlineSeconds should not be set when job is suspended');
+    }
+    if (spec.successfulJobsHistoryLimit !== undefined && spec.successfulJobsHistoryLimit < 0) {
+      throw new Error('successfulJobsHistoryLimit must be non-negative');
+    }
+    if (spec.failedJobsHistoryLimit !== undefined && spec.failedJobsHistoryLimit < 0) {
+      throw new Error('failedJobsHistoryLimit must be non-negative');
+    }
+    if (spec.activeDeadlineSeconds !== undefined && spec.activeDeadlineSeconds <= 0) {
+      throw new Error('activeDeadlineSeconds must be a positive integer');
+    }
+    if (spec.ttlSecondsAfterFinished !== undefined && spec.ttlSecondsAfterFinished < 0) {
+      throw new Error('ttlSecondsAfterFinished must be a non-negative integer');
+    }
+  }
+
+  /**
+   * Validate cron schedule expression
+   */
+  private validateCronSchedule(schedule: string): void {
+    const cronRegex =
+      /^(\*|([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])|\*\/([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])) (\*|([0-9]|1[0-9]|2[0-3])|\*\/([0-9]|1[0-9]|2[0-3])) (\*|([1-9]|1[0-9]|2[0-9]|3[0-1])|\*\/([1-9]|1[0-9]|2[0-9]|3[0-1])) (\*|([1-9]|1[0-2])|\*\/([1-9]|1[0-2])) (\*|([0-6])|\*\/([0-6]))$/;
+    if (!cronRegex.test(schedule)) {
+      throw new Error('Invalid cron schedule expression');
+    }
+  }
+
+  /**
+   * Sanitize environment variable names and values
+   */
+  private sanitizeEnvVar(name: string, value: string): { name: string; value: string } {
+    const nameRegex = /^[A-Za-z_][A-Za-z0-9_]*$/;
+    if (!nameRegex.test(name)) {
+      throw new Error(`Invalid environment variable name: ${name}`);
+    }
+    // Remove control characters from value (ASCII 0-31 and 127)
+    const sanitizedValue = value.replace(/[\cA-\c_\x7F]/g, '');
+    return { name, value: sanitizedValue };
+  }
+
+  /**
+   * Get default resource limits for Jobs and CronJobs
+   */
+  private getDefaultResources(): ResourceRequirements {
+    return {
+      limits: {
+        cpu: '1',
+        memory: '512Mi',
+      },
+      requests: {
+        cpu: '100m',
+        memory: '128Mi',
+      },
+    };
   }
 
   /**

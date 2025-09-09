@@ -1,3 +1,9 @@
+# [2.1.0](https://github.com/KenkoGeek/timonel/compare/v2.0.0...v2.1.0) (2025-09-08)
+
+### Features
+
+- **core:** add Job and CronJob helpers for batch workloads ([#21](https://github.com/KenkoGeek/timonel/issues/21)) ([0f375d2](https://github.com/KenkoGeek/timonel/commit/0f375d214e1cb3a2791522c530230757c15b2dee))
+
 # [2.0.0](https://github.com/KenkoGeek/timonel/compare/v1.0.0...v2.0.0) (2025-09-07)
 
 ### Bug Fixes
