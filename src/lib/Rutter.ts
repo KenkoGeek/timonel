@@ -3,6 +3,7 @@ import YAML from 'yaml';
 
 import { include, helm } from './helm.js';
 import { HelmChartWriter } from './HelmChartWriter.js';
+import { SecurityUtils } from './security.js';
 import type {
   HelmChartMeta,
   HelmChartWriteOptions,
@@ -1549,12 +1550,18 @@ export class Rutter {
     // Warn about common misconfigurations
     if (storageClassName?.includes('azure-disk') && accessModes.includes('ReadWriteMany')) {
       console.warn(
-        `PVC ${spec.name}: Azure Disk does not support ReadWriteMany, consider Azure Files`,
+        SecurityUtils.sanitizeLogMessage(
+          `PVC ${spec.name}: Azure Disk does not support ReadWriteMany, consider Azure Files`,
+        ),
       );
     }
 
     if (storageClassName?.includes('ebs') && accessModes.includes('ReadWriteMany')) {
-      console.warn(`PVC ${spec.name}: EBS does not support ReadWriteMany, consider EFS`);
+      console.warn(
+        SecurityUtils.sanitizeLogMessage(
+          `PVC ${spec.name}: EBS does not support ReadWriteMany, consider EFS`,
+        ),
+      );
     }
   }
 

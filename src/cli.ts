@@ -4,11 +4,13 @@ import * as path from 'path';
 import * as cp from 'child_process';
 import { createRequire } from 'module';
 
+import { SecurityUtils } from './lib/security.js';
+
 const HELM_INSTALL_URL = 'https://helm.sh/docs/intro/install/';
 const HELM_ENV_VAR_MSG = 'Or set HELM_BIN environment variable to helm binary path.';
 
 function usageAndExit(msg?: string): never {
-  if (msg) console.error(msg);
+  if (msg) console.error(SecurityUtils.sanitizeLogMessage(msg));
   console.log(
     [
       'timonel (tl) - programmatic Helm chart generator',
@@ -48,7 +50,19 @@ function usageAndExit(msg?: string): never {
 
 async function cmdInit(name?: string, silent = false) {
   if (!name) usageAndExit('Missing <chart-name>');
-  const base = path.join(process.cwd(), 'charts', name as string);
+
+  // Validate chart name for security
+  const sanitizedName = name.replace(/[^a-zA-Z0-9-_]/g, '');
+  if (sanitizedName !== name || name.includes('..')) {
+    usageAndExit(
+      'Invalid chart name: only alphanumeric characters, hyphens, and underscores allowed',
+    );
+  }
+
+  const base = SecurityUtils.validatePath(
+    path.join(process.cwd(), 'charts', sanitizedName),
+    process.cwd(),
+  );
   const file = path.join(base, 'chart.ts');
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.mkdirSync(base, { recursive: true });
@@ -59,18 +73,21 @@ async function cmdInit(name?: string, silent = false) {
   }
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.writeFileSync(file, exampleChartTs(name));
-  log(`Scaffold created at ${file}`, silent);
+  log(SecurityUtils.sanitizeLogMessage(`Scaffold created at ${file}`), silent);
 }
 
 async function cmdValidate(projectDir?: string, silent = false) {
   if (!projectDir) usageAndExit('Missing <projectDir>');
   const proj = projectDir as string;
+
+  // Validate and secure the project directory path
+  const basePath = path.isAbsolute(proj) ? path.dirname(proj) : process.cwd();
   const chartTs = path.isAbsolute(proj)
-    ? path.join(proj, 'chart.ts')
-    : path.join(process.cwd(), proj, 'chart.ts');
+    ? SecurityUtils.validatePath(path.join(proj, 'chart.ts'), basePath)
+    : SecurityUtils.validatePath(path.join(process.cwd(), proj, 'chart.ts'), process.cwd());
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   if (!fs.existsSync(chartTs)) {
-    console.error(`chart.ts not found at ${chartTs}`);
+    console.error(SecurityUtils.sanitizeLogMessage(`chart.ts not found at ${chartTs}`));
     process.exit(1);
   }
 
@@ -98,7 +115,7 @@ async function cmdValidate(projectDir?: string, silent = false) {
 
     if (lintResult.status !== 0) {
       if (silent && lintResult.stderr) {
-        console.error(lintResult.stderr);
+        console.error(SecurityUtils.sanitizeLogMessage(lintResult.stderr));
       }
       console.error('✗ Chart validation failed: Helm lint errors found');
       process.exit(1);
@@ -106,7 +123,8 @@ async function cmdValidate(projectDir?: string, silent = false) {
 
     log('✓ Chart validation passed', silent);
   } catch (error) {
-    console.error('✗ Chart validation failed:', error instanceof Error ? error.message : error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('✗ Chart validation failed:', SecurityUtils.sanitizeLogMessage(errorMsg));
     process.exit(1);
   } finally {
     // Cleanup temp directory
@@ -120,12 +138,15 @@ async function cmdValidate(projectDir?: string, silent = false) {
 async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
   if (!projectDir) usageAndExit('Missing <projectDir>');
   const proj = projectDir as string;
+
+  // Validate and secure the project directory path
+  const basePath = path.isAbsolute(proj) ? path.dirname(proj) : process.cwd();
   const chartTs = path.isAbsolute(proj)
-    ? path.join(proj, 'chart.ts')
-    : path.join(process.cwd(), proj, 'chart.ts');
+    ? SecurityUtils.validatePath(path.join(proj, 'chart.ts'), basePath)
+    : SecurityUtils.validatePath(path.join(process.cwd(), proj, 'chart.ts'), process.cwd());
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   if (!fs.existsSync(chartTs)) {
-    console.error(`chart.ts not found at ${chartTs}`);
+    console.error(SecurityUtils.sanitizeLogMessage(`chart.ts not found at ${chartTs}`));
     process.exit(1);
   }
   // Enable TS runtime with inline config
@@ -142,30 +163,14 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
     },
   });
 
-  // Comprehensive path validation to prevent path traversal and code injection
-  const resolvedPath = path.resolve(chartTs);
-  const cwd = path.resolve(process.cwd());
-
-  // Ensure path is within current working directory (prevent path traversal)
-  if (!resolvedPath.startsWith(cwd + path.sep) && resolvedPath !== cwd) {
-    console.error('Security: Module path must be within current working directory');
-    console.error(`Attempted: ${resolvedPath}`);
-    console.error(`Allowed: ${cwd}`);
-    process.exit(1);
-  }
-
-  // Validate file extension to prevent loading non-TypeScript files
-  if (!chartTs.endsWith('.ts')) {
+  // Validate TypeScript file extension
+  if (!SecurityUtils.isValidTypeScriptFile(chartTs)) {
     console.error('Security: Only TypeScript files (.ts) are allowed');
     process.exit(1);
   }
 
-  // Additional security: normalize path to prevent bypass attempts
-  const normalizedPath = path.normalize(resolvedPath);
-  if (normalizedPath !== resolvedPath) {
-    console.error('Security: Path normalization mismatch detected');
-    process.exit(1);
-  }
+  // Additional path validation is already done by SecurityUtils.validatePath above
+  const resolvedPath = path.resolve(chartTs);
 
   try {
     // Use createRequire for CommonJS compatibility in ES modules
@@ -197,9 +202,10 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
     fs.mkdirSync(outDir, { recursive: true });
     await Promise.resolve(runner(outDir));
-    log(`Chart written to ${outDir}`, flags?.silent);
+    log(SecurityUtils.sanitizeLogMessage(`Chart written to ${outDir}`), flags?.silent);
   } catch (error) {
-    console.error(`Failed to import module: ${error instanceof Error ? error.message : error}`);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(SecurityUtils.sanitizeLogMessage(`Failed to import module: ${errorMsg}`));
     process.exit(1);
   }
 }

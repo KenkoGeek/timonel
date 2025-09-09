@@ -5,6 +5,7 @@ import YAML from 'yaml';
 
 import type { Rutter } from './Rutter.js';
 import type { HelmChartMeta } from './HelmChartWriter.js';
+import { SecurityUtils } from './security.js';
 
 export interface SubchartSpec {
   name: string;
@@ -53,38 +54,37 @@ export class UmbrellaRutter {
    * Write the umbrella chart with all subcharts to the output directory
    */
   write(outDir: string): void {
-    // Sanitize paths to prevent directory traversal
-
-    const path = require('path');
-    const sanitizedOutDir = path.normalize(path.resolve(outDir));
-    const cwd = process.cwd();
-    if (!sanitizedOutDir.startsWith(cwd)) {
-      throw new Error('Output directory must be within current working directory');
-    }
+    // Validate output directory path
+    const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd());
 
     // Create output directory structure
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    mkdirSync(sanitizedOutDir, { recursive: true });
+    mkdirSync(validatedOutDir, { recursive: true });
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    mkdirSync(join(sanitizedOutDir, 'charts'), { recursive: true });
+    mkdirSync(join(validatedOutDir, 'charts'), { recursive: true });
 
     // Write each subchart to charts/ directory
     for (const subchart of this.props.subcharts) {
-      const subchartDir = join(sanitizedOutDir, 'charts', subchart.name);
+      // Validate subchart name to prevent path traversal
+      const sanitizedName = subchart.name.replace(/[^a-zA-Z0-9-_]/g, '');
+      if (sanitizedName !== subchart.name) {
+        throw new Error(`Invalid subchart name: ${subchart.name}`);
+      }
+      const subchartDir = join(validatedOutDir, 'charts', sanitizedName);
       subchart.rutter.write(subchartDir);
     }
 
     // Generate parent Chart.yaml with dependencies
-    this.writeParentChart(sanitizedOutDir);
+    this.writeParentChart(validatedOutDir);
 
     // Generate parent values.yaml
-    this.writeParentValues(sanitizedOutDir);
+    this.writeParentValues(validatedOutDir);
 
     // Generate empty templates directory (umbrella charts typically don't have templates)
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    mkdirSync(join(sanitizedOutDir, 'templates'), { recursive: true });
+    mkdirSync(join(validatedOutDir, 'templates'), { recursive: true });
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    writeFileSync(join(sanitizedOutDir, 'templates', 'NOTES.txt'), this.generateNotesTemplate());
+    writeFileSync(join(validatedOutDir, 'templates', 'NOTES.txt'), this.generateNotesTemplate());
   }
 
   private writeParentChart(outDir: string): void {
@@ -99,13 +99,16 @@ export class UmbrellaRutter {
       home: this.props.meta.home,
       sources: this.props.meta.sources,
       maintainers: this.props.meta.maintainers,
-      dependencies: this.props.subcharts.map((subchart) => ({
-        name: subchart.name,
-        version: subchart.version || '0.1.0',
-        repository: subchart.repository || `file://./charts/${subchart.name}`,
-        condition: subchart.condition,
-        tags: subchart.tags,
-      })),
+      dependencies: this.props.subcharts.map((subchart) => {
+        const sanitizedName = subchart.name.replace(/[^a-zA-Z0-9-_]/g, '');
+        return {
+          name: sanitizedName,
+          version: subchart.version || '0.1.0',
+          repository: subchart.repository || `file://./charts/${sanitizedName}`,
+          ...(subchart.condition && { condition: subchart.condition }),
+          ...(subchart.tags && { tags: subchart.tags }),
+        };
+      }),
     };
 
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
@@ -135,9 +138,14 @@ export class UmbrellaRutter {
     // Write environment-specific values files
     if (this.props.envValues) {
       for (const [env, envVals] of Object.entries(this.props.envValues)) {
+        // Sanitize environment name to prevent path traversal
+        const sanitizedEnv = env.replace(/[^a-zA-Z0-9-_]/g, '');
+        if (sanitizedEnv !== env) {
+          throw new Error(`Invalid environment name: ${env}`);
+        }
         const envValues = this.deepMerge(values, envVals);
         // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-        writeFileSync(join(outDir, `values-${env}.yaml`), YAML.stringify(envValues));
+        writeFileSync(join(outDir, `values-${sanitizedEnv}.yaml`), YAML.stringify(envValues));
       }
     }
   }
