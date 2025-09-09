@@ -141,11 +141,28 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
     },
   });
 
-  // Validate module path to prevent code injection
-  const allowedPaths = [process.cwd()];
+  // Comprehensive path validation to prevent path traversal and code injection
   const resolvedPath = path.resolve(chartTs);
-  if (!allowedPaths.some((allowedPath) => resolvedPath.startsWith(allowedPath))) {
-    console.error('Module path must be within current working directory');
+  const cwd = path.resolve(process.cwd());
+
+  // Ensure path is within current working directory (prevent path traversal)
+  if (!resolvedPath.startsWith(cwd + path.sep) && resolvedPath !== cwd) {
+    console.error('Security: Module path must be within current working directory');
+    console.error(`Attempted: ${resolvedPath}`);
+    console.error(`Allowed: ${cwd}`);
+    process.exit(1);
+  }
+
+  // Validate file extension to prevent loading non-TypeScript files
+  if (!chartTs.endsWith('.ts')) {
+    console.error('Security: Only TypeScript files (.ts) are allowed');
+    process.exit(1);
+  }
+
+  // Additional security: normalize path to prevent bypass attempts
+  const normalizedPath = path.normalize(resolvedPath);
+  if (normalizedPath !== resolvedPath) {
+    console.error('Security: Path normalization mismatch detected');
     process.exit(1);
   }
 
@@ -384,11 +401,28 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
     },
   });
 
-  // Validate module path to prevent code injection
-  const allowedPaths = [process.cwd()];
+  // Comprehensive path validation to prevent path traversal and code injection
   const resolvedPath = path.resolve(umbrellaFile);
-  if (!allowedPaths.some((allowedPath) => resolvedPath.startsWith(allowedPath))) {
-    console.error('Module path must be within current working directory');
+  const cwd = path.resolve(process.cwd());
+
+  // Ensure path is within current working directory (prevent path traversal)
+  if (!resolvedPath.startsWith(cwd + path.sep) && resolvedPath !== cwd) {
+    console.error('Security: Module path must be within current working directory');
+    console.error(`Attempted: ${resolvedPath}`);
+    console.error(`Allowed: ${cwd}`);
+    process.exit(1);
+  }
+
+  // Validate file extension to prevent loading non-TypeScript files
+  if (!umbrellaFile.endsWith('.ts')) {
+    console.error('Security: Only TypeScript files (.ts) are allowed');
+    process.exit(1);
+  }
+
+  // Additional security: normalize path to prevent bypass attempts
+  const normalizedPath = path.normalize(resolvedPath);
+  if (normalizedPath !== resolvedPath) {
+    console.error('Security: Path normalization mismatch detected');
     process.exit(1);
   }
 
