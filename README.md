@@ -11,8 +11,8 @@
 [![Maintained by KenkoGeek][maintained-badge]][maintained-url]
 
 Timonel (Spanish for "helmsman") is a TypeScript library to programmatically generate Helm charts
-  using cdk8s. Define Kubernetes resources with classes and synthesize a full Helm chart with
-  `Chart.yaml`, `values.yaml`, per‑environment values files, and `templates/`.
+using cdk8s. Define Kubernetes resources with classes and synthesize a full Helm chart with
+`Chart.yaml`, `values.yaml`, per‑environment values files, and `templates/`.
 
 ## ✨ Key Features
 
@@ -85,13 +85,14 @@ export default function run(outDir: string) {
 ## 🤝 Contributing
 
 See our [Contributing Guide](https://github.com/KenkoGeek/timonel/wiki/Contributing) for development
-  setup and guidelines.
+setup and guidelines.
 
 ## 📄 License
 
 MIT
 
 <!-- Badges -->
+
 [license-badge]: https://img.shields.io/badge/License-MIT-yellow.svg
 [license-url]: https://opensource.org/licenses/MIT
 [npm-badge]: https://img.shields.io/npm/v/timonel.svg
