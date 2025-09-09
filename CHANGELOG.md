@@ -1,3 +1,9 @@
+# [2.2.0](https://github.com/KenkoGeek/timonel/compare/v2.1.1...v2.2.0) (2025-09-09)
+
+### Features
+
+- **core:** add comprehensive Azure helpers for AKS integration with enhanced security ([870d1cd](https://github.com/KenkoGeek/timonel/commit/870d1cd3f81781d2f312f37e9dbd4dcc103e3ab8))
+
 ## [2.1.1](https://github.com/KenkoGeek/timonel/compare/v2.1.0...v2.1.1) (2025-09-09)
 
 ### Bug Fixes
