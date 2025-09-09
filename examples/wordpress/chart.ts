@@ -473,6 +473,51 @@ rutter.addNetworkPolicy({
   labels: NETWORK_POLICY_LABELS,
 });
 
+// Database migration Job (one-time)
+rutter.addJob({
+  name: 'wordpress-db-migration',
+  image: 'wordpress:6.4.0-cli',
+  command: ['wp'],
+  args: ['core', 'update-db'],
+  env: {
+    WORDPRESS_DB_HOST: 'mysql-service:3306',
+    WORDPRESS_DB_NAME: 'wordpress',
+    WORDPRESS_DB_USER: 'wpuser',
+    WORDPRESS_DB_PASSWORD: 'wppass123',
+  },
+  restartPolicy: 'OnFailure',
+  backoffLimit: 3,
+  activeDeadlineSeconds: 600,
+  ttlSecondsAfterFinished: 86400,
+  labels: {
+    app: 'wordpress',
+    component: 'migration',
+  },
+});
+
+// WordPress backup CronJob (scheduled)
+rutter.addCronJob({
+  name: 'wordpress-backup',
+  schedule: '0 2 * * *', // Daily at 2 AM
+  image: 'wordpress:6.4.0-cli',
+  command: ['wp'],
+  args: ['db', 'export', '/backup/wordpress-backup.sql'],
+  env: {
+    WORDPRESS_DB_HOST: 'mysql-service:3306',
+    WORDPRESS_DB_NAME: 'wordpress',
+    WORDPRESS_DB_USER: 'wpuser',
+    WORDPRESS_DB_PASSWORD: 'wppass123',
+  },
+  restartPolicy: 'OnFailure',
+  concurrencyPolicy: 'Forbid',
+  successfulJobsHistoryLimit: 3,
+  failedJobsHistoryLimit: 1,
+  labels: {
+    app: 'wordpress',
+    component: 'backup',
+  },
+});
+
 export default function run(outDir: string) {
   rutter.write(outDir);
 }
