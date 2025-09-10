@@ -2,6 +2,7 @@ import * as path from 'path';
 
 /**
  * Security utilities for input validation and sanitization
+ * Focused on CLI tool security concerns: path traversal, injection prevention
  */
 export class SecurityUtils {
   /**
@@ -60,6 +61,31 @@ export class SecurityUtils {
   }
 
   /**
+   * Sanitizes environment names to prevent path traversal (CWE-22)
+   * @param env - Environment name to sanitize
+   * @returns Sanitized environment name
+   * @throws Error if environment name is invalid
+   */
+  static sanitizeEnvironmentName(env: string): string {
+    if (!env || typeof env !== 'string') {
+      throw new Error('Environment name must be a non-empty string');
+    }
+
+    // Allow only alphanumeric, hyphens, and underscores
+    const sanitized = env.replace(/[^a-zA-Z0-9-_]/g, '');
+
+    if (sanitized !== env) {
+      throw new Error(`Invalid environment name: ${this.sanitizeLogMessage(env)}`);
+    }
+
+    if (sanitized.length === 0 || sanitized.length > 63) {
+      throw new Error('Environment name must be 1-63 characters long');
+    }
+
+    return sanitized;
+  }
+
+  /**
    * Validates TypeScript file extensions for dynamic imports
    * @param filePath - The file path to validate
    * @returns True if the file has a valid TypeScript extension
@@ -83,5 +109,30 @@ export class SecurityUtils {
     // Basic validation for dot notation and no special characters that could break Helm
     const helmPathRegex = /^[a-zA-Z][a-zA-Z0-9._-]*$/;
     return helmPathRegex.test(templatePath);
+  }
+
+  /**
+   * Validates chart names according to Helm conventions
+   * @param chartName - Chart name to validate
+   * @returns True if chart name follows Helm naming rules
+   */
+  static isValidChartName(chartName: string): boolean {
+    if (!chartName || typeof chartName !== 'string') {
+      return false;
+    }
+
+    // Helm chart name validation (RFC 1123 subdomain) - safe regex
+    // eslint-disable-next-line security/detect-unsafe-regex -- Simple character class regex is safe
+    const chartNameRegex = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
+    return chartNameRegex.test(chartName) && chartName.length <= 63;
+  }
+
+  /**
+   * Validates subchart names according to Helm conventions
+   * @param subchartName - Subchart name to validate
+   * @returns True if subchart name is valid
+   */
+  static isValidSubchartName(subchartName: string): boolean {
+    return this.isValidChartName(subchartName);
   }
 }

@@ -51,13 +51,13 @@ function usageAndExit(msg?: string): never {
 async function cmdInit(name?: string, silent = false) {
   if (!name) usageAndExit('Missing <chart-name>');
 
-  // Validate chart name for security
-  const sanitizedName = name.replace(/[^a-zA-Z0-9-_]/g, '');
-  if (sanitizedName !== name || name.includes('..')) {
+  // Validate chart name for security using centralized validation
+  if (!SecurityUtils.isValidChartName(name)) {
     usageAndExit(
-      'Invalid chart name: only alphanumeric characters, hyphens, and underscores allowed',
+      'Invalid chart name: must be RFC 1123 compliant (lowercase alphanumeric with hyphens)',
     );
   }
+  const sanitizedName = name; // Already validated by SecurityUtils
 
   const base = SecurityUtils.validatePath(
     path.join(process.cwd(), 'charts', sanitizedName),

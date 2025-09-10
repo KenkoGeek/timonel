@@ -134,11 +134,8 @@ export class HelmChartWriter {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
     fs.writeFileSync(path.join(outDir, 'values.yaml'), YAML.stringify(defaultValues));
     for (const [env, values] of Object.entries(envValues)) {
-      // Sanitize environment name to prevent path traversal
-      const sanitizedEnv = env.replace(/[^a-zA-Z0-9-_]/g, '');
-      if (sanitizedEnv !== env) {
-        throw new Error(`Invalid environment name: ${env}`);
-      }
+      // Use centralized environment name sanitization
+      const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(env);
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
       fs.writeFileSync(path.join(outDir, `values-${sanitizedEnv}.yaml`), YAML.stringify(values));
     }
@@ -227,7 +224,7 @@ function writeAssets(outDir: string, assets: SynthAsset[]) {
     // Sanitize asset ID to prevent path traversal
     const sanitizedId = asset.id.replace(/[^a-zA-Z0-9-_]/g, '');
     if (sanitizedId !== asset.id) {
-      throw new Error(`Invalid asset ID: ${asset.id}`);
+      throw new Error(`Invalid asset ID: ${SecurityUtils.sanitizeLogMessage(asset.id)}`);
     }
 
     const targetDir = getTargetDirectory(asset.target);

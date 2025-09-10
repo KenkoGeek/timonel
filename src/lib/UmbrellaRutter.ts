@@ -65,11 +65,13 @@ export class UmbrellaRutter {
 
     // Write each subchart to charts/ directory
     for (const subchart of this.props.subcharts) {
-      // Validate subchart name to prevent path traversal
-      const sanitizedName = subchart.name.replace(/[^a-zA-Z0-9-_]/g, '');
-      if (sanitizedName !== subchart.name) {
-        throw new Error(`Invalid subchart name: ${subchart.name}`);
+      // Validate subchart name using centralized validation
+      if (!SecurityUtils.isValidSubchartName(subchart.name)) {
+        throw new Error(
+          `Invalid subchart name: ${SecurityUtils.sanitizeLogMessage(subchart.name)}`,
+        );
       }
+      const sanitizedName = subchart.name; // Already validated by SecurityUtils
       const subchartDir = join(validatedOutDir, 'charts', sanitizedName);
       subchart.rutter.write(subchartDir);
     }
@@ -100,11 +102,11 @@ export class UmbrellaRutter {
       sources: this.props.meta.sources,
       maintainers: this.props.meta.maintainers,
       dependencies: this.props.subcharts.map((subchart) => {
-        const sanitizedName = subchart.name.replace(/[^a-zA-Z0-9-_]/g, '');
+        // Subchart name already validated in write() method
         return {
-          name: sanitizedName,
+          name: subchart.name,
           version: subchart.version || '0.1.0',
-          repository: subchart.repository || `file://./charts/${sanitizedName}`,
+          repository: subchart.repository || `file://./charts/${subchart.name}`,
           ...(subchart.condition && { condition: subchart.condition }),
           ...(subchart.tags && { tags: subchart.tags }),
         };
@@ -138,11 +140,8 @@ export class UmbrellaRutter {
     // Write environment-specific values files
     if (this.props.envValues) {
       for (const [env, envVals] of Object.entries(this.props.envValues)) {
-        // Sanitize environment name to prevent path traversal
-        const sanitizedEnv = env.replace(/[^a-zA-Z0-9-_]/g, '');
-        if (sanitizedEnv !== env) {
-          throw new Error(`Invalid environment name: ${env}`);
-        }
+        // Use centralized environment name sanitization
+        const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(env);
         const envValues = this.deepMerge(values, envVals);
         // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
         writeFileSync(join(outDir, `values-${sanitizedEnv}.yaml`), YAML.stringify(envValues));

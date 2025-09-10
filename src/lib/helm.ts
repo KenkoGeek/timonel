@@ -3,6 +3,8 @@
  * We treat Helm placeholders as opaque strings that will be preserved in YAML.
  */
 
+import { SecurityUtils } from './security.js';
+
 /** Create a .Values reference like {{ .Values.key }} */
 export function valuesRef(path: string): string {
   if (!isValidHelmPath(path)) {
@@ -17,21 +19,17 @@ export function requiredValuesRef(path: string, message?: string): string {
     throw new Error(`Invalid Helm template path: ${path}`);
   }
   const msg = message ?? `${path} is required`;
-  // Escape quotes in message to prevent template injection
-  const escapedMsg = msg.replace(/"/g, '\\"');
+  // Escape quotes and backslashes in message to prevent template injection
+  const escapedMsg = msg.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return `{{ required "${escapedMsg}" .Values.${path} }}`;
 }
 
 /**
- * Validates Helm template path syntax
+ * Validates Helm template path syntax with enhanced security
  */
 function isValidHelmPath(path: string): boolean {
-  if (!path || typeof path !== 'string') {
-    return false;
-  }
-  // Basic validation for dot notation and no special characters that could break Helm
-  const helmPathRegex = /^[a-zA-Z][a-zA-Z0-9._-]*$/;
-  return helmPathRegex.test(path);
+  // Use centralized validation from SecurityUtils
+  return SecurityUtils.isValidHelmTemplatePath(path);
 }
 
 /** Built-in Helm references */
