@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Helm chart writer for generating complete Helm chart structures
+ * @since 1.0.0
+ */
+
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -5,18 +10,39 @@ import YAML from 'yaml';
 
 import { SecurityUtils } from './security.js';
 
+/**
+ * Metadata for a Helm chart
+ *
+ * Contains all the information needed for Chart.yaml file generation
+ * following Helm chart specification.
+ *
+ * @interface HelmChartMeta
+ * @since 1.0.0
+ */
 export interface HelmChartMeta {
+  /** Chart name */
   name: string;
-  version: string; // SemVer chart version
+  /** SemVer chart version */
+  version: string;
+  /** Chart description */
   description?: string;
-  appVersion?: string; // Underlying app version (string)
+  /** Underlying application version */
+  appVersion?: string;
+  /** Chart type */
   type?: 'application' | 'library';
+  /** Kubernetes version constraint */
   kubeVersion?: string;
+  /** Chart keywords for searchability */
   keywords?: string[];
+  /** Chart home page URL */
   home?: string;
+  /** Source code URLs */
   sources?: string[];
+  /** Chart maintainers */
   maintainers?: { name: string; email?: string; url?: string }[];
+  /** Chart icon URL */
   icon?: string;
+  /** Chart dependencies */
   dependencies?: Array<{
     name: string;
     version: string;
@@ -28,50 +54,120 @@ export interface HelmChartMeta {
   }>;
 }
 
+/**
+ * Environment-specific values mapping
+ *
+ * @interface EnvValuesMap
+ * @since 1.0.0
+ */
 export interface EnvValuesMap {
   [env: string]: Record<string, unknown>;
 }
 
+/**
+ * Synthesized Kubernetes asset for Helm chart
+ *
+ * Represents a Kubernetes manifest that will be written to the chart's
+ * templates or crds directory.
+ *
+ * @interface SynthAsset
+ * @since 1.0.0
+ */
 export interface SynthAsset {
-  /** filename or logical id */
+  /** Filename or logical identifier */
   id: string;
-  /** YAML string, may contain multiple docs separated by --- */
+  /** YAML content, may contain multiple documents separated by --- */
   yaml: string;
-  /** target directory inside chart: templates (default) or crds */
+  /** Target directory inside chart */
   target?: 'templates' | 'crds';
-  /** if true, don't split this asset into multiple files even if it contains multiple docs */
+  /** If true, don't split into multiple files even with multiple docs */
   singleFile?: boolean;
 }
 
+/**
+ * Options for writing a complete Helm chart
+ *
+ * @interface HelmChartWriteOptions
+ * @since 1.0.0
+ */
 export interface HelmChartWriteOptions {
-  outDir: string; // e.g., dist/charts/my-chart
+  /** Output directory path (e.g., dist/charts/my-chart) */
+  outDir: string;
+  /** Chart metadata */
   meta: HelmChartMeta;
+  /** Default values for values.yaml */
   defaultValues?: Record<string, unknown> | undefined;
-  envValues?: EnvValuesMap | undefined; // { dev: {...}, prod: {...} }
-  /**
-   * Kubernetes manifests to place under templates/
-   * Accepts one or multiple documents per SynthAsset.
-   */
+  /** Environment-specific values (e.g., { dev: {...}, prod: {...} }) */
+  envValues?: EnvValuesMap | undefined;
+  /** Kubernetes manifests to place under templates/ */
   assets: SynthAsset[];
-  /**
-   * Optional Helm helpers content for templates/_helpers.tpl.
-   * If a string is provided, it's written verbatim.
-   * If an array is provided, each item becomes a named Helm template
-   * block as: {{- define "<name>" -}} ... {{- end }}
-   */
+  /** Helm helpers content for templates/_helpers.tpl */
   helpersTpl?: string | HelperDefinition[];
-  /** Optional NOTES.txt content under templates/ */
+  /** NOTES.txt content under templates/ */
   notesTpl?: string;
-  /** Optional values.schema.json object */
+  /** JSON schema for values validation */
   valuesSchema?: Record<string, unknown>;
 }
 
+/**
+ * Helm template helper definition
+ *
+ * @interface HelperDefinition
+ * @since 1.0.0
+ */
 export interface HelperDefinition {
+  /** Template name */
   name: string;
+  /** Template body content */
   body: string;
 }
 
+/**
+ * Helm chart writer for generating complete chart structures
+ *
+ * This class provides static methods to generate a complete Helm chart
+ * including Chart.yaml, values.yaml, templates, and auxiliary files.
+ *
+ * @class HelmChartWriter
+ * @since 1.0.0
+ *
+ * @example
+ * ```typescript
+ * HelmChartWriter.write({
+ *   outDir: './dist/my-chart',
+ *   meta: { name: 'my-app', version: '1.0.0' },
+ *   assets: []
+ * });
+ * ```
+ */
 export class HelmChartWriter {
+  /**
+   * Writes a complete Helm chart to the specified directory
+   *
+   * Creates the full directory structure and writes all necessary files
+   * for a valid Helm chart including Chart.yaml, values files, templates,
+   * and auxiliary files.
+   *
+   * @param {HelmChartWriteOptions} opts - Chart configuration options
+   * @throws {Error} If output directory path is invalid
+   * @throws {Error} If chart metadata is invalid
+   *
+   * @example
+   * ```typescript
+   * HelmChartWriter.write({
+   *   outDir: './charts/my-app',
+   *   meta: {
+   *     name: 'my-app',
+   *     version: '1.0.0',
+   *     description: 'My application'
+   *   },
+   *   defaultValues: { replicas: 3 },
+   *   assets: []
+   * });
+   * ```
+   *
+   * @since 1.0.0
+   */
   static write(opts: HelmChartWriteOptions) {
     const {
       outDir,
@@ -100,12 +196,29 @@ export class HelmChartWriter {
     this.writeHelmIgnore(validatedOutDir);
   }
 
+  /**
+   * Creates the necessary directory structure for the chart
+   *
+   * @private
+   * @param {string} outDir - Output directory path
+   * @throws {Error} If directories cannot be created
+   * @since 1.0.0
+   */
   private static createDirectories(outDir: string): void {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
     fs.mkdirSync(path.join(outDir, 'templates'), { recursive: true });
     // Create crds directory only if needed later
   }
 
+  /**
+   * Writes the Chart.yaml file with chart metadata
+   *
+   * @private
+   * @param {string} outDir - Output directory path
+   * @param {HelmChartMeta} meta - Chart metadata
+   * @throws {Error} If Chart.yaml cannot be written
+   * @since 1.0.0
+   */
   private static writeChartYaml(outDir: string, meta: HelmChartMeta): void {
     const chartYaml = YAML.stringify({
       apiVersion: 'v2',
@@ -126,6 +239,16 @@ export class HelmChartWriter {
     fs.writeFileSync(path.join(outDir, 'Chart.yaml'), chartYaml);
   }
 
+  /**
+   * Writes values.yaml and environment-specific values files
+   *
+   * @private
+   * @param {string} outDir - Output directory path
+   * @param {Record<string, unknown>} defaultValues - Default values
+   * @param {EnvValuesMap} envValues - Environment-specific values
+   * @throws {Error} If values files cannot be written
+   * @since 1.0.0
+   */
   private static writeValuesFiles(
     outDir: string,
     defaultValues: Record<string, unknown>,
@@ -141,10 +264,26 @@ export class HelmChartWriter {
     }
   }
 
+  /**
+   * Writes Kubernetes manifest assets to templates directory
+   *
+   * @private
+   * @param {string} outDir - Output directory path
+   * @param {SynthAsset[]} assets - Kubernetes manifests to write
+   * @since 1.0.0
+   */
   private static writeAssets(outDir: string, assets: SynthAsset[]): void {
     writeAssets(outDir, assets);
   }
 
+  /**
+   * Writes Helm template helpers to _helpers.tpl file
+   *
+   * @private
+   * @param {string} outDir - Output directory path
+   * @param {string | HelperDefinition[]} [helpersTpl] - Helpers content
+   * @since 1.0.0
+   */
   private static writeHelpers(outDir: string, helpersTpl?: string | HelperDefinition[]): void {
     if (!helpersTpl) return;
 
@@ -160,6 +299,14 @@ export class HelmChartWriter {
     fs.writeFileSync(path.join(outDir, 'templates', '_helpers.tpl'), content);
   }
 
+  /**
+   * Writes NOTES.txt file for post-install instructions
+   *
+   * @private
+   * @param {string} outDir - Output directory path
+   * @param {string} [notesTpl] - Notes content
+   * @since 1.0.0
+   */
   private static writeNotes(outDir: string, notesTpl?: string): void {
     if (!notesTpl) return;
 
@@ -170,6 +317,14 @@ export class HelmChartWriter {
     );
   }
 
+  /**
+   * Writes values.schema.json for values validation
+   *
+   * @private
+   * @param {string} outDir - Output directory path
+   * @param {Record<string, unknown>} [valuesSchema] - JSON schema
+   * @since 1.0.0
+   */
   private static writeSchema(outDir: string, valuesSchema?: Record<string, unknown>): void {
     if (!valuesSchema) return;
 
@@ -180,6 +335,13 @@ export class HelmChartWriter {
     );
   }
 
+  /**
+   * Writes .helmignore file with common ignore patterns
+   *
+   * @private
+   * @param {string} outDir - Output directory path
+   * @since 1.0.0
+   */
   private static writeHelmIgnore(outDir: string): void {
     const helmIgnorePath = path.join(outDir, '.helmignore');
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
@@ -212,6 +374,14 @@ export class HelmChartWriter {
   }
 }
 
+/**
+ * Splits YAML string into individual documents
+ *
+ * @private
+ * @param {string} yamlStr - YAML string with potential document separators
+ * @returns {string[]} Array of individual YAML documents
+ * @since 1.0.0
+ */
 function splitDocs(yamlStr: string): string[] {
   return yamlStr
     .split(/^---\s*$/m)
@@ -219,6 +389,15 @@ function splitDocs(yamlStr: string): string[] {
     .filter((p) => p.length);
 }
 
+/**
+ * Writes all synthesized assets to the chart directory
+ *
+ * @private
+ * @param {string} outDir - Output directory path
+ * @param {SynthAsset[]} assets - Assets to write
+ * @throws {Error} If asset ID contains invalid characters
+ * @since 1.0.0
+ */
 function writeAssets(outDir: string, assets: SynthAsset[]) {
   for (const asset of assets) {
     // Sanitize asset ID to prevent path traversal
@@ -237,10 +416,28 @@ function writeAssets(outDir: string, assets: SynthAsset[]) {
   }
 }
 
+/**
+ * Gets the target directory for an asset
+ *
+ * @private
+ * @param {('templates' | 'crds')} [target] - Target directory type
+ * @returns {string} Directory name
+ * @since 1.0.0
+ */
 function getTargetDirectory(target?: 'templates' | 'crds'): string {
   return target === 'crds' ? 'crds' : 'templates';
 }
 
+/**
+ * Writes a single asset file without document splitting
+ *
+ * @private
+ * @param {string} outDir - Output directory path
+ * @param {string} targetDir - Target subdirectory
+ * @param {string} assetId - Asset identifier
+ * @param {string} yaml - YAML content
+ * @since 1.0.0
+ */
 function writeSingleAssetFile(
   outDir: string,
   targetDir: string,
@@ -254,6 +451,16 @@ function writeSingleAssetFile(
   fs.writeFileSync(path.join(outDir, targetDir, filename), yaml + '\n');
 }
 
+/**
+ * Writes multiple asset files by splitting YAML documents
+ *
+ * @private
+ * @param {string} outDir - Output directory path
+ * @param {string} targetDir - Target subdirectory
+ * @param {string} assetId - Asset identifier
+ * @param {string} yaml - YAML content with potential multiple documents
+ * @since 1.0.0
+ */
 function writeMultipleAssetFiles(
   outDir: string,
   targetDir: string,

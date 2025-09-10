@@ -1,11 +1,32 @@
 /**
- * Helpers to embed Helm template expressions while staying type-safe in TS.
+ * @fileoverview Helpers to embed Helm template expressions while staying type-safe in TypeScript.
  * We treat Helm placeholders as opaque strings that will be preserved in YAML.
+ * @since 0.1.0
  */
 
 import { SecurityUtils } from './security.js';
 
-/** Create a .Values reference like {{ .Values.key }} */
+/**
+ * Creates a reference to a value in .Values of Helm
+ *
+ * Generates a Helm template expression that references a value
+ * in the chart's values.yaml file using dot notation.
+ *
+ * @param {string} path - Path to the value using dot notation (e.g., 'image.tag')
+ * @returns {string} Helm template expression (e.g., '{{ .Values.image.tag }}')
+ * @throws {Error} If the path is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const imageTag = valuesRef('image.tag');
+ * // Returns: '{{ .Values.image.tag }}'
+ *
+ * const replicas = valuesRef('deployment.replicas');
+ * // Returns: '{{ .Values.deployment.replicas }}'
+ * ```
+ *
+ * @since 0.1.0
+ */
 export function valuesRef(path: string): string {
   if (!isValidHelmPath(path)) {
     throw new Error(`Invalid Helm template path: ${path}`);
@@ -13,7 +34,28 @@ export function valuesRef(path: string): string {
   return `{{ .Values.${path} }}`;
 }
 
-/** Create a required .Values reference with default: {{ required msg .Values.key }} */
+/**
+ * Creates a required reference to a value in .Values of Helm
+ *
+ * Similar to valuesRef, but uses Helm's 'required' function to
+ * ensure the value is present, failing chart rendering if not provided.
+ *
+ * @param {string} path - Path to the value using dot notation
+ * @param {string} [message] - Custom error message if value is missing
+ * @returns {string} Helm template expression with required validation
+ * @throws {Error} If the path is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const dbPassword = requiredValuesRef('database.password', 'Database password is required');
+ * // Returns: '{{ required "Database password is required" .Values.database.password }}'
+ *
+ * const apiKey = requiredValuesRef('api.key');
+ * // Returns: '{{ required "api.key is required" .Values.api.key }}'
+ * ```
+ *
+ * @since 0.1.0
+ */
 export function requiredValuesRef(path: string, message?: string): string {
   if (!isValidHelmPath(path)) {
     throw new Error(`Invalid Helm template path: ${path}`);
@@ -26,21 +68,66 @@ export function requiredValuesRef(path: string, message?: string): string {
 
 /**
  * Validates Helm template path syntax with enhanced security
+ *
+ * @private
+ * @param {string} path - Path to validate
+ * @returns {boolean} True if path is valid for Helm templates
+ * @since 0.1.0
  */
 function isValidHelmPath(path: string): boolean {
   // Use centralized validation from SecurityUtils
   return SecurityUtils.isValidHelmTemplatePath(path);
 }
 
-/** Built-in Helm references */
+/**
+ * Built-in Helm references for release and chart metadata
+ *
+ * Object containing the most common references to Helm's built-in
+ * variables for release and chart information.
+ *
+ * @namespace helm
+ * @since 0.1.0
+ *
+ * @example
+ * ```typescript
+ * const deploymentName = `${helm.releaseName}-deployment`;
+ * // Uses: '{{ .Release.Name }}-deployment'
+ *
+ * const version = helm.chartVersion;
+ * // Uses: '{{ .Chart.Version }}'
+ * ```
+ */
 export const helm = {
+  /** Release name: {{ .Release.Name }} */
   releaseName: '{{ .Release.Name }}',
+  /** Chart name: {{ .Chart.Name }} */
   chartName: '{{ .Chart.Name }}',
+  /** Chart version: {{ .Chart.Version }} */
   chartVersion: '{{ .Chart.Version }}',
+  /** Release namespace: {{ .Release.Namespace }} */
   namespace: '{{ .Release.Namespace }}',
 };
 
-/** Quote a Helm template expression for safe YAML embedding */
+/**
+ * Quotes a Helm template expression for safe YAML embedding
+ *
+ * Ensures Helm template expressions are properly quoted to avoid
+ * YAML parsing issues when the expression contains special characters.
+ *
+ * @param {string} expr - Helm template expression to quote
+ * @returns {string} Quoted expression if it's a Helm template, otherwise unchanged
+ *
+ * @example
+ * ```typescript
+ * const quoted = quote('{{ .Values.image.tag }}');
+ * // Returns: "'{{ .Values.image.tag }}'"
+ *
+ * const normal = quote('nginx:1.21');
+ * // Returns: "nginx:1.21"
+ * ```
+ *
+ * @since 0.1.0
+ */
 export function quote(expr: string): string {
   // ensure Helm templates are quoted to avoid YAML parsing issues
   if (expr.startsWith('{{') && expr.endsWith('}}')) {
@@ -49,7 +136,24 @@ export function quote(expr: string): string {
   return expr;
 }
 
-/** Indent helper matching Helm indent fn: {{- n indent -}} */
+/**
+ * Indents text by specified number of spaces
+ *
+ * Helper function that matches Helm's indent function behavior,
+ * adding the specified number of spaces to each non-empty line.
+ *
+ * @param {number} n - Number of spaces to indent
+ * @param {string} expr - Text to indent
+ * @returns {string} Indented text
+ *
+ * @example
+ * ```typescript
+ * const indented = indent(4, 'line1\nline2');
+ * // Returns: "    line1\n    line2"
+ * ```
+ *
+ * @since 0.1.0
+ */
 export function indent(n: number, expr: string): string {
   const spaces = ' '.repeat(n);
   return expr
@@ -58,17 +162,64 @@ export function indent(n: number, expr: string): string {
     .join('\n');
 }
 
-/** Insert a call to a named Helm template: {{ template "name" . }} */
+/**
+ * Inserts a call to a named Helm template using template function
+ *
+ * @param {string} name - Name of the template to call
+ * @param {string} [context='.'] - Context to pass to the template
+ * @returns {string} Helm template expression
+ *
+ * @example
+ * ```typescript
+ * const tmpl = template('myapp.labels');
+ * // Returns: '{{ template "myapp.labels" . }}'
+ * ```
+ *
+ * @since 0.1.0
+ */
 export function template(name: string, context = '.'): string {
   return `{{ template "${name}" ${context} }}`;
 }
 
-/** Insert a call to a named Helm template using include: {{ include "name" . }} */
+/**
+ * Inserts a call to a named Helm template using include function
+ *
+ * Preferred over template() as include allows piping and better error handling.
+ *
+ * @param {string} name - Name of the template to include
+ * @param {string} [context='.'] - Context to pass to the template
+ * @returns {string} Helm template expression
+ *
+ * @example
+ * ```typescript
+ * const tmpl = include('myapp.labels');
+ * // Returns: '{{ include "myapp.labels" . }}'
+ * ```
+ *
+ * @since 0.1.0
+ */
 export function include(name: string, context = '.'): string {
   return `{{ include "${name}" ${context} }}`;
 }
 
-/** Numeric value from .Values with int cast (truncates decimals): {{ .Values.path | int }} */
+/**
+ * Creates a numeric reference from .Values with int cast
+ *
+ * Generates a Helm template expression that casts the value to integer,
+ * truncating any decimal places.
+ *
+ * @param {string} path - Path to the value using dot notation
+ * @returns {string} Helm template expression with int cast
+ * @throws {Error} If the path is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const replicas = numberRef('deployment.replicas');
+ * // Returns: '{{ .Values.deployment.replicas | int }}'
+ * ```
+ *
+ * @since 0.1.0
+ */
 export function numberRef(path: string): string {
   if (!isValidHelmPath(path)) {
     throw new Error(`Invalid Helm template path: ${path}`);
@@ -76,7 +227,21 @@ export function numberRef(path: string): string {
   return `{{ .Values.${path} | int }}`;
 }
 
-/** Boolean value from .Values with toBool cast: {{ .Values.path | toBool }} */
+/**
+ * Creates a boolean reference from .Values with toBool cast
+ *
+ * @param {string} path - Path to the value using dot notation
+ * @returns {string} Helm template expression with toBool cast
+ * @throws {Error} If the path is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const enabled = boolRef('feature.enabled');
+ * // Returns: '{{ .Values.feature.enabled | toBool }}'
+ * ```
+ *
+ * @since 0.1.0
+ */
 export function boolRef(path: string): string {
   if (!isValidHelmPath(path)) {
     throw new Error(`Invalid Helm template path: ${path}`);
@@ -84,7 +249,21 @@ export function boolRef(path: string): string {
   return `{{ .Values.${path} | toBool }}`;
 }
 
-/** String value from .Values with toString cast: {{ .Values.path | toString }} */
+/**
+ * Creates a string reference from .Values with toString cast
+ *
+ * @param {string} path - Path to the value using dot notation
+ * @returns {string} Helm template expression with toString cast
+ * @throws {Error} If the path is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const version = stringRef('app.version');
+ * // Returns: '{{ .Values.app.version | toString }}'
+ * ```
+ *
+ * @since 0.1.0
+ */
 export function stringRef(path: string): string {
   if (!isValidHelmPath(path)) {
     throw new Error(`Invalid Helm template path: ${path}`);
@@ -92,7 +271,21 @@ export function stringRef(path: string): string {
   return `{{ .Values.${path} | toString }}`;
 }
 
-/** Float value from .Values with float64 cast: {{ .Values.path | float64 }} */
+/**
+ * Creates a float reference from .Values with float64 cast
+ *
+ * @param {string} path - Path to the value using dot notation
+ * @returns {string} Helm template expression with float64 cast
+ * @throws {Error} If the path is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const ratio = floatRef('scaling.ratio');
+ * // Returns: '{{ .Values.scaling.ratio | float64 }}'
+ * ```
+ *
+ * @since 0.1.0
+ */
 export function floatRef(path: string): string {
   if (!isValidHelmPath(path)) {
     throw new Error(`Invalid Helm template path: ${path}`);
