@@ -2095,7 +2095,9 @@ export class Rutter {
     // Try to parse as JSON first (for objects, arrays, booleans, numbers)
     try {
       return JSON.parse(value);
-    } catch {
+    } catch (error: unknown) {
+      // Log parsing error for debugging purposes
+      console.debug(`Failed to parse value as JSON: ${value}`, error);
       // If not valid JSON, treat as string
       return value;
     }
@@ -3017,8 +3019,12 @@ export class Rutter {
       volumeAttributes['subPath'] = spec.subPath;
     }
 
-    if (Object.keys(volumeAttributes).length > 0) {
-      csiSpec['volumeAttributes'] = volumeAttributes;
+    // Only add volumeAttributes if it has properties (more efficient than Object.keys().length)
+    for (const key in volumeAttributes) {
+      if (Object.prototype.hasOwnProperty.call(volumeAttributes, key)) {
+        csiSpec['volumeAttributes'] = volumeAttributes;
+        break;
+      }
     }
 
     const pv = new ApiObject(this.chart, spec.name, {
