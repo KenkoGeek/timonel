@@ -1,7 +1,7 @@
 /**
  * @fileoverview Helpers to embed Helm template expressions while staying type-safe in TypeScript.
  * We treat Helm placeholders as opaque strings that will be preserved in YAML.
- * @since 1.0.0
+ * @since 0.1.0
  */
 
 import { SecurityUtils } from './security.js';
@@ -25,7 +25,7 @@ import { SecurityUtils } from './security.js';
  * // Returns: '{{ .Values.deployment.replicas }}'
  * ```
  *
- * @since 1.0.0
+ * @since 0.1.0
  */
 export function valuesRef(path: string): string {
   if (!isValidHelmPath(path)) {
@@ -54,7 +54,7 @@ export function valuesRef(path: string): string {
  * // Returns: '{{ required "api.key is required" .Values.api.key }}'
  * ```
  *
- * @since 1.0.0
+ * @since 0.1.0
  */
 export function requiredValuesRef(path: string, message?: string): string {
   if (!isValidHelmPath(path)) {
@@ -72,7 +72,7 @@ export function requiredValuesRef(path: string, message?: string): string {
  * @private
  * @param {string} path - Path to validate
  * @returns {boolean} True if path is valid for Helm templates
- * @since 1.0.0
+ * @since 0.1.0
  */
 function isValidHelmPath(path: string): boolean {
   // Use centralized validation from SecurityUtils
@@ -86,7 +86,7 @@ function isValidHelmPath(path: string): boolean {
  * variables for release and chart information.
  *
  * @namespace helm
- * @since 1.0.0
+ * @since 0.1.0
  *
  * @example
  * ```typescript
@@ -126,7 +126,7 @@ export const helm = {
  * // Returns: "nginx:1.21"
  * ```
  *
- * @since 1.0.0
+ * @since 0.1.0
  */
 export function quote(expr: string): string {
   // ensure Helm templates are quoted to avoid YAML parsing issues
@@ -152,7 +152,7 @@ export function quote(expr: string): string {
  * // Returns: "    line1\n    line2"
  * ```
  *
- * @since 1.0.0
+ * @since 0.1.0
  */
 export function indent(n: number, expr: string): string {
   const spaces = ' '.repeat(n);
@@ -175,7 +175,7 @@ export function indent(n: number, expr: string): string {
  * // Returns: '{{ template "myapp.labels" . }}'
  * ```
  *
- * @since 1.0.0
+ * @since 0.1.0
  */
 export function template(name: string, context = '.'): string {
   return `{{ template "${name}" ${context} }}`;
@@ -196,7 +196,7 @@ export function template(name: string, context = '.'): string {
  * // Returns: '{{ include "myapp.labels" . }}'
  * ```
  *
- * @since 1.0.0
+ * @since 0.1.0
  */
 export function include(name: string, context = '.'): string {
   return `{{ include "${name}" ${context} }}`;
@@ -218,7 +218,7 @@ export function include(name: string, context = '.'): string {
  * // Returns: '{{ .Values.deployment.replicas | int }}'
  * ```
  *
- * @since 1.0.0
+ * @since 0.1.0
  */
 export function numberRef(path: string): string {
   if (!isValidHelmPath(path)) {
@@ -240,7 +240,7 @@ export function numberRef(path: string): string {
  * // Returns: '{{ .Values.feature.enabled | toBool }}'
  * ```
  *
- * @since 1.0.0
+ * @since 0.1.0
  */
 export function boolRef(path: string): string {
   if (!isValidHelmPath(path)) {
@@ -262,7 +262,7 @@ export function boolRef(path: string): string {
  * // Returns: '{{ .Values.app.version | toString }}'
  * ```
  *
- * @since 1.0.0
+ * @since 0.1.0
  */
 export function stringRef(path: string): string {
   if (!isValidHelmPath(path)) {
@@ -284,7 +284,7 @@ export function stringRef(path: string): string {
  * // Returns: '{{ .Values.scaling.ratio | float64 }}'
  * ```
  *
- * @since 1.0.0
+ * @since 0.1.0
  */
 export function floatRef(path: string): string {
   if (!isValidHelmPath(path)) {

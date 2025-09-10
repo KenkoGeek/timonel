@@ -20,7 +20,7 @@ import type {
  * HTTP header for health probes
  *
  * @interface HttpHeader
- * @since 1.0.0
+ * @since 0.1.0
  */
 export interface HttpHeader {
   /** Header name */
@@ -33,7 +33,7 @@ export interface HttpHeader {
  * HTTP GET action for health probes
  *
  * @interface HttpGetAction
- * @since 1.0.0
+ * @since 0.1.0
  */
 export interface HttpGetAction {
   /** HTTP path to probe */
@@ -50,7 +50,7 @@ export interface HttpGetAction {
  * Exec action for health probes
  *
  * @interface ExecAction
- * @since 1.0.0
+ * @since 0.1.0
  */
 export interface ExecAction {
   /** Command to execute */
@@ -61,7 +61,7 @@ export interface ExecAction {
  * TCP socket action for health probes
  *
  * @interface TcpSocketAction
- * @since 1.0.0
+ * @since 0.1.0
  */
 export interface TcpSocketAction {
   /** Port number or name */
@@ -72,7 +72,7 @@ export interface TcpSocketAction {
  * Kubernetes probe configuration
  *
  * @interface Probe
- * @since 1.0.0
+ * @since 0.1.0
  */
 export interface Probe {
   /** HTTP GET probe */
@@ -97,7 +97,7 @@ export interface Probe {
  * Environment variable source from ConfigMap or Secret
  *
  * @interface EnvFromSource
- * @since 1.0.0
+ * @since 0.1.0
  */
 export interface EnvFromSource {
   /** ConfigMap reference */
@@ -110,7 +110,7 @@ export interface EnvFromSource {
  * Volume source specification
  *
  * @interface VolumeSourceSpec
- * @since 1.0.0
+ * @since 0.1.0
  */
 export interface VolumeSourceSpec {
   /** Volume name */
@@ -127,7 +127,7 @@ export interface VolumeSourceSpec {
  * Volume mount specification
  *
  * @interface VolumeMountSpec
- * @since 1.0.0
+ * @since 0.1.0
  */
 export interface VolumeMountSpec {
   /** Volume name to mount */
@@ -144,7 +144,7 @@ export interface VolumeMountSpec {
  * Kubernetes resource requirements
  *
  * @interface ResourceRequirements
- * @since 1.0.0
+ * @since 0.1.0
  */
 export interface ResourceRequirements {
   /** Resource limits */
@@ -344,7 +344,7 @@ export interface PersistentVolumeSpec {
  * Kubernetes Deployment specification
  *
  * @interface DeploymentSpec
- * @since 1.0.0
+ * @since 0.1.0
  *
  * @example
  * ```typescript
@@ -445,7 +445,7 @@ export interface ReplicaSetSpec {
  * Kubernetes Job specification
  *
  * @interface JobSpec
- * @since 1.0.0
+ * @since 2.1.0
  */
 export interface JobSpec {
   /** Job name */
@@ -500,7 +500,7 @@ export interface JobSpec {
  * Kubernetes CronJob specification
  *
  * @interface CronJobSpec
- * @since 1.0.0
+ * @since 2.1.0
  */
 export interface CronJobSpec {
   /** CronJob name */
@@ -1468,6 +1468,12 @@ export interface VerticalPodAutoscalerSpec {
   annotations?: Record<string, string>;
 }
 
+/**
+ * NetworkPolicy peer specification
+ *
+ * @interface NetworkPolicyPeer
+ * @since 1.0.0
+ */
 export interface NetworkPolicyPeer {
   podSelector?: {
     matchLabels?: Record<string, string>;
@@ -1491,22 +1497,46 @@ export interface NetworkPolicyPeer {
   };
 }
 
+/**
+ * NetworkPolicy port specification
+ *
+ * @interface NetworkPolicyPort
+ * @since 1.0.0
+ */
 export interface NetworkPolicyPort {
   protocol?: 'TCP' | 'UDP' | 'SCTP';
   port?: number | string;
   endPort?: number;
 }
 
+/**
+ * NetworkPolicy ingress rule specification
+ *
+ * @interface NetworkPolicyIngressRule
+ * @since 1.0.0
+ */
 export interface NetworkPolicyIngressRule {
   from?: NetworkPolicyPeer[];
   ports?: NetworkPolicyPort[];
 }
 
+/**
+ * NetworkPolicy egress rule specification
+ *
+ * @interface NetworkPolicyEgressRule
+ * @since 1.0.0
+ */
 export interface NetworkPolicyEgressRule {
   to?: NetworkPolicyPeer[];
   ports?: NetworkPolicyPort[];
 }
 
+/**
+ * NetworkPolicy specification
+ *
+ * @interface NetworkPolicySpec
+ * @since 1.0.0
+ */
 export interface NetworkPolicySpec {
   name: string;
   podSelector?: {
@@ -1530,6 +1560,12 @@ export interface NetworkPolicySpec {
  * @interface KarpenterNodeRequirement
  * @since 1.0.0
  */
+/**
+ * Karpenter node requirement specification
+ *
+ * @interface KarpenterNodeRequirement
+ * @since 2.3.0
+ */
 export interface KarpenterNodeRequirement {
   /** Label key to match against */
   key: string;
@@ -1545,6 +1581,12 @@ export interface KarpenterNodeRequirement {
  * @interface KarpenterNodeDisruption
  * @since 1.0.0
  */
+/**
+ * Karpenter node disruption configuration
+ *
+ * @interface KarpenterNodeDisruption
+ * @since 2.3.0
+ */
 export interface KarpenterNodeDisruption {
   /** Policy for node consolidation */
   consolidationPolicy?: 'WhenEmpty' | 'WhenUnderutilized';
@@ -1559,6 +1601,12 @@ export interface KarpenterNodeDisruption {
  *
  * @interface KarpenterNodePoolSpec
  * @since 1.0.0
+ */
+/**
+ * Karpenter NodePool specification
+ *
+ * @interface KarpenterNodePoolSpec
+ * @since 2.3.0
  */
 export interface KarpenterNodePoolSpec {
   /** Name of the NodePool */
@@ -1599,6 +1647,12 @@ export interface KarpenterNodePoolSpec {
  * @interface KarpenterBlockDeviceMapping
  * @since 1.0.0
  */
+/**
+ * Karpenter block device mapping specification
+ *
+ * @interface KarpenterBlockDeviceMapping
+ * @since 2.3.0
+ */
 export interface KarpenterBlockDeviceMapping {
   /** Device name (e.g., /dev/xvda) */
   deviceName: string;
@@ -1625,6 +1679,12 @@ export interface KarpenterBlockDeviceMapping {
  * @interface KarpenterSubnetSelectorTerm
  * @since 1.0.0
  */
+/**
+ * Karpenter subnet selector term specification
+ *
+ * @interface KarpenterSubnetSelectorTerm
+ * @since 2.3.0
+ */
 export interface KarpenterSubnetSelectorTerm {
   /** Subnet tags for selection */
   tags?: Record<string, string>;
@@ -1638,6 +1698,12 @@ export interface KarpenterSubnetSelectorTerm {
  * @interface KarpenterSecurityGroupSelectorTerm
  * @since 1.0.0
  */
+/**
+ * Karpenter security group selector term specification
+ *
+ * @interface KarpenterSecurityGroupSelectorTerm
+ * @since 2.3.0
+ */
 export interface KarpenterSecurityGroupSelectorTerm {
   /** Security group tags for selection */
   tags?: Record<string, string>;
@@ -1650,6 +1716,12 @@ export interface KarpenterSecurityGroupSelectorTerm {
  *
  * @interface KarpenterEC2NodeClassSpec
  * @since 1.0.0
+ */
+/**
+ * Karpenter EC2 NodeClass specification
+ *
+ * @interface KarpenterEC2NodeClassSpec
+ * @since 2.3.0
  */
 export interface KarpenterEC2NodeClassSpec {
   /** Name of the EC2 NodeClass */
@@ -1699,6 +1771,12 @@ export interface KarpenterEC2NodeClassSpec {
 /**
  * Karpenter disruption budget for controlling disruption rate.
  */
+/**
+ * Karpenter disruption budget specification
+ *
+ * @interface KarpenterDisruptionBudget
+ * @since 2.3.0
+ */
 export interface KarpenterDisruptionBudget {
   /** Schedule in cron format for when budget applies */
   schedule?: string;
@@ -1712,6 +1790,12 @@ export interface KarpenterDisruptionBudget {
 
 /**
  * Advanced disruption configuration for Karpenter NodePools.
+ */
+/**
+ * Karpenter advanced disruption configuration
+ *
+ * @interface KarpenterAdvancedDisruption
+ * @since 2.3.0
  */
 export interface KarpenterAdvancedDisruption {
   /** Consolidation policy */
@@ -1729,6 +1813,12 @@ export interface KarpenterAdvancedDisruption {
  * Represents an individual node request that Karpenter will fulfill.
  *
  * @see https://karpenter.sh/docs/concepts/nodeclaims/
+ */
+/**
+ * Karpenter NodeClaim specification
+ *
+ * @interface KarpenterNodeClaimSpec
+ * @since 2.3.0
  */
 export interface KarpenterNodeClaimSpec {
   /** Name of the NodeClaim */
@@ -1769,6 +1859,12 @@ export interface KarpenterNodeClaimSpec {
 /**
  * Topology spread constraint for advanced scheduling.
  */
+/**
+ * Karpenter topology spread constraint specification
+ *
+ * @interface KarpenterTopologySpreadConstraint
+ * @since 2.3.0
+ */
 export interface KarpenterTopologySpreadConstraint {
   /** Maximum skew between zones/domains */
   maxSkew: number;
@@ -1791,6 +1887,12 @@ export interface KarpenterTopologySpreadConstraint {
 
 /**
  * Node affinity for advanced scheduling constraints.
+ */
+/**
+ * Karpenter node affinity specification
+ *
+ * @interface KarpenterNodeAffinity
+ * @since 2.3.0
  */
 export interface KarpenterNodeAffinity {
   /** Required node affinity */
@@ -1829,6 +1931,12 @@ export interface KarpenterNodeAffinity {
 /**
  * Configuration interface for advanced Karpenter scheduling.
  * Provides fine-grained control over pod placement and node selection.
+ */
+/**
+ * Karpenter scheduling specification
+ *
+ * @interface KarpenterSchedulingSpec
+ * @since 2.3.0
  */
 export interface KarpenterSchedulingSpec {
   /** Name of the scheduling configuration */
@@ -2243,7 +2351,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 1.0.0
+   * @since 2.1.0
    */
   addJob(spec: JobSpec) {
     // Validate Job specification
@@ -2293,7 +2401,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 1.0.0
+   * @since 2.1.0
    */
   addCronJob(spec: CronJobSpec) {
     // Validate CronJob specification
@@ -4511,6 +4619,8 @@ export class Rutter {
    *   nodeClassRef: { name: 'default' }
    * });
    * ```
+   *
+   * @since 2.3.0
    */
   addKarpenterNodePool(spec: KarpenterNodePoolSpec) {
     // Validate NodePool specification
@@ -4564,6 +4674,8 @@ export class Rutter {
    *   role: 'KarpenterNodeInstanceProfile'
    * });
    * ```
+   *
+   * @since 2.3.0
    */
   addKarpenterEC2NodeClass(spec: KarpenterEC2NodeClassSpec) {
     // Validate EC2 NodeClass specification
@@ -4799,6 +4911,8 @@ export class Rutter {
    *   expireAfter: '24h'
    * });
    * ```
+   *
+   * @since 2.3.0
    */
   addKarpenterNodeClaim(spec: KarpenterNodeClaimSpec) {
     // Validate NodeClaim specification
@@ -4861,6 +4975,8 @@ export class Rutter {
    *   }
    * });
    * ```
+   *
+   * @since 2.3.0
    */
   addKarpenterScheduling(spec: KarpenterSchedulingSpec) {
     // Validate scheduling specification
@@ -4900,6 +5016,8 @@ export class Rutter {
    *   }]
    * });
    * ```
+   *
+   * @since 2.3.0
    */
   createKarpenterDisruption(spec: KarpenterAdvancedDisruption) {
     // Validate disruption specification
