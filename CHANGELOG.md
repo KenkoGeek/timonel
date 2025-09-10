@@ -1,3 +1,13 @@
+# [2.3.0](https://github.com/KenkoGeek/timonel/compare/v2.2.0...v2.3.0) (2025-09-10)
+
+### Bug Fixes
+
+- **core:** implement CLI-focused security validations and centralized input sanitization ([f0a8144](https://github.com/KenkoGeek/timonel/commit/f0a8144c9aeaa510f4bcf999ca6b1697deca31ae))
+
+### Features
+
+- **core:** add Karpenter integration with 5 methods, fix performance issues, and update security docs ([#31](https://github.com/KenkoGeek/timonel/issues/31)) ([fb69f33](https://github.com/KenkoGeek/timonel/commit/fb69f338fd27a01aa8eae04de9ea9962fb840a0b))
+
 # [2.2.0](https://github.com/KenkoGeek/timonel/compare/v2.1.1...v2.2.0) (2025-09-09)
 
 ### Features
