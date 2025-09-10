@@ -517,9 +517,3 @@ rutter.addCronJob({
     component: 'backup',
   },
 });
-
-export default function run(outDir: string) {
-  rutter.write(outDir);
-}
-
-export { rutter };
