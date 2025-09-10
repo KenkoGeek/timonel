@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Rutter - Main class for building Kubernetes manifests and Helm charts
+ * @since 1.0.0
+ */
+
 import { App, Chart, Testing, ApiObject } from 'cdk8s';
 import YAML from 'yaml';
 
@@ -11,128 +16,323 @@ import type {
   HelperDefinition,
 } from './HelmChartWriter.js';
 
+/**
+ * HTTP header for health probes
+ *
+ * @interface HttpHeader
+ * @since 1.0.0
+ */
 export interface HttpHeader {
+  /** Header name */
   name: string;
+  /** Header value */
   value: string;
 }
+
+/**
+ * HTTP GET action for health probes
+ *
+ * @interface HttpGetAction
+ * @since 1.0.0
+ */
 export interface HttpGetAction {
+  /** HTTP path to probe */
   path?: string;
+  /** Port number or name */
   port: number | string;
+  /** HTTP or HTTPS scheme */
   scheme?: 'HTTP' | 'HTTPS';
+  /** Additional HTTP headers */
   httpHeaders?: HttpHeader[];
 }
+
+/**
+ * Exec action for health probes
+ *
+ * @interface ExecAction
+ * @since 1.0.0
+ */
 export interface ExecAction {
+  /** Command to execute */
   command: string[];
 }
+
+/**
+ * TCP socket action for health probes
+ *
+ * @interface TcpSocketAction
+ * @since 1.0.0
+ */
 export interface TcpSocketAction {
+  /** Port number or name */
   port: number | string;
 }
+
+/**
+ * Kubernetes probe configuration
+ *
+ * @interface Probe
+ * @since 1.0.0
+ */
 export interface Probe {
+  /** HTTP GET probe */
   httpGet?: HttpGetAction;
+  /** Exec probe */
   exec?: ExecAction;
+  /** TCP socket probe */
   tcpSocket?: TcpSocketAction;
+  /** Initial delay before probing */
   initialDelaySeconds?: number;
+  /** Probe frequency */
   periodSeconds?: number;
+  /** Probe timeout */
   timeoutSeconds?: number;
+  /** Success threshold */
   successThreshold?: number;
+  /** Failure threshold */
   failureThreshold?: number;
 }
 
+/**
+ * Environment variable source from ConfigMap or Secret
+ *
+ * @interface EnvFromSource
+ * @since 1.0.0
+ */
 export interface EnvFromSource {
+  /** ConfigMap reference */
   configMapRef?: string;
+  /** Secret reference */
   secretRef?: string;
 }
+
+/**
+ * Volume source specification
+ *
+ * @interface VolumeSourceSpec
+ * @since 1.0.0
+ */
 export interface VolumeSourceSpec {
+  /** Volume name */
   name: string;
+  /** ConfigMap volume source */
   configMap?: string;
+  /** Secret volume source */
   secret?: string;
+  /** PersistentVolumeClaim source */
   persistentVolumeClaim?: string;
 }
+
+/**
+ * Volume mount specification
+ *
+ * @interface VolumeMountSpec
+ * @since 1.0.0
+ */
 export interface VolumeMountSpec {
+  /** Volume name to mount */
   name: string;
+  /** Mount path in container */
   mountPath: string;
+  /** Mount as read-only */
   readOnly?: boolean;
+  /** Sub-path within volume */
   subPath?: string;
 }
+
+/**
+ * Kubernetes resource requirements
+ *
+ * @interface ResourceRequirements
+ * @since 1.0.0
+ */
 export interface ResourceRequirements {
+  /** Resource limits */
   limits?: { cpu?: string; memory?: string };
+  /** Resource requests */
   requests?: { cpu?: string; memory?: string };
 }
 
+/**
+ * Kubernetes PersistentVolume access modes
+ *
+ * @typedef {string} AccessMode
+ * @since 1.0.0
+ */
 export type AccessMode = 'ReadWriteOnce' | 'ReadOnlyMany' | 'ReadWriteMany' | 'ReadWriteOncePod';
+
+/**
+ * Kubernetes volume modes
+ *
+ * @typedef {string} VolumeMode
+ * @since 1.0.0
+ */
 export type VolumeMode = 'Filesystem' | 'Block';
+
+/**
+ * Kubernetes PersistentVolume reclaim policies
+ *
+ * @typedef {string} ReclaimPolicy
+ * @since 1.0.0
+ */
 export type ReclaimPolicy = 'Retain' | 'Recycle' | 'Delete';
 
+/**
+ * CSI volume source specification
+ *
+ * @interface CsiVolumeSource
+ * @since 1.0.0
+ */
 export interface CsiVolumeSource {
+  /** CSI driver name */
   driver: string;
+  /** Volume handle */
   volumeHandle: string;
+  /** Filesystem type */
   fsType?: string;
+  /** Read-only volume */
   readOnly?: boolean;
+  /** Volume attributes */
   volumeAttributes?: Record<string, string>;
+  /** Controller publish secret reference */
   controllerPublishSecretRef?: { name: string; namespace?: string };
+  /** Node stage secret reference */
   nodeStageSecretRef?: { name: string; namespace?: string };
+  /** Node publish secret reference */
   nodePublishSecretRef?: { name: string; namespace?: string };
+  /** Controller expand secret reference */
   controllerExpandSecretRef?: { name: string; namespace?: string };
 }
 
+/**
+ * NFS volume source specification
+ *
+ * @interface NfsVolumeSource
+ * @since 1.0.0
+ */
 export interface NfsVolumeSource {
+  /** NFS server */
   server: string;
+  /** NFS path */
   path: string;
+  /** Read-only mount */
   readOnly?: boolean;
 }
 
+/**
+ * AWS Elastic Block Store volume source
+ *
+ * @interface AwsElasticBlockStoreSource
+ * @since 1.0.0
+ */
 export interface AwsElasticBlockStoreSource {
+  /** EBS volume ID */
   volumeID: string;
+  /** Filesystem type */
   fsType?: string;
+  /** Partition number */
   partition?: number;
+  /** Read-only volume */
   readOnly?: boolean;
 }
 
+/**
+ * Host path volume source
+ *
+ * @interface HostPathSource
+ * @since 1.0.0
+ */
 export interface HostPathSource {
+  /** Host path */
   path: string;
+  /** Path type */
   type?: string;
 }
 
+/**
+ * PersistentVolume source specification
+ *
+ * @interface PersistentVolumeSourceSpec
+ * @since 1.0.0
+ */
 export interface PersistentVolumeSourceSpec {
+  /** CSI volume source */
   csi?: CsiVolumeSource;
+  /** NFS volume source */
   nfs?: NfsVolumeSource;
+  /** AWS EBS volume source */
   awsElasticBlockStore?: AwsElasticBlockStoreSource;
+  /** Host path volume source */
   hostPath?: HostPathSource;
+  /** Azure Disk volume source */
   azureDisk?: {
+    /** Disk name */
     diskName: string;
+    /** Disk URI */
     diskURI: string;
+    /** Caching mode */
     cachingMode?: 'None' | 'ReadOnly' | 'ReadWrite';
+    /** Filesystem type */
     fsType?: string;
+    /** Read-only disk */
     readOnly?: boolean;
+    /** Disk kind */
     kind?: 'Shared' | 'Dedicated' | 'Managed';
   };
+  /** Azure File volume source */
   azureFile?: {
+    /** Secret name */
     secretName: string;
+    /** Share name */
     shareName: string;
+    /** Read-only file */
     readOnly?: boolean;
+    /** Secret namespace */
     secretNamespace?: string;
   };
+  /** GCE Persistent Disk volume source */
   gcePersistentDisk?: {
+    /** Persistent disk name */
     pdName: string;
+    /** Filesystem type */
     fsType?: string;
+    /** Partition number */
     partition?: number;
+    /** Read-only disk */
     readOnly?: boolean;
   };
-  // Allow custom volume sources
+  /** Custom volume sources */
   [key: string]: unknown;
 }
 
+/**
+ * Kubernetes PersistentVolume specification
+ *
+ * @interface PersistentVolumeSpec
+ * @since 1.0.0
+ */
 export interface PersistentVolumeSpec {
+  /** PersistentVolume name */
   name: string;
-  capacity: string; // e.g., '10Gi'
+  /** Storage capacity (e.g., '10Gi') */
+  capacity: string;
+  /** Access modes */
   accessModes: AccessMode[];
+  /** Storage class name */
   storageClassName?: string;
+  /** Volume mode */
   volumeMode?: VolumeMode;
+  /** Reclaim policy */
   reclaimPolicy?: ReclaimPolicy;
+  /** Mount options */
   mountOptions?: string[];
+  /** Node affinity */
   nodeAffinity?: Record<string, unknown>;
+  /** PersistentVolume labels */
   labels?: Record<string, string>;
+  /** PersistentVolume annotations */
   annotations?: Record<string, string>;
+  /** Volume source */
   source: PersistentVolumeSourceSpec;
   /** Reference to related PVC for binding */
   claimRef?: { name: string; namespace?: string };
@@ -140,202 +340,416 @@ export interface PersistentVolumeSpec {
   cloudProvider?: 'aws' | 'azure' | 'gcp';
 }
 
+/**
+ * Kubernetes Deployment specification
+ *
+ * @interface DeploymentSpec
+ * @since 1.0.0
+ *
+ * @example
+ * ```typescript
+ * const deployment: DeploymentSpec = {
+ *   name: 'web-app',
+ *   image: 'nginx:1.21',
+ *   replicas: 3,
+ *   containerPort: 80,
+ *   env: { NODE_ENV: 'production' }
+ * };
+ * ```
+ */
 export interface DeploymentSpec {
+  /** Deployment name */
   name: string;
+  /** Container image */
   image: string;
+  /** Number of replicas */
   replicas?: number;
+  /** Container port */
   containerPort?: number;
+  /** Environment variables */
   env?: Record<string, string>;
+  /** Environment from ConfigMap/Secret */
   envFrom?: EnvFromSource[];
+  /** Volume sources */
   volumes?: VolumeSourceSpec[];
+  /** Volume mounts */
   volumeMounts?: VolumeMountSpec[];
+  /** Resource requirements */
   resources?: ResourceRequirements;
+  /** Liveness probe */
   livenessProbe?: Probe;
+  /** Readiness probe */
   readinessProbe?: Probe;
+  /** Image pull policy */
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never';
+  /** Service account name */
   serviceAccountName?: string;
+  /** Pod selector labels */
   matchLabels?: Record<string, string>;
-  /** Optional extra labels on the Deployment metadata */
+  /** Deployment metadata labels */
   labels?: Record<string, string>;
-  /** Optional annotations on the Deployment metadata */
+  /** Deployment metadata annotations */
   annotations?: Record<string, string>;
-  /** Optional extra labels on the pod template (merged with matchLabels) */
+  /** Pod template labels */
   podLabels?: Record<string, string>;
-  /** Optional annotations on the pod template (useful for reloaders, etc.) */
+  /** Pod template annotations */
   podAnnotations?: Record<string, string>;
 }
 
+/**
+ * Kubernetes ReplicaSet specification
+ *
+ * @interface ReplicaSetSpec
+ * @since 1.0.0
+ */
 export interface ReplicaSetSpec {
+  /** ReplicaSet name */
   name: string;
+  /** Container image */
   image: string;
+  /** Number of replicas */
   replicas?: number;
+  /** Container port */
   containerPort?: number;
+  /** Environment variables */
   env?: Record<string, string>;
+  /** Environment from ConfigMap/Secret */
   envFrom?: EnvFromSource[];
+  /** Volume sources */
   volumes?: VolumeSourceSpec[];
+  /** Volume mounts */
   volumeMounts?: VolumeMountSpec[];
+  /** Resource requirements */
   resources?: ResourceRequirements;
+  /** Liveness probe */
   livenessProbe?: Probe;
+  /** Readiness probe */
   readinessProbe?: Probe;
+  /** Image pull policy */
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never';
+  /** Service account name */
   serviceAccountName?: string;
+  /** Pod selector labels */
   matchLabels?: Record<string, string>;
-  /** Optional extra labels on the ReplicaSet metadata */
+  /** ReplicaSet metadata labels */
   labels?: Record<string, string>;
-  /** Optional annotations on the ReplicaSet metadata */
+  /** ReplicaSet metadata annotations */
   annotations?: Record<string, string>;
-  /** Optional extra labels on the pod template (merged with matchLabels) */
+  /** Pod template labels */
   podLabels?: Record<string, string>;
-  /** Optional annotations on the pod template (useful for reloaders, etc.) */
+  /** Pod template annotations */
   podAnnotations?: Record<string, string>;
 }
 
+/**
+ * Kubernetes Job specification
+ *
+ * @interface JobSpec
+ * @since 1.0.0
+ */
 export interface JobSpec {
+  /** Job name */
   name: string;
+  /** Container image */
   image: string;
+  /** Command to run */
   command?: string[];
+  /** Arguments to command */
   args?: string[];
+  /** Environment variables */
   env?: Record<string, string>;
+  /** Environment from ConfigMap/Secret */
   envFrom?: EnvFromSource[];
+  /** Volume sources */
   volumes?: VolumeSourceSpec[];
+  /** Volume mounts */
   volumeMounts?: VolumeMountSpec[];
+  /** Resource requirements */
   resources?: ResourceRequirements;
+  /** Restart policy */
   restartPolicy?: 'Never' | 'OnFailure';
+  /** Backoff limit for retries */
   backoffLimit?: number;
+  /** Active deadline in seconds */
   activeDeadlineSeconds?: number;
+  /** TTL after finished in seconds */
   ttlSecondsAfterFinished?: number;
+  /** Number of completions */
   completions?: number;
+  /** Parallelism level */
   parallelism?: number;
+  /** Completion mode */
   completionMode?: 'NonIndexed' | 'Indexed';
+  /** Suspend job execution */
   suspend?: boolean;
+  /** Image pull policy */
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never';
+  /** Service account name */
   serviceAccountName?: string;
-  /** Optional extra labels on the Job metadata */
+  /** Job metadata labels */
   labels?: Record<string, string>;
-  /** Optional annotations on the Job metadata */
+  /** Job metadata annotations */
   annotations?: Record<string, string>;
-  /** Optional extra labels on the pod template */
+  /** Pod template labels */
   podLabels?: Record<string, string>;
-  /** Optional annotations on the pod template */
+  /** Pod template annotations */
   podAnnotations?: Record<string, string>;
 }
 
+/**
+ * Kubernetes CronJob specification
+ *
+ * @interface CronJobSpec
+ * @since 1.0.0
+ */
 export interface CronJobSpec {
+  /** CronJob name */
   name: string;
+  /** Cron schedule expression */
   schedule: string;
+  /** Container image */
   image: string;
+  /** Command to run */
   command?: string[];
+  /** Arguments to command */
   args?: string[];
+  /** Environment variables */
   env?: Record<string, string>;
+  /** Environment from ConfigMap/Secret */
   envFrom?: EnvFromSource[];
+  /** Volume sources */
   volumes?: VolumeSourceSpec[];
+  /** Volume mounts */
   volumeMounts?: VolumeMountSpec[];
+  /** Resource requirements */
   resources?: ResourceRequirements;
+  /** Restart policy */
   restartPolicy?: 'Never' | 'OnFailure';
+  /** Backoff limit for retries */
   backoffLimit?: number;
+  /** Active deadline in seconds */
   activeDeadlineSeconds?: number;
+  /** TTL after finished in seconds */
   ttlSecondsAfterFinished?: number;
+  /** Number of completions */
   completions?: number;
+  /** Parallelism level */
   parallelism?: number;
+  /** Completion mode */
   completionMode?: 'NonIndexed' | 'Indexed';
+  /** Suspend job execution */
   suspend?: boolean;
+  /** Starting deadline in seconds */
   startingDeadlineSeconds?: number;
+  /** Concurrency policy */
   concurrencyPolicy?: 'Allow' | 'Forbid' | 'Replace';
+  /** Successful jobs history limit */
   successfulJobsHistoryLimit?: number;
+  /** Failed jobs history limit */
   failedJobsHistoryLimit?: number;
+  /** Time zone */
   timeZone?: string;
+  /** Image pull policy */
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never';
+  /** Service account name */
   serviceAccountName?: string;
-  /** Optional extra labels on the CronJob metadata */
+  /** CronJob metadata labels */
   labels?: Record<string, string>;
-  /** Optional annotations on the CronJob metadata */
+  /** CronJob metadata annotations */
   annotations?: Record<string, string>;
-  /** Optional extra labels on the pod template */
+  /** Pod template labels */
   podLabels?: Record<string, string>;
-  /** Optional annotations on the pod template */
+  /** Pod template annotations */
   podAnnotations?: Record<string, string>;
 }
 
+/**
+ * Kubernetes Service specification
+ *
+ * @interface ServiceSpec
+ * @since 1.0.0
+ *
+ * @example
+ * ```typescript
+ * const service: ServiceSpec = {
+ *   name: 'web-service',
+ *   ports: [{ port: 80, targetPort: 8080 }],
+ *   type: 'LoadBalancer'
+ * };
+ * ```
+ */
 export interface ServiceSpec {
+  /** Service name */
   name: string;
+  /** Service ports */
   ports: Array<{
+    /** Service port */
     port: number;
+    /** Target port on pods */
     targetPort?: number;
+    /** Protocol */
     protocol?: 'TCP' | 'UDP' | 'SCTP';
+    /** Port name */
     name?: string;
+    /** NodePort (for NodePort/LoadBalancer) */
     nodePort?: number;
   }>;
+  /** Service type */
   type?: 'ClusterIP' | 'NodePort' | 'LoadBalancer' | 'ExternalName';
+  /** Pod selector */
   selector?: Record<string, string>;
+  /** Cluster IP */
   clusterIP?: string;
+  /** External name (for ExternalName type) */
   externalName?: string;
+  /** Session affinity */
   sessionAffinity?: 'None' | 'ClientIP';
+  /** Load balancer IP */
   loadBalancerIP?: string;
+  /** Load balancer source ranges */
   loadBalancerSourceRanges?: string[];
+  /** Load balancer class */
   loadBalancerClass?: string;
+  /** External traffic policy */
   externalTrafficPolicy?: 'Cluster' | 'Local';
+  /** Internal traffic policy */
   internalTrafficPolicy?: 'Cluster' | 'Local';
+  /** IP family policy */
   ipFamilyPolicy?: 'SingleStack' | 'PreferDualStack' | 'RequireDualStack';
+  /** IP families */
   ipFamilies?: Array<'IPv4' | 'IPv6'>;
+  /** Service labels */
   labels?: Record<string, string>;
+  /** Service annotations */
   annotations?: Record<string, string>;
 }
 
+/**
+ * Kubernetes Ingress rule specification
+ *
+ * @interface IngressRule
+ * @since 1.0.0
+ */
 export interface IngressRule {
+  /** Host name */
   host?: string;
+  /** Path rules */
   paths: Array<{
+    /** URL path */
     path: string;
+    /** Path matching type */
     pathType: 'Exact' | 'Prefix' | 'ImplementationSpecific';
+    /** Backend service */
     backend: {
       service: { name: string; port: { number?: number; name?: string } };
     };
   }>;
 }
 
+/**
+ * Kubernetes Ingress TLS specification
+ *
+ * @interface IngressTLS
+ * @since 1.0.0
+ */
 export interface IngressTLS {
+  /** TLS hosts */
   hosts?: string[];
+  /** Secret name containing TLS certificate */
   secretName?: string;
 }
 
+/**
+ * Kubernetes Ingress specification
+ *
+ * @interface IngressSpec
+ * @since 1.0.0
+ */
 export interface IngressSpec {
+  /** Ingress name */
   name: string;
+  /** Ingress rules */
   rules: IngressRule[];
+  /** TLS configuration */
   tls?: IngressTLS[];
+  /** Ingress class name */
   ingressClassName?: string;
+  /** Default backend */
   defaultBackend?: {
     service: { name: string; port: { number?: number; name?: string } };
   };
+  /** Ingress labels */
   labels?: Record<string, string>;
+  /** Ingress annotations */
   annotations?: Record<string, string>;
 }
 
+/**
+ * Kubernetes ConfigMap specification
+ *
+ * @interface ConfigMapSpec
+ * @since 1.0.0
+ */
 export interface ConfigMapSpec {
+  /** ConfigMap name */
   name: string;
+  /** String data */
   data?: Record<string, string>;
+  /** Binary data */
   binaryData?: Record<string, string>;
+  /** Immutable ConfigMap */
   immutable?: boolean;
+  /** ConfigMap labels */
   labels?: Record<string, string>;
+  /** ConfigMap annotations */
   annotations?: Record<string, string>;
 }
 
+/**
+ * Kubernetes Secret specification
+ *
+ * @interface SecretSpec
+ * @since 1.0.0
+ */
 export interface SecretSpec {
+  /** Secret name */
   name: string;
-  type?: string; // e.g., Opaque (default), kubernetes.io/dockerconfigjson, kubernetes.io/tls
-  stringData?: Record<string, string>; // unencoded strings (kube encodes to data)
-  data?: Record<string, string>; // base64-encoded values
+  /** Secret type */
+  type?: string;
+  /** String data (unencoded) */
+  stringData?: Record<string, string>;
+  /** Base64-encoded data */
+  data?: Record<string, string>;
+  /** Immutable Secret */
   immutable?: boolean;
+  /** Secret labels */
   labels?: Record<string, string>;
+  /** Secret annotations */
   annotations?: Record<string, string>;
 }
 
+/**
+ * Kubernetes PersistentVolumeClaim specification
+ *
+ * @interface PersistentVolumeClaimSpec
+ * @since 1.0.0
+ */
 export interface PersistentVolumeClaimSpec {
+  /** PersistentVolumeClaim name */
   name: string;
+  /** Access modes */
   accessModes: AccessMode[];
+  /** Resource requirements */
   resources: { requests: { storage: string }; limits?: { storage: string } };
+  /** Storage class name */
   storageClassName?: string;
+  /** Volume mode */
   volumeMode?: VolumeMode;
+  /** Volume selector */
   selector?: { matchLabels?: Record<string, string>; matchExpressions?: unknown[] };
+  /** PersistentVolumeClaim labels */
   labels?: Record<string, string>;
+  /** PersistentVolumeClaim annotations */
   annotations?: Record<string, string>;
   /** Reference to specific PV for static binding */
   volumeName?: string;
@@ -343,121 +757,163 @@ export interface PersistentVolumeClaimSpec {
   cloudProvider?: 'aws' | 'azure' | 'gcp';
 }
 
+/**
+ * Kubernetes ServiceAccount specification with multi-cloud workload identity support
+ *
+ * @interface ServiceAccountSpec
+ * @since 1.0.0
+ */
 export interface ServiceAccountSpec {
+  /** ServiceAccount name */
   name: string;
+  /** ServiceAccount annotations */
   annotations?: Record<string, string>;
+  /** ServiceAccount labels */
   labels?: Record<string, string>;
+  /** Automount service account token */
   automountServiceAccountToken?: boolean;
-  imagePullSecrets?: string[]; // names of Secrets
-  secrets?: string[]; // names of Secrets to mount as tokens/files
-  /**
-   * EKS IRSA support: IAM role ARN for service account to assume
-   * Example: arn:aws:iam::<account-id>:role/<role-name>
-   * Adds annotation eks.amazonaws.com/role-arn
-   */
+  /** Image pull secrets */
+  imagePullSecrets?: string[];
+  /** Secrets to mount */
+  secrets?: string[];
+  /** EKS IRSA: IAM role ARN */
   awsRoleArn?: string;
-  /**
-   * IRSA audience for token validation (default: sts.amazonaws.com)
-   * Adds annotation eks.amazonaws.com/audience when provided
-   */
+  /** IRSA audience for token validation */
   awsAudience?: string;
-  /**
-   * AWS STS endpoint type for IRSA (regional recommended for better performance)
-   * Adds annotation eks.amazonaws.com/sts-regional-endpoints when provided
-   * @default 'regional'
-   */
+  /** AWS STS endpoint type */
   awsStsEndpointType?: 'regional' | 'legacy';
-  /**
-   * AWS region for regional STS endpoint (auto-detected if not provided)
-   * Used with awsStsEndpointType: 'regional'
-   */
+  /** AWS region for regional STS endpoint */
   awsRegion?: string;
-  /**
-   * Token expiration time in seconds for IRSA tokens (3600-43200)
-   * Adds annotation eks.amazonaws.com/token-expiration when provided
-   * @default 3600
-   */
+  /** Token expiration time in seconds */
   awsTokenExpiration?: number;
-  /**
-   * AKS Workload Identity: Azure application client ID
-   * Adds annotation azure.workload.identity/client-id when provided
-   */
+  /** AKS Workload Identity: Azure client ID */
   azureClientId?: string;
-  /**
-   * AKS Workload Identity: Azure tenant ID
-   * Adds annotation azure.workload.identity/tenant-id when provided
-   */
+  /** AKS Workload Identity: Azure tenant ID */
   azureTenantId?: string;
-  /**
-   * AKS Workload Identity: projected SA token expiration (seconds)
-   * Adds annotation azure.workload.identity/service-account-token-expiration
-   */
+  /** AKS Workload Identity: token expiration */
   azureServiceAccountTokenExpiration?: number;
-  /**
-   * GKE Workload Identity: Google service account email
-   * Adds annotation iam.gke.io/gcp-service-account when provided
-   */
+  /** GKE Workload Identity: service account email */
   gcpServiceAccountEmail?: string;
 }
 
+/**
+ * HorizontalPodAutoscaler metric specification
+ *
+ * @interface HorizontalPodAutoscalerMetric
+ * @since 1.0.0
+ */
 export interface HorizontalPodAutoscalerMetric {
+  /** Metric type */
   type: 'Resource' | 'Pods' | 'Object' | 'External';
+  /** Resource metric */
   resource?: {
+    /** Resource name */
     name: 'cpu' | 'memory';
+    /** Target specification */
     target: {
+      /** Target type */
       type: 'Utilization' | 'AverageValue';
+      /** Average utilization percentage */
       averageUtilization?: number;
+      /** Average value */
       averageValue?: string;
     };
   };
+  /** Pods metric */
   pods?: {
+    /** Metric specification */
     metric: { name: string; selector?: Record<string, unknown> };
+    /** Target specification */
     target: { type: 'AverageValue'; averageValue: string };
   };
+  /** Object metric */
   object?: {
+    /** Metric specification */
     metric: { name: string; selector?: Record<string, unknown> };
+    /** Described object */
     describedObject: { apiVersion: string; kind: string; name: string };
+    /** Target specification */
     target: { type: 'Value' | 'AverageValue'; value?: string; averageValue?: string };
   };
+  /** External metric */
   external?: {
+    /** Metric specification */
     metric: { name: string; selector?: Record<string, unknown> };
+    /** Target specification */
     target: { type: 'Value' | 'AverageValue'; value?: string; averageValue?: string };
   };
 }
 
+/**
+ * HorizontalPodAutoscaler behavior specification
+ *
+ * @interface HorizontalPodAutoscalerBehavior
+ * @since 1.0.0
+ */
 export interface HorizontalPodAutoscalerBehavior {
+  /** Scale up behavior */
   scaleUp?: {
+    /** Stabilization window in seconds */
     stabilizationWindowSeconds?: number;
+    /** Policy selection */
     selectPolicy?: 'Max' | 'Min' | 'Disabled';
+    /** Scaling policies */
     policies?: Array<{
+      /** Policy type */
       type: 'Pods' | 'Percent';
+      /** Policy value */
       value: number;
+      /** Period in seconds */
       periodSeconds: number;
     }>;
   };
+  /** Scale down behavior */
   scaleDown?: {
+    /** Stabilization window in seconds */
     stabilizationWindowSeconds?: number;
+    /** Policy selection */
     selectPolicy?: 'Max' | 'Min' | 'Disabled';
+    /** Scaling policies */
     policies?: Array<{
+      /** Policy type */
       type: 'Pods' | 'Percent';
+      /** Policy value */
       value: number;
+      /** Period in seconds */
       periodSeconds: number;
     }>;
   };
 }
 
+/**
+ * Kubernetes HorizontalPodAutoscaler specification
+ *
+ * @interface HorizontalPodAutoscalerSpec
+ * @since 1.0.0
+ */
 export interface HorizontalPodAutoscalerSpec {
+  /** HPA name */
   name: string;
+  /** Scale target reference */
   scaleTargetRef: {
+    /** API version */
     apiVersion: string;
+    /** Resource kind */
     kind: 'Deployment' | 'StatefulSet' | 'ReplicaSet';
+    /** Resource name */
     name: string;
   };
+  /** Minimum replicas */
   minReplicas?: number;
+  /** Maximum replicas */
   maxReplicas: number;
+  /** Scaling metrics */
   metrics?: HorizontalPodAutoscalerMetric[];
+  /** Scaling behavior */
   behavior?: HorizontalPodAutoscalerBehavior;
+  /** HPA labels */
   labels?: Record<string, string>;
+  /** HPA annotations */
   annotations?: Record<string, string>;
 }
 
@@ -491,18 +947,37 @@ export interface PodDisruptionBudgetSpec {
   annotations?: Record<string, string>;
 }
 
+/**
+ * AWS EBS StorageClass specification
+ *
+ * @interface AWSEBSStorageClassSpec
+ * @extends CloudResourceTags
+ * @since 1.0.0
+ */
 export interface AWSEBSStorageClassSpec extends CloudResourceTags {
+  /** StorageClass name */
   name: string;
+  /** EBS volume type */
   volumeType?: 'gp2' | 'gp3' | 'io1' | 'io2' | 'sc1' | 'st1';
+  /** Filesystem type */
   fsType?: 'ext4' | 'xfs';
+  /** Enable encryption */
   encrypted?: boolean;
+  /** KMS key ID for encryption */
   kmsKeyId?: string;
+  /** IOPS for io1/io2 volumes */
   iops?: number;
+  /** Throughput for gp3 volumes */
   throughput?: number;
+  /** Volume reclaim policy */
   reclaimPolicy?: 'Delete' | 'Retain';
+  /** Allow volume expansion */
   allowVolumeExpansion?: boolean;
+  /** Volume binding mode */
   volumeBindingMode?: 'Immediate' | 'WaitForFirstConsumer';
+  /** StorageClass labels */
   labels?: Record<string, string>;
+  /** StorageClass annotations */
   annotations?: Record<string, string>;
 }
 
@@ -784,20 +1259,23 @@ export interface AzureACRServiceAccountSpec {
 }
 
 /**
- * Configuration interface for Azure Disk StorageClass.
- * Defines the parameters for creating an Azure Disk StorageClass in AKS.
+ * Cloud resource tags with basic validation
  *
- * @see https://learn.microsoft.com/en-us/azure/aks/azure-csi-disk-storage-provision
- */
-/**
- * Cloud resource tags with basic validation.
- * Provides a consistent interface for tagging resources across cloud providers.
+ * @interface CloudResourceTags
+ * @since 1.0.0
  */
 export interface CloudResourceTags {
   /** Resource tags as key-value pairs */
   tags?: Record<string, string>;
 }
 
+/**
+ * Azure Disk StorageClass specification
+ *
+ * @interface AzureDiskStorageClassSpec
+ * @extends CloudResourceTags
+ * @since 1.0.0
+ */
 export interface AzureDiskStorageClassSpec extends CloudResourceTags {
   /** Name of the StorageClass */
   name: string;
@@ -850,33 +1328,59 @@ export interface AzureDiskStorageClassSpec extends CloudResourceTags {
   annotations?: Record<string, string>;
 }
 
+/**
+ * AWS Application Load Balancer Ingress specification
+ *
+ * @interface AWSALBIngressSpec
+ * @extends CloudResourceTags
+ * @since 1.0.0
+ */
 export interface AWSALBIngressSpec extends CloudResourceTags {
+  /** Ingress name */
   name: string;
+  /** Ingress rules */
   rules: IngressRule[];
+  /** TLS configuration */
   tls?: IngressTLS[];
+  /** Load balancer scheme */
   scheme?: 'internet-facing' | 'internal';
+  /** Target type */
   targetType?: 'instance' | 'ip';
+  /** IP address type */
   ipAddressType?: 'ipv4' | 'dualstack';
+  /** ALB group name */
   groupName?: string;
+  /** ALB group order */
   groupOrder?: number;
+  /** Subnet IDs */
   subnets?: string[];
+  /** Security group IDs */
   securityGroups?: string[];
+  /** SSL certificate ARN */
   certificateArn?: string;
+  /** Enable SSL redirect */
   sslRedirect?: boolean;
+  /** Health check path */
   healthCheckPath?: string;
+  /** Health check interval */
   healthCheckIntervalSeconds?: number;
+  /** Health check timeout */
   healthCheckTimeoutSeconds?: number;
+  /** Healthy threshold count */
   healthyThresholdCount?: number;
+  /** Unhealthy threshold count */
   unhealthyThresholdCount?: number;
+  /** Ingress labels */
   labels?: Record<string, string>;
+  /** Ingress annotations */
   annotations?: Record<string, string>;
 }
 
 /**
- * Configuration interface for Azure Application Gateway Ingress Controller (AGIC).
- * Provides comprehensive support for AGIC annotations and features for AKS deployments.
+ * Azure Application Gateway Ingress Controller specification
  *
- * @see https://learn.microsoft.com/en-us/azure/application-gateway/ingress-controller-annotations
+ * @interface AzureAGICIngressSpec
+ * @since 1.0.0
  */
 export interface AzureAGICIngressSpec {
   /** Name of the Ingress resource */
@@ -1020,28 +1524,388 @@ export interface NetworkPolicySpec {
   annotations?: Record<string, string>;
 }
 
+/**
+ * Karpenter NodePool requirement for node selection
+ *
+ * @interface KarpenterNodeRequirement
+ * @since 1.0.0
+ */
+export interface KarpenterNodeRequirement {
+  /** Label key to match against */
+  key: string;
+  /** Operator for matching */
+  operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist' | 'Gt' | 'Lt';
+  /** Values to match */
+  values?: string[];
+}
+
+/**
+ * Karpenter NodePool disruption configuration
+ *
+ * @interface KarpenterNodeDisruption
+ * @since 1.0.0
+ */
+export interface KarpenterNodeDisruption {
+  /** Policy for node consolidation */
+  consolidationPolicy?: 'WhenEmpty' | 'WhenUnderutilized';
+  /** Time to wait before consolidating empty nodes */
+  consolidateAfter?: string;
+  /** Maximum node lifetime before replacement */
+  expireAfter?: string;
+}
+
+/**
+ * Karpenter NodePool specification
+ *
+ * @interface KarpenterNodePoolSpec
+ * @since 1.0.0
+ */
+export interface KarpenterNodePoolSpec {
+  /** Name of the NodePool */
+  name: string;
+  /** Node requirements for instance selection */
+  requirements?: KarpenterNodeRequirement[];
+  /** Resource limits for the NodePool */
+  limits?: {
+    cpu?: string;
+    memory?: string;
+  };
+  /** Node disruption configuration */
+  disruption?: KarpenterNodeDisruption;
+  /** Reference to NodeClass for AWS-specific configuration */
+  nodeClassRef: {
+    /** API group (default: eks.amazonaws.com) */
+    group?: string;
+    /** Resource kind (default: NodeClass) */
+    kind?: string;
+    /** NodeClass name */
+    name: string;
+  };
+  /** Taints to apply to provisioned nodes */
+  taints?: Array<{
+    key: string;
+    value?: string;
+    effect: 'NoSchedule' | 'PreferNoSchedule' | 'NoExecute';
+  }>;
+  /** Labels to apply to the NodePool */
+  labels?: Record<string, string>;
+  /** Annotations to apply to the NodePool */
+  annotations?: Record<string, string>;
+}
+
+/**
+ * Karpenter block device mapping for EC2 instances
+ *
+ * @interface KarpenterBlockDeviceMapping
+ * @since 1.0.0
+ */
+export interface KarpenterBlockDeviceMapping {
+  /** Device name (e.g., /dev/xvda) */
+  deviceName: string;
+  /** EBS configuration */
+  ebs?: {
+    /** Volume size in GB */
+    volumeSize?: string;
+    /** Volume type */
+    volumeType?: 'gp2' | 'gp3' | 'io1' | 'io2' | 'sc1' | 'st1';
+    /** Enable encryption */
+    encrypted?: boolean;
+    /** Delete on termination */
+    deleteOnTermination?: boolean;
+    /** IOPS for io1/io2 volumes */
+    iops?: number;
+    /** Throughput for gp3 volumes */
+    throughput?: number;
+  };
+}
+
+/**
+ * Karpenter subnet selector term
+ *
+ * @interface KarpenterSubnetSelectorTerm
+ * @since 1.0.0
+ */
+export interface KarpenterSubnetSelectorTerm {
+  /** Subnet tags for selection */
+  tags?: Record<string, string>;
+  /** Specific subnet ID */
+  id?: string;
+}
+
+/**
+ * Karpenter security group selector term
+ *
+ * @interface KarpenterSecurityGroupSelectorTerm
+ * @since 1.0.0
+ */
+export interface KarpenterSecurityGroupSelectorTerm {
+  /** Security group tags for selection */
+  tags?: Record<string, string>;
+  /** Specific security group ID */
+  id?: string;
+}
+
+/**
+ * Karpenter EC2 NodeClass specification
+ *
+ * @interface KarpenterEC2NodeClassSpec
+ * @since 1.0.0
+ */
+export interface KarpenterEC2NodeClassSpec {
+  /** Name of the EC2 NodeClass */
+  name: string;
+  /** AMI family for node instances */
+  amiFamily?:
+    | 'AL2'
+    | 'AL2023'
+    | 'Bottlerocket'
+    | 'Ubuntu'
+    | 'Windows2019'
+    | 'Windows2022'
+    | 'Custom';
+  /** Instance store policy */
+  instanceStorePolicy?: 'NVME' | 'RAID0';
+  /** User data script for instance initialization */
+  userData?: string;
+  /** Subnet selection terms */
+  subnetSelectorTerms?: KarpenterSubnetSelectorTerm[];
+  /** Security group selection terms */
+  securityGroupSelectorTerms?: KarpenterSecurityGroupSelectorTerm[];
+  /** IAM role for instances */
+  role?: string;
+  /** Instance profile name */
+  instanceProfile?: string;
+  /** EC2 metadata options */
+  metadataOptions?: {
+    /** HTTP endpoint state */
+    httpEndpoint?: 'enabled' | 'disabled';
+    /** IPv6 endpoint state */
+    httpProtocolIPv6?: 'enabled' | 'disabled';
+    /** Hop limit for metadata requests */
+    httpPutResponseHopLimit?: number;
+    /** Token requirement */
+    httpTokens?: 'required' | 'optional';
+  };
+  /** Block device mappings */
+  blockDeviceMappings?: KarpenterBlockDeviceMapping[];
+  /** Resource tags */
+  tags?: Record<string, string>;
+  /** Labels to apply to the NodeClass */
+  labels?: Record<string, string>;
+  /** Annotations to apply to the NodeClass */
+  annotations?: Record<string, string>;
+}
+
+/**
+ * Karpenter disruption budget for controlling disruption rate.
+ */
+export interface KarpenterDisruptionBudget {
+  /** Schedule in cron format for when budget applies */
+  schedule?: string;
+  /** Duration the budget is active */
+  duration?: string;
+  /** Number or percentage of nodes that can be disrupted */
+  nodes?: string | number;
+  /** Reasons this budget applies to */
+  reasons?: Array<'Underutilized' | 'Empty' | 'Drifted' | 'Expired'>;
+}
+
+/**
+ * Advanced disruption configuration for Karpenter NodePools.
+ */
+export interface KarpenterAdvancedDisruption {
+  /** Consolidation policy */
+  consolidationPolicy?: 'WhenEmpty' | 'WhenEmptyOrUnderutilized';
+  /** Time to wait before consolidating */
+  consolidateAfter?: string;
+  /** Node expiration time */
+  expireAfter?: string;
+  /** Disruption budgets for rate limiting */
+  budgets?: KarpenterDisruptionBudget[];
+}
+
+/**
+ * Configuration interface for Karpenter NodeClaim.
+ * Represents an individual node request that Karpenter will fulfill.
+ *
+ * @see https://karpenter.sh/docs/concepts/nodeclaims/
+ */
+export interface KarpenterNodeClaimSpec {
+  /** Name of the NodeClaim */
+  name: string;
+  /** Node requirements for instance selection */
+  requirements?: KarpenterNodeRequirement[];
+  /** Reference to NodeClass for AWS-specific configuration */
+  nodeClassRef: {
+    /** API group (default: eks.amazonaws.com) */
+    group?: string;
+    /** Resource kind (default: NodeClass) */
+    kind?: string;
+    /** NodeClass name */
+    name: string;
+  };
+  /** Taints to apply to the node */
+  taints?: Array<{
+    key: string;
+    value?: string;
+    effect: 'NoSchedule' | 'PreferNoSchedule' | 'NoExecute';
+  }>;
+  /** Startup taints that will be removed after node initialization */
+  startupTaints?: Array<{
+    key: string;
+    value?: string;
+    effect: 'NoSchedule' | 'PreferNoSchedule' | 'NoExecute';
+  }>;
+  /** Node expiration time */
+  expireAfter?: string;
+  /** Termination grace period */
+  terminationGracePeriod?: string;
+  /** Labels to apply to the NodeClaim */
+  labels?: Record<string, string>;
+  /** Annotations to apply to the NodeClaim */
+  annotations?: Record<string, string>;
+}
+
+/**
+ * Topology spread constraint for advanced scheduling.
+ */
+export interface KarpenterTopologySpreadConstraint {
+  /** Maximum skew between zones/domains */
+  maxSkew: number;
+  /** Topology key (e.g., topology.kubernetes.io/zone) */
+  topologyKey: string;
+  /** What to do when constraint cannot be satisfied */
+  whenUnsatisfiable: 'DoNotSchedule' | 'ScheduleAnyway';
+  /** Label selector for pods to consider */
+  labelSelector?: {
+    matchLabels?: Record<string, string>;
+    matchExpressions?: Array<{
+      key: string;
+      operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist';
+      values?: string[];
+    }>;
+  };
+  /** Minimum domains required */
+  minDomains?: number;
+}
+
+/**
+ * Node affinity for advanced scheduling constraints.
+ */
+export interface KarpenterNodeAffinity {
+  /** Required node affinity */
+  requiredDuringSchedulingIgnoredDuringExecution?: {
+    nodeSelectorTerms: Array<{
+      matchExpressions?: Array<{
+        key: string;
+        operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist' | 'Gt' | 'Lt';
+        values?: string[];
+      }>;
+      matchFields?: Array<{
+        key: string;
+        operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist' | 'Gt' | 'Lt';
+        values?: string[];
+      }>;
+    }>;
+  };
+  /** Preferred node affinity */
+  preferredDuringSchedulingIgnoredDuringExecution?: Array<{
+    weight: number;
+    preference: {
+      matchExpressions?: Array<{
+        key: string;
+        operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist' | 'Gt' | 'Lt';
+        values?: string[];
+      }>;
+      matchFields?: Array<{
+        key: string;
+        operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist' | 'Gt' | 'Lt';
+        values?: string[];
+      }>;
+    };
+  }>;
+}
+
+/**
+ * Configuration interface for advanced Karpenter scheduling.
+ * Provides fine-grained control over pod placement and node selection.
+ */
+export interface KarpenterSchedulingSpec {
+  /** Name of the scheduling configuration */
+  name: string;
+  /** Node selector for basic node selection */
+  nodeSelector?: Record<string, string>;
+  /** Node affinity for advanced node selection */
+  nodeAffinity?: KarpenterNodeAffinity;
+  /** Topology spread constraints */
+  topologySpreadConstraints?: KarpenterTopologySpreadConstraint[];
+  /** Tolerations for taints */
+  tolerations?: Array<{
+    key?: string;
+    operator?: 'Exists' | 'Equal';
+    value?: string;
+    effect?: 'NoSchedule' | 'PreferNoSchedule' | 'NoExecute';
+    tolerationSeconds?: number;
+  }>;
+  /** Priority class for pod scheduling */
+  priorityClassName?: string;
+  /** Scheduler name */
+  schedulerName?: string;
+  /** Labels to apply to the scheduling configuration */
+  labels?: Record<string, string>;
+  /** Annotations to apply to the scheduling configuration */
+  annotations?: Record<string, string>;
+}
+
+/**
+ * Configuration properties for Rutter
+ *
+ * @interface RutterProps
+ * @since 1.0.0
+ */
 export interface RutterProps {
+  /** Helm chart metadata */
   meta: HelmChartMeta;
+  /** Default values for values.yaml */
   defaultValues?: Record<string, unknown>;
+  /** Environment-specific values */
   envValues?: Record<string, Record<string, unknown>>;
-  /** Optional Helm helpers content for templates/_helpers.tpl */
+  /** Helm helpers content for templates/_helpers.tpl */
   helpersTpl?: string | HelperDefinition[];
-  /** Optional NOTES.txt content */
+  /** NOTES.txt content */
   notesTpl?: string;
-  /** Optional values.schema.json object */
+  /** JSON schema for values validation */
   valuesSchema?: Record<string, unknown>;
-  /** Optional custom name for the generated manifest file (without extension) */
+  /** Custom name for generated manifest file */
   manifestName?: string;
-  /**
-   * If true, all Kubernetes resources will be combined into a single manifest file.
-   * If false (default), each resource will be in its own numbered file.
-   * @default false
-   */
+  /** Combine all resources into single manifest file */
   singleManifestFile?: boolean;
 }
 
 /**
- * Rutter builds Kubernetes manifests using cdk8s and writes a Helm chart.
+ * Rutter - Main class for building Kubernetes manifests and Helm charts
+ *
+ * Rutter (maritime pilot) guides the generation of Kubernetes resources
+ * using cdk8s and outputs complete Helm charts with proper templating.
+ *
+ * @class Rutter
+ * @since 1.0.0
+ *
+ * @example
+ * ```typescript
+ * const rutter = new Rutter({
+ *   meta: { name: 'my-app', version: '1.0.0' },
+ *   defaultValues: { replicas: 3 }
+ * });
+ *
+ * rutter.addDeployment({
+ *   name: 'web',
+ *   image: 'nginx:1.21',
+ *   replicas: 3
+ * });
+ *
+ * rutter.write('./charts/my-app');
+ * ```
  */
 export class Rutter {
   private readonly props: RutterProps;
@@ -1050,6 +1914,12 @@ export class Rutter {
   private readonly assets: SynthAsset[] = [];
   private valueOverrides: Record<string, string> = {};
 
+  /**
+   * Creates a new Rutter instance
+   *
+   * @param {RutterProps} props - Configuration properties
+   * @since 1.0.0
+   */
   constructor(props: RutterProps) {
     this.props = props;
     this.app = new App();
@@ -1057,7 +1927,21 @@ export class Rutter {
   }
 
   /**
-   * Set dynamic value overrides (from --set flags)
+   * Sets dynamic value overrides for Helm values
+   *
+   * Used by CLI --set flags to override default values at runtime.
+   *
+   * @param {Record<string, string>} overrides - Key-value pairs to override
+   *
+   * @example
+   * ```typescript
+   * rutter.setValues({
+   *   'image.tag': 'v2.0.0',
+   *   'replicas': '5'
+   * });
+   * ```
+   *
+   * @since 1.0.0
    */
   setValues(overrides: Record<string, string>) {
     this.valueOverrides = { ...this.valueOverrides, ...overrides };
@@ -1119,6 +2003,25 @@ export class Rutter {
     'volume.beta.kubernetes.io/storage-provisioner';
   private static readonly AZURE_FILES_CSI_DRIVER = 'file.csi.azure.com';
 
+  /**
+   * Adds a Kubernetes Deployment to the chart
+   *
+   * @param {DeploymentSpec} spec - Deployment specification
+   * @returns {ApiObject} The created Deployment object
+   *
+   * @example
+   * ```typescript
+   * rutter.addDeployment({
+   *   name: 'web-app',
+   *   image: 'nginx:1.21',
+   *   replicas: 3,
+   *   containerPort: 80,
+   *   env: { NODE_ENV: 'production' }
+   * });
+   * ```
+   *
+   * @since 1.0.0
+   */
   addDeployment(spec: DeploymentSpec) {
     const match = spec.matchLabels ?? {
       [Rutter.LABEL_NAME]: include(Rutter.HELPER_NAME),
@@ -1196,6 +2099,23 @@ export class Rutter {
     return dep;
   }
 
+  /**
+   * Adds a Kubernetes Service to the chart
+   *
+   * @param {ServiceSpec} spec - Service specification
+   * @returns {ApiObject} The created Service object
+   *
+   * @example
+   * ```typescript
+   * rutter.addService({
+   *   name: 'web-service',
+   *   ports: [{ port: 80, targetPort: 8080 }],
+   *   type: 'LoadBalancer'
+   * });
+   * ```
+   *
+   * @since 1.0.0
+   */
   addService(spec: ServiceSpec) {
     const svc = new ApiObject(this.chart, spec.name, {
       apiVersion: 'v1',
@@ -1307,6 +2227,24 @@ export class Rutter {
     return rs;
   }
 
+  /**
+   * Adds a Kubernetes Job to the chart
+   *
+   * @param {JobSpec} spec - Job specification
+   * @returns {ApiObject} The created Job object
+   *
+   * @example
+   * ```typescript
+   * rutter.addJob({
+   *   name: 'data-migration',
+   *   image: 'migrate:latest',
+   *   command: ['./migrate.sh'],
+   *   backoffLimit: 3
+   * });
+   * ```
+   *
+   * @since 1.0.0
+   */
   addJob(spec: JobSpec) {
     // Validate Job specification
     this.validateJobSpec(spec);
@@ -1339,6 +2277,24 @@ export class Rutter {
     return job;
   }
 
+  /**
+   * Adds a Kubernetes CronJob to the chart
+   *
+   * @param {CronJobSpec} spec - CronJob specification
+   * @returns {ApiObject} The created CronJob object
+   *
+   * @example
+   * ```typescript
+   * rutter.addCronJob({
+   *   name: 'backup-job',
+   *   schedule: '0 2 * * *',
+   *   image: 'backup:latest',
+   *   command: ['./backup.sh']
+   * });
+   * ```
+   *
+   * @since 1.0.0
+   */
   addCronJob(spec: CronJobSpec) {
     // Validate CronJob specification
     this.validateCronJobSpec(spec);
@@ -1371,6 +2327,29 @@ export class Rutter {
     return cronJob;
   }
 
+  /**
+   * Adds a Kubernetes Ingress to the chart
+   *
+   * @param {IngressSpec} spec - Ingress specification
+   * @returns {ApiObject} The created Ingress object
+   *
+   * @example
+   * ```typescript
+   * rutter.addIngress({
+   *   name: 'web-ingress',
+   *   rules: [{
+   *     host: 'example.com',
+   *     paths: [{
+   *       path: '/',
+   *       pathType: 'Prefix',
+   *       backend: { service: { name: 'web-service', port: { number: 80 } } }
+   *     }]
+   *   }]
+   * });
+   * ```
+   *
+   * @since 1.0.0
+   */
   addIngress(spec: IngressSpec) {
     const ing = new ApiObject(this.chart, spec.name, {
       apiVersion: Rutter.NETWORKING_API_VERSION,
@@ -1565,6 +2544,25 @@ export class Rutter {
     }
   }
 
+  /**
+   * Adds a Kubernetes ConfigMap to the chart
+   *
+   * @param {ConfigMapSpec} spec - ConfigMap specification
+   * @returns {ApiObject} The created ConfigMap object
+   *
+   * @example
+   * ```typescript
+   * rutter.addConfigMap({
+   *   name: 'app-config',
+   *   data: {
+   *     'config.yaml': 'key: value',
+   *     'app.properties': 'debug=true'
+   *   }
+   * });
+   * ```
+   *
+   * @since 1.0.0
+   */
   addConfigMap(spec: ConfigMapSpec) {
     const cm = new ApiObject(this.chart, spec.name, {
       apiVersion: 'v1',
@@ -1582,6 +2580,25 @@ export class Rutter {
     return cm;
   }
 
+  /**
+   * Adds a Kubernetes Secret to the chart
+   *
+   * @param {SecretSpec} spec - Secret specification
+   * @returns {ApiObject} The created Secret object
+   *
+   * @example
+   * ```typescript
+   * rutter.addSecret({
+   *   name: 'app-secrets',
+   *   stringData: {
+   *     'username': 'admin',
+   *     'password': 'secret123'
+   *   }
+   * });
+   * ```
+   *
+   * @since 1.0.0
+   */
   addSecret(spec: SecretSpec) {
     const sec = new ApiObject(this.chart, spec.name, {
       apiVersion: 'v1',
@@ -1600,6 +2617,23 @@ export class Rutter {
     return sec;
   }
 
+  /**
+   * Adds a Kubernetes ServiceAccount to the chart
+   *
+   * @param {ServiceAccountSpec} spec - ServiceAccount specification
+   * @returns {ApiObject} The created ServiceAccount object
+   *
+   * @example
+   * ```typescript
+   * rutter.addServiceAccount({
+   *   name: 'app-sa',
+   *   awsRoleArn: 'arn:aws:iam::123456789012:role/MyRole',
+   *   automountServiceAccountToken: true
+   * });
+   * ```
+   *
+   * @since 1.0.0
+   */
   addServiceAccount(spec: ServiceAccountSpec) {
     const annotations = this.buildServiceAccountAnnotations(spec);
 
@@ -1675,6 +2709,28 @@ export class Rutter {
     }
   }
 
+  /**
+   * Adds a Kubernetes HorizontalPodAutoscaler to the chart
+   *
+   * @param {HorizontalPodAutoscalerSpec} spec - HPA specification
+   * @returns {ApiObject} The created HPA object
+   *
+   * @example
+   * ```typescript
+   * rutter.addHorizontalPodAutoscaler({
+   *   name: 'web-hpa',
+   *   scaleTargetRef: {
+   *     apiVersion: 'apps/v1',
+   *     kind: 'Deployment',
+   *     name: 'web-app'
+   *   },
+   *   minReplicas: 2,
+   *   maxReplicas: 10
+   * });
+   * ```
+   *
+   * @since 1.0.0
+   */
   addHorizontalPodAutoscaler(spec: HorizontalPodAutoscalerSpec) {
     // Default metrics if none provided (CPU utilization at 80%)
     const defaultMetrics: HorizontalPodAutoscalerMetric[] = [
@@ -3414,14 +4470,569 @@ export class Rutter {
   }
 
   /**
-   * Add a raw CRD manifest to the chart (written under crds/).
+   * Adds a raw CRD manifest to the chart
+   *
+   * @param {string} yaml - YAML content of the CRD
+   * @param {string} [id='crd'] - Asset identifier
+   *
+   * @example
+   * ```typescript
+   * const crdYaml = `
+   * apiVersion: apiextensions.k8s.io/v1
+   * kind: CustomResourceDefinition
+   * metadata:
+   *   name: myresources.example.com
+   * `;
+   * rutter.addCrd(crdYaml, 'myresource-crd');
+   * ```
+   *
+   * @since 1.0.0
    */
   addCrd(yaml: string, id = 'crd') {
     this.assets.push({ id, yaml, target: 'crds' });
   }
 
   /**
-   * Synthesize the cdk8s app and write a Helm chart to outDir.
+   * Add Karpenter NodePool for intelligent node provisioning.
+   * Creates a NodePool resource that defines compute requirements and lifecycle policies.
+   *
+   * @param spec - Karpenter NodePool specification
+   * @returns The created NodePool ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addKarpenterNodePool({
+   *   name: 'general-purpose',
+   *   requirements: [
+   *     { key: 'eks.amazonaws.com/instance-category', operator: 'In', values: ['c', 'm', 'r'] },
+   *     { key: 'kubernetes.io/arch', operator: 'In', values: ['amd64'] }
+   *   ],
+   *   limits: { cpu: '1000', memory: '1000Gi' },
+   *   nodeClassRef: { name: 'default' }
+   * });
+   * ```
+   */
+  addKarpenterNodePool(spec: KarpenterNodePoolSpec) {
+    // Validate NodePool specification
+    this.validateKarpenterNodePoolSpec(spec);
+
+    const nodePool = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'karpenter.sh/v1',
+      kind: 'NodePool',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        template: {
+          metadata: {
+            ...(spec.labels ? { labels: spec.labels } : {}),
+          },
+          spec: {
+            nodeClassRef: {
+              group: spec.nodeClassRef.group ?? 'eks.amazonaws.com',
+              kind: spec.nodeClassRef.kind ?? 'NodeClass',
+              name: spec.nodeClassRef.name,
+            },
+            ...(spec.requirements ? { requirements: spec.requirements } : {}),
+            ...(spec.taints ? { taints: spec.taints } : {}),
+          },
+        },
+        ...(spec.limits ? { limits: spec.limits } : {}),
+        ...(spec.disruption ? { disruption: spec.disruption } : {}),
+      },
+    });
+    this.capture(nodePool, `${spec.name}-nodepool`);
+    return nodePool;
+  }
+
+  /**
+   * Add Karpenter EC2 NodeClass for AWS-specific node configuration.
+   * Creates a NodeClass resource that defines EC2 instance settings and networking.
+   *
+   * @param spec - Karpenter EC2 NodeClass specification
+   * @returns The created NodeClass ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addKarpenterEC2NodeClass({
+   *   name: 'default',
+   *   amiFamily: 'AL2023',
+   *   subnetSelectorTerms: [{ tags: { 'karpenter.sh/discovery': 'my-cluster' } }],
+   *   securityGroupSelectorTerms: [{ tags: { 'karpenter.sh/discovery': 'my-cluster' } }],
+   *   role: 'KarpenterNodeInstanceProfile'
+   * });
+   * ```
+   */
+  addKarpenterEC2NodeClass(spec: KarpenterEC2NodeClassSpec) {
+    // Validate EC2 NodeClass specification
+    this.validateKarpenterEC2NodeClassSpec(spec);
+
+    const nodeClass = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'eks.amazonaws.com/v1',
+      kind: 'NodeClass',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        ...(spec.amiFamily ? { amiFamily: spec.amiFamily } : {}),
+        ...(spec.instanceStorePolicy ? { instanceStorePolicy: spec.instanceStorePolicy } : {}),
+        ...(spec.userData ? { userData: spec.userData } : {}),
+        ...(spec.subnetSelectorTerms ? { subnetSelectorTerms: spec.subnetSelectorTerms } : {}),
+        ...(spec.securityGroupSelectorTerms
+          ? { securityGroupSelectorTerms: spec.securityGroupSelectorTerms }
+          : {}),
+        ...(spec.role ? { role: spec.role } : {}),
+        ...(spec.instanceProfile ? { instanceProfile: spec.instanceProfile } : {}),
+        ...(spec.metadataOptions ? { metadataOptions: spec.metadataOptions } : {}),
+        ...(spec.blockDeviceMappings ? { blockDeviceMappings: spec.blockDeviceMappings } : {}),
+        ...(spec.tags ? { tags: spec.tags } : {}),
+      },
+    });
+    this.capture(nodeClass, `${spec.name}-nodeclass`);
+    return nodeClass;
+  }
+
+  /**
+   * Validate Karpenter NodePool specification
+   */
+  private validateKarpenterNodePoolSpec(spec: KarpenterNodePoolSpec): void {
+    this.validateNodeClassRef(spec);
+    this.validateNodePoolRequirements(spec);
+    this.validateNodePoolLimits(spec);
+    this.validateNodePoolDisruption(spec);
+  }
+
+  private validateNodeClassRef(spec: KarpenterNodePoolSpec): void {
+    if (!spec.nodeClassRef.name) {
+      throw new Error(`Karpenter NodePool ${spec.name}: nodeClassRef.name is required`);
+    }
+  }
+
+  private validateNodePoolRequirements(spec: KarpenterNodePoolSpec): void {
+    if (!spec.requirements) return;
+
+    const operatorsRequiringValues = ['In', 'NotIn', 'Gt', 'Lt'];
+    for (const req of spec.requirements) {
+      if (operatorsRequiringValues.includes(req.operator) && !req.values?.length) {
+        throw new Error(
+          `Karpenter NodePool ${spec.name}: requirement with operator '${req.operator}' must have values`,
+        );
+      }
+    }
+  }
+
+  private validateNodePoolLimits(spec: KarpenterNodePoolSpec): void {
+    if (!spec.limits) return;
+
+    if (spec.limits.cpu && !this.isValidResourceQuantity(spec.limits.cpu)) {
+      throw new Error(`Karpenter NodePool ${spec.name}: invalid CPU limit format`);
+    }
+    if (spec.limits.memory && !this.isValidResourceQuantity(spec.limits.memory)) {
+      throw new Error(`Karpenter NodePool ${spec.name}: invalid memory limit format`);
+    }
+  }
+
+  private validateNodePoolDisruption(spec: KarpenterNodePoolSpec): void {
+    if (!spec.disruption) return;
+
+    if (
+      spec.disruption.consolidateAfter &&
+      !this.isValidDuration(spec.disruption.consolidateAfter)
+    ) {
+      throw new Error(`Karpenter NodePool ${spec.name}: invalid consolidateAfter duration format`);
+    }
+    if (spec.disruption.expireAfter && !this.isValidDuration(spec.disruption.expireAfter)) {
+      throw new Error(`Karpenter NodePool ${spec.name}: invalid expireAfter duration format`);
+    }
+  }
+
+  /**
+   * Validate Karpenter EC2 NodeClass specification
+   */
+  private validateKarpenterEC2NodeClassSpec(spec: KarpenterEC2NodeClassSpec): void {
+    this.validateNodeClassSelectors(spec);
+    this.validateNodeClassBlockDevices(spec);
+    this.validateNodeClassMetadataOptions(spec);
+  }
+
+  private validateNodeClassSelectors(spec: KarpenterEC2NodeClassSpec): void {
+    if (!spec.subnetSelectorTerms?.length && !spec.securityGroupSelectorTerms?.length) {
+      console.warn(
+        `Karpenter EC2 NodeClass ${spec.name}: Consider specifying subnet and security group selectors for better control`,
+      );
+    }
+  }
+
+  private validateNodeClassBlockDevices(spec: KarpenterEC2NodeClassSpec): void {
+    if (!spec.blockDeviceMappings) return;
+
+    for (const mapping of spec.blockDeviceMappings) {
+      if (mapping.ebs?.volumeSize && !this.isValidStorageSize(mapping.ebs.volumeSize)) {
+        throw new Error(
+          `Karpenter EC2 NodeClass ${spec.name}: invalid volume size format in block device mapping`,
+        );
+      }
+      if (mapping.ebs?.iops !== undefined && mapping.ebs.iops < 100) {
+        throw new Error(
+          `Karpenter EC2 NodeClass ${spec.name}: IOPS must be at least 100 for block device mapping`,
+        );
+      }
+    }
+  }
+
+  private validateNodeClassMetadataOptions(spec: KarpenterEC2NodeClassSpec): void {
+    if (spec.metadataOptions?.httpPutResponseHopLimit === undefined) return;
+
+    const hopLimit = spec.metadataOptions.httpPutResponseHopLimit;
+    if (hopLimit < 1 || hopLimit > 64) {
+      throw new Error(
+        `Karpenter EC2 NodeClass ${spec.name}: httpPutResponseHopLimit must be between 1 and 64`,
+      );
+    }
+  }
+
+  /**
+   * Validate Kubernetes resource quantity format (e.g., "100m", "1Gi")
+   */
+  private isValidResourceQuantity(quantity: string): boolean {
+    // Safe validation without regex to prevent ReDoS
+    const validUnits = ['m', 'k', 'M', 'G', 'T', 'P', 'E', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei'];
+
+    // Find the unit suffix
+    let numberPart = quantity;
+    let hasValidUnit = false;
+
+    for (const unit of validUnits) {
+      if (quantity.endsWith(unit)) {
+        numberPart = quantity.slice(0, -unit.length);
+        hasValidUnit = true;
+        break;
+      }
+    }
+
+    // If no unit found, that's also valid (plain number)
+    if (!hasValidUnit && quantity.length > 0) {
+      numberPart = quantity;
+    }
+
+    // Validate the number part
+    const num = parseFloat(numberPart);
+    return !isNaN(num) && num >= 0 && numberPart === String(num);
+  }
+
+  /**
+   * Validate duration format (e.g., "30s", "5m", "1h")
+   */
+  private isValidDuration(duration: string): boolean {
+    // Safe validation without regex to prevent ReDoS
+    const validUnits = ['ns', 'us', 'µs', 'ms', 's', 'm', 'h'];
+
+    // Find the unit suffix
+    let numberPart = duration;
+    let hasValidUnit = false;
+
+    for (const unit of validUnits) {
+      if (duration.endsWith(unit)) {
+        numberPart = duration.slice(0, -unit.length);
+        hasValidUnit = true;
+        break;
+      }
+    }
+
+    // Duration must have a unit
+    if (!hasValidUnit) return false;
+
+    // Validate the number part
+    const num = parseFloat(numberPart);
+    return !isNaN(num) && num >= 0 && numberPart === String(num);
+  }
+
+  /**
+   * Validate storage size format (e.g., "20", "100Gi")
+   */
+  private isValidStorageSize(size: string): boolean {
+    // Safe validation without regex to prevent ReDoS
+    const validUnits = ['Gi', 'G', 'Ti', 'T'];
+
+    // Find the unit suffix
+    let numberPart = size;
+    let hasValidUnit = false;
+
+    for (const unit of validUnits) {
+      if (size.endsWith(unit)) {
+        numberPart = size.slice(0, -unit.length);
+        hasValidUnit = true;
+        break;
+      }
+    }
+
+    // If no unit found, that's also valid (plain number)
+    if (!hasValidUnit && size.length > 0) {
+      numberPart = size;
+    }
+
+    // Validate the number part
+    const num = parseFloat(numberPart);
+    return !isNaN(num) && num >= 0 && numberPart === String(num);
+  }
+
+  /**
+   * Add Karpenter NodeClaim for individual node provisioning.
+   * Creates a NodeClaim resource that represents a request for a single node.
+   *
+   * @param spec - Karpenter NodeClaim specification
+   * @returns The created NodeClaim ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addKarpenterNodeClaim({
+   *   name: 'high-memory-node',
+   *   requirements: [
+   *     { key: 'eks.amazonaws.com/instance-category', operator: 'In', values: ['r'] },
+   *     { key: 'eks.amazonaws.com/instance-cpu', operator: 'In', values: ['16', '32'] }
+   *   ],
+   *   nodeClassRef: { name: 'memory-optimized' },
+   *   expireAfter: '24h'
+   * });
+   * ```
+   */
+  addKarpenterNodeClaim(spec: KarpenterNodeClaimSpec) {
+    // Validate NodeClaim specification
+    this.validateKarpenterNodeClaimSpec(spec);
+
+    const nodeClaim = new ApiObject(this.chart, spec.name, {
+      apiVersion: 'karpenter.sh/v1',
+      kind: 'NodeClaim',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: {
+        nodeClassRef: {
+          group: spec.nodeClassRef.group ?? 'eks.amazonaws.com',
+          kind: spec.nodeClassRef.kind ?? 'NodeClass',
+          name: spec.nodeClassRef.name,
+        },
+        ...(spec.requirements ? { requirements: spec.requirements } : {}),
+        ...(spec.taints ? { taints: spec.taints } : {}),
+        ...(spec.startupTaints ? { startupTaints: spec.startupTaints } : {}),
+        ...(spec.expireAfter ? { expireAfter: spec.expireAfter } : {}),
+        ...(spec.terminationGracePeriod
+          ? { terminationGracePeriod: spec.terminationGracePeriod }
+          : {}),
+      },
+    });
+    this.capture(nodeClaim, `${spec.name}-nodeclaim`);
+    return nodeClaim;
+  }
+
+  /**
+   * Add advanced Karpenter scheduling configuration.
+   * Creates scheduling constraints for fine-grained pod placement control.
+   *
+   * @param spec - Karpenter scheduling specification
+   * @returns Configuration object for use in pod specs
+   *
+   * @example
+   * ```typescript
+   * const schedulingConfig = rutter.addKarpenterScheduling({
+   *   name: 'zone-spread-scheduling',
+   *   topologySpreadConstraints: [{
+   *     maxSkew: 1,
+   *     topologyKey: 'topology.kubernetes.io/zone',
+   *     whenUnsatisfiable: 'DoNotSchedule',
+   *     labelSelector: { matchLabels: { app: 'web' } }
+   *   }],
+   *   nodeAffinity: {
+   *     requiredDuringSchedulingIgnoredDuringExecution: {
+   *       nodeSelectorTerms: [{
+   *         matchExpressions: [{
+   *           key: 'eks.amazonaws.com/instance-category',
+   *           operator: 'In',
+   *           values: ['c', 'm']
+   *         }]
+   *       }]
+   *     }
+   *   }
+   * });
+   * ```
+   */
+  addKarpenterScheduling(spec: KarpenterSchedulingSpec) {
+    // Validate scheduling specification
+    this.validateKarpenterSchedulingSpec(spec);
+
+    // Return scheduling configuration for use in pod specs
+    return {
+      ...(spec.nodeSelector ? { nodeSelector: spec.nodeSelector } : {}),
+      ...(spec.nodeAffinity ? { affinity: { nodeAffinity: spec.nodeAffinity } } : {}),
+      ...(spec.topologySpreadConstraints
+        ? { topologySpreadConstraints: spec.topologySpreadConstraints }
+        : {}),
+      ...(spec.tolerations ? { tolerations: spec.tolerations } : {}),
+      ...(spec.priorityClassName ? { priorityClassName: spec.priorityClassName } : {}),
+      ...(spec.schedulerName ? { schedulerName: spec.schedulerName } : {}),
+    };
+  }
+
+  /**
+   * Create advanced disruption configuration for NodePools.
+   * Provides fine-grained control over when and how nodes are disrupted.
+   *
+   * @param spec - Advanced disruption specification
+   * @returns Disruption configuration object
+   *
+   * @example
+   * ```typescript
+   * const disruptionConfig = rutter.createKarpenterDisruption({
+   *   consolidationPolicy: 'WhenEmptyOrUnderutilized',
+   *   consolidateAfter: '30s',
+   *   expireAfter: '2160h', // 90 days
+   *   budgets: [{
+   *     schedule: '0 9 * * mon-fri', // Business hours
+   *     duration: '8h',
+   *     nodes: '0', // No disruption during business hours
+   *     reasons: ['Underutilized', 'Empty']
+   *   }]
+   * });
+   * ```
+   */
+  createKarpenterDisruption(spec: KarpenterAdvancedDisruption) {
+    // Validate disruption specification
+    this.validateKarpenterDisruptionSpec(spec);
+
+    return {
+      ...(spec.consolidationPolicy ? { consolidationPolicy: spec.consolidationPolicy } : {}),
+      ...(spec.consolidateAfter ? { consolidateAfter: spec.consolidateAfter } : {}),
+      ...(spec.expireAfter ? { expireAfter: spec.expireAfter } : {}),
+      ...(spec.budgets ? { budgets: spec.budgets } : {}),
+    };
+  }
+
+  /**
+   * Validate Karpenter NodeClaim specification
+   */
+  private validateKarpenterNodeClaimSpec(spec: KarpenterNodeClaimSpec): void {
+    // Validate NodeClass reference
+    if (!spec.nodeClassRef.name) {
+      throw new Error(`Karpenter NodeClaim ${spec.name}: nodeClassRef.name is required`);
+    }
+
+    // Validate expiration format
+    if (spec.expireAfter && !this.isValidDuration(spec.expireAfter)) {
+      throw new Error(`Karpenter NodeClaim ${spec.name}: invalid expireAfter duration format`);
+    }
+
+    // Validate termination grace period
+    if (spec.terminationGracePeriod && !this.isValidDuration(spec.terminationGracePeriod)) {
+      throw new Error(
+        `Karpenter NodeClaim ${spec.name}: invalid terminationGracePeriod duration format`,
+      );
+    }
+
+    // Validate requirements
+    if (spec.requirements) {
+      for (const req of spec.requirements) {
+        if (['In', 'NotIn', 'Gt', 'Lt'].includes(req.operator) && !req.values?.length) {
+          throw new Error(
+            `Karpenter NodeClaim ${spec.name}: requirement with operator '${req.operator}' must have values`,
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * Validate Karpenter scheduling specification
+   */
+  private validateKarpenterSchedulingSpec(spec: KarpenterSchedulingSpec): void {
+    this.validateTopologySpreadConstraints(spec);
+    this.validateSchedulingTolerations(spec);
+  }
+
+  private validateTopologySpreadConstraints(spec: KarpenterSchedulingSpec): void {
+    if (!spec.topologySpreadConstraints) return;
+
+    for (const constraint of spec.topologySpreadConstraints) {
+      if (constraint.maxSkew < 1) {
+        throw new Error(
+          `Karpenter Scheduling ${spec.name}: maxSkew must be at least 1 in topology spread constraint`,
+        );
+      }
+      if (!constraint.topologyKey) {
+        throw new Error(
+          `Karpenter Scheduling ${spec.name}: topologyKey is required in topology spread constraint`,
+        );
+      }
+    }
+  }
+
+  private validateSchedulingTolerations(spec: KarpenterSchedulingSpec): void {
+    if (!spec.tolerations) return;
+
+    for (const toleration of spec.tolerations) {
+      if (toleration.operator === 'Equal' && !toleration.value) {
+        throw new Error(
+          `Karpenter Scheduling ${spec.name}: value is required when operator is 'Equal' in toleration`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Validate Karpenter disruption specification
+   */
+  private validateKarpenterDisruptionSpec(spec: KarpenterAdvancedDisruption): void {
+    this.validateDisruptionDurations(spec);
+    this.validateDisruptionBudgets(spec);
+  }
+
+  private validateDisruptionDurations(spec: KarpenterAdvancedDisruption): void {
+    if (spec.consolidateAfter && !this.isValidDuration(spec.consolidateAfter)) {
+      throw new Error('Invalid consolidateAfter duration format');
+    }
+    if (spec.expireAfter && !this.isValidDuration(spec.expireAfter)) {
+      throw new Error('Invalid expireAfter duration format');
+    }
+  }
+
+  private validateDisruptionBudgets(spec: KarpenterAdvancedDisruption): void {
+    if (!spec.budgets) return;
+
+    for (const budget of spec.budgets) {
+      if (budget.schedule && budget.duration) {
+        // Basic cron validation - should have 5 parts
+        const cronParts = budget.schedule.split(' ');
+        if (cronParts.length !== 5) {
+          throw new Error('Budget schedule must be a valid cron expression with 5 parts');
+        }
+      }
+      if (budget.duration && !this.isValidDuration(budget.duration)) {
+        throw new Error('Invalid budget duration format');
+      }
+    }
+  }
+
+  /**
+   * Synthesizes the cdk8s app and writes a complete Helm chart
+   *
+   * Generates all Kubernetes manifests, applies Helm templating,
+   * and writes the complete chart structure to the output directory.
+   *
+   * @param {string} outDir - Output directory for the Helm chart
+   * @throws {Error} If synthesis or writing fails
+   *
+   * @example
+   * ```typescript
+   * rutter.write('./charts/my-app');
+   * // Creates: ./charts/my-app/Chart.yaml, values.yaml, templates/, etc.
+   * ```
+   *
+   * @since 1.0.0
    */
   write(outDir: string) {
     // Use cdk8s Testing.synth to obtain manifest objects
