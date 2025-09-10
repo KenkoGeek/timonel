@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       timonel:
-        specifier: file:../../
+        specifier: file:../..
         version: file:../..(@types/node@24.3.1)(constructs@10.4.2)(typescript@5.9.2)
 
 packages:

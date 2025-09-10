@@ -25,11 +25,12 @@
 
 We provide security updates for the following versions:
 
-| Version | Supported      | Notes               |
-| ------- | -------------- | ------------------- |
-| 2.x.x   | ✅ Current     | Active development  |
-| 1.x.x   | ❌ End of life | No security updates |
-| < 1.0   | ❌ End of life | No security updates |
+| Version | Supported      | Notes                        |
+| ------- | -------------- | ---------------------------- |
+| 2.2.1+  | ✅ Current     | Enhanced security features   |
+| 2.0-2.2 | ⚠️ Limited     | Critical security fixes only |
+| 1.x.x   | ❌ End of life | No security updates          |
+| < 1.0   | ❌ End of life | No security updates          |
 
 ## Development Security
 
@@ -58,11 +59,14 @@ We provide security updates for the following versions:
 
 ### Security Features
 
-- **Input validation**: Path traversal prevention and sanitization
+- **Input validation**: Comprehensive path traversal prevention and sanitization via SecurityUtils
+- **Log injection protection**: All user inputs sanitized before logging
+- **Code injection prevention**: Strict validation for dynamic module loading
 - **TypeScript strict mode**: Compile-time safety checks
 - **No eval()**: Static code generation only
-- **File system isolation**: Controlled output directory access
-- **OWASP compliance**: Following secure coding guidelines
+- **File system isolation**: Controlled output directory access with path validation
+- **Helm template validation**: Input validation for all template functions
+- **OWASP compliance**: Following secure coding guidelines (CWE-22, CWE-94, CWE-117)
 
 ## Security Considerations for Users
 

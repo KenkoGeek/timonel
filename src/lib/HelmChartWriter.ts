@@ -3,6 +3,8 @@ import * as path from 'path';
 
 import YAML from 'yaml';
 
+import { SecurityUtils } from './security.js';
+
 export interface HelmChartMeta {
   name: string;
   version: string; // SemVer chart version
@@ -81,12 +83,30 @@ export class HelmChartWriter {
       notesTpl,
       valuesSchema,
     } = opts;
-    // Prepare structure
+
+    // Validate output directory path
+    const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd());
+
+    // Create directory structure
+    this.createDirectories(validatedOutDir);
+
+    // Write chart files
+    this.writeChartYaml(validatedOutDir, meta);
+    this.writeValuesFiles(validatedOutDir, defaultValues, envValues);
+    this.writeAssets(validatedOutDir, assets);
+    this.writeHelpers(validatedOutDir, helpersTpl);
+    this.writeNotes(validatedOutDir, notesTpl);
+    this.writeSchema(validatedOutDir, valuesSchema);
+    this.writeHelmIgnore(validatedOutDir);
+  }
+
+  private static createDirectories(outDir: string): void {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
     fs.mkdirSync(path.join(outDir, 'templates'), { recursive: true });
     // Create crds directory only if needed later
+  }
 
-    // Chart.yaml
+  private static writeChartYaml(outDir: string, meta: HelmChartMeta): void {
     const chartYaml = YAML.stringify({
       apiVersion: 'v2',
       name: meta.name,
@@ -104,51 +124,63 @@ export class HelmChartWriter {
     });
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
     fs.writeFileSync(path.join(outDir, 'Chart.yaml'), chartYaml);
+  }
 
-    // values.yaml and env values files
+  private static writeValuesFiles(
+    outDir: string,
+    defaultValues: Record<string, unknown>,
+    envValues: EnvValuesMap,
+  ): void {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
     fs.writeFileSync(path.join(outDir, 'values.yaml'), YAML.stringify(defaultValues));
     for (const [env, values] of Object.entries(envValues)) {
+      // Use centralized environment name sanitization
+      const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(env);
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-      fs.writeFileSync(path.join(outDir, `values-${env}.yaml`), YAML.stringify(values));
+      fs.writeFileSync(path.join(outDir, `values-${sanitizedEnv}.yaml`), YAML.stringify(values));
     }
+  }
 
-    // templates/ and crds/
+  private static writeAssets(outDir: string, assets: SynthAsset[]): void {
     writeAssets(outDir, assets);
+  }
 
-    // Optional helpers
-    if (helpersTpl) {
-      let content = '';
-      if (typeof helpersTpl === 'string') {
-        content = helpersTpl.endsWith('\n') ? helpersTpl : helpersTpl + '\n';
-      } else if (Array.isArray(helpersTpl)) {
-        content = helpersTpl
-          .map((h) => [`{{- define "${h.name}" -}}`, h.body.trimEnd(), '{{- end }}', ''].join('\n'))
-          .join('\n');
-      }
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-      fs.writeFileSync(path.join(outDir, 'templates', '_helpers.tpl'), content);
+  private static writeHelpers(outDir: string, helpersTpl?: string | HelperDefinition[]): void {
+    if (!helpersTpl) return;
+
+    let content = '';
+    if (typeof helpersTpl === 'string') {
+      content = helpersTpl.endsWith('\n') ? helpersTpl : helpersTpl + '\n';
+    } else if (Array.isArray(helpersTpl)) {
+      content = helpersTpl
+        .map((h) => [`{{- define "${h.name}" -}}`, h.body.trimEnd(), '{{- end }}', ''].join('\n'))
+        .join('\n');
     }
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+    fs.writeFileSync(path.join(outDir, 'templates', '_helpers.tpl'), content);
+  }
 
-    // Optional NOTES.txt
-    if (notesTpl) {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-      fs.writeFileSync(
-        path.join(outDir, 'templates', 'NOTES.txt'),
-        notesTpl.endsWith('\n') ? notesTpl : notesTpl + '\n',
-      );
-    }
+  private static writeNotes(outDir: string, notesTpl?: string): void {
+    if (!notesTpl) return;
 
-    // Optional values.schema.json
-    if (valuesSchema) {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-      fs.writeFileSync(
-        path.join(outDir, 'values.schema.json'),
-        JSON.stringify(valuesSchema, null, 2) + '\n',
-      );
-    }
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+    fs.writeFileSync(
+      path.join(outDir, 'templates', 'NOTES.txt'),
+      notesTpl.endsWith('\n') ? notesTpl : notesTpl + '\n',
+    );
+  }
 
-    // Emit a default .helmignore if missing
+  private static writeSchema(outDir: string, valuesSchema?: Record<string, unknown>): void {
+    if (!valuesSchema) return;
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+    fs.writeFileSync(
+      path.join(outDir, 'values.schema.json'),
+      JSON.stringify(valuesSchema, null, 2) + '\n',
+    );
+  }
+
+  private static writeHelmIgnore(outDir: string): void {
     const helmIgnorePath = path.join(outDir, '.helmignore');
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
     if (!fs.existsSync(helmIgnorePath)) {
@@ -189,25 +221,51 @@ function splitDocs(yamlStr: string): string[] {
 
 function writeAssets(outDir: string, assets: SynthAsset[]) {
   for (const asset of assets) {
+    // Sanitize asset ID to prevent path traversal
+    const sanitizedId = asset.id.replace(/[^a-zA-Z0-9-_]/g, '');
+    if (sanitizedId !== asset.id) {
+      throw new Error(`Invalid asset ID: ${SecurityUtils.sanitizeLogMessage(asset.id)}`);
+    }
+
+    const targetDir = getTargetDirectory(asset.target);
+
     if (asset.singleFile) {
-      // Write as a single file without splitting documents
-      const filename = `${asset.id}.yaml`;
-      const dir = asset.target === 'crds' ? 'crds' : 'templates';
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-      fs.mkdirSync(path.join(outDir, dir), { recursive: true });
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-      fs.writeFileSync(path.join(outDir, dir, filename), asset.yaml + '\n');
+      writeSingleAssetFile(outDir, targetDir, sanitizedId, asset.yaml);
     } else {
-      // Split documents and create descriptive files following Helm best practices
-      const parts = splitDocs(asset.yaml);
-      parts.forEach((doc, index) => {
-        const filename = `${asset.id}${parts.length > 1 ? `-${index + 1}` : ''}.yaml`;
-        const dir = asset.target === 'crds' ? 'crds' : 'templates';
-        // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-        fs.mkdirSync(path.join(outDir, dir), { recursive: true });
-        // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-        fs.writeFileSync(path.join(outDir, dir, filename), doc + '\n');
-      });
+      writeMultipleAssetFiles(outDir, targetDir, sanitizedId, asset.yaml);
     }
   }
+}
+
+function getTargetDirectory(target?: 'templates' | 'crds'): string {
+  return target === 'crds' ? 'crds' : 'templates';
+}
+
+function writeSingleAssetFile(
+  outDir: string,
+  targetDir: string,
+  assetId: string,
+  yaml: string,
+): void {
+  const filename = `${assetId}.yaml`;
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+  fs.mkdirSync(path.join(outDir, targetDir), { recursive: true });
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+  fs.writeFileSync(path.join(outDir, targetDir, filename), yaml + '\n');
+}
+
+function writeMultipleAssetFiles(
+  outDir: string,
+  targetDir: string,
+  assetId: string,
+  yaml: string,
+): void {
+  const parts = splitDocs(yaml);
+  parts.forEach((doc, index) => {
+    const filename = `${assetId}${parts.length > 1 ? `-${index + 1}` : ''}.yaml`;
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+    fs.mkdirSync(path.join(outDir, targetDir), { recursive: true });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+    fs.writeFileSync(path.join(outDir, targetDir, filename), doc + '\n');
+  });
 }
