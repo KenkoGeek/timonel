@@ -13,6 +13,7 @@ import type {
   DeploymentSpec,
   DaemonSetSpec,
   StatefulSetSpec,
+  RoleSpec,
   ServiceSpec,
   ConfigMapSpec,
   SecretSpec,
@@ -141,6 +142,31 @@ export class Rutter {
    */
   addStatefulSet(spec: StatefulSetSpec): ApiObject {
     return this.coreResources.addStatefulSet(spec);
+  }
+
+  /**
+   * Creates a Role resource for RBAC
+   * @param spec - Role specification
+   * @returns Created Role ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addRole({
+   *   name: 'pod-reader',
+   *   rules: [
+   *     {
+   *       apiGroups: [''],
+   *       resources: ['pods'],
+   *       verbs: ['get', 'list', 'watch']
+   *     }
+   *   ]
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addRole(spec: RoleSpec): ApiObject {
+    return this.coreResources.addRole(spec);
   }
 
   /**

@@ -532,6 +532,48 @@ export class CoreResources extends BaseResourceProvider {
 
     return podSpec;
   }
+
+  /**
+   * Creates a Role resource for RBAC
+   * @param spec - Role specification
+   * @returns Created Role ApiObject
+   *
+   * @example
+   * ```typescript
+   * coreResources.addRole({
+   *   name: 'pod-reader',
+   *   rules: [
+   *     {
+   *       apiGroups: [''],
+   *       resources: ['pods'],
+   *       verbs: ['get', 'list', 'watch']
+   *     }
+   *   ]
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addRole(spec: RoleSpec): ApiObject {
+    const labels = {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+      ...(spec.labels || {}),
+    };
+
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: 'rbac.authorization.k8s.io/v1',
+      kind: 'Role',
+      metadata: {
+        name: spec.name,
+        ...(spec.namespace && { namespace: spec.namespace }),
+        ...(labels && Object.keys(labels).length > 0 ? { labels } : {}),
+        ...(spec.annotations && Object.keys(spec.annotations).length > 0
+          ? { annotations: spec.annotations }
+          : {}),
+      },
+      rules: spec.rules,
+    });
+  }
 }
 
 // Type definitions
@@ -623,6 +665,20 @@ export interface StatefulSetSpec {
   };
   podManagementPolicy?: 'OrderedReady' | 'Parallel';
   revisionHistoryLimit?: number;
+}
+
+export interface RoleSpec {
+  name: string;
+  namespace?: string;
+  rules: Array<{
+    apiGroups?: string[];
+    resources?: string[];
+    resourceNames?: string[];
+    verbs: string[];
+    nonResourceURLs?: string[];
+  }>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
 }
 
 export interface ServiceSpec {
