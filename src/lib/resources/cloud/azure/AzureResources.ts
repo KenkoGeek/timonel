@@ -169,6 +169,108 @@ export class AzureResources extends BaseResourceProvider {
       annotations,
     );
   }
+
+  /**
+   * Creates an Azure Key Vault SecretProviderClass
+   * @param spec - Azure Key Vault SecretProviderClass specification
+   * @returns Created SecretProviderClass ApiObject
+   *
+   * @example
+   * ```typescript
+   * azureResources.addAzureKeyVaultSecretProviderClass({
+   *   name: 'app-secrets',
+   *   keyVaultName: 'my-keyvault',
+   *   tenantId: '87654321-4321-4321-4321-210987654321',
+   *   objects: [
+   *     { objectName: 'database-password', objectType: 'secret' }
+   *   ]
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addAzureKeyVaultSecretProviderClass(spec: AzureKeyVaultSecretProviderClassSpec): ApiObject {
+    // Validate object names for security
+    spec.objects.forEach((obj) => {
+      if (obj.objectName.includes('../') || obj.objectName.includes('..\\')) {
+        throw new Error(
+          `Azure Key Vault ${spec.name}: Object name '${obj.objectName}' contains invalid path traversal sequences`,
+        );
+      }
+    });
+
+    const objects = spec.objects.map((obj) => ({
+      objectName: obj.objectName,
+      objectType: obj.objectType,
+      ...(obj.objectAlias ? { objectAlias: obj.objectAlias } : {}),
+      ...(obj.objectVersion ? { objectVersion: obj.objectVersion } : {}),
+    }));
+
+    const secretProviderSpec = {
+      secretObjects: [
+        {
+          secretName: spec.secretName || spec.name,
+          type: 'Opaque',
+          data: objects.map((obj) => ({
+            objectName: obj.objectName,
+            key: obj.objectAlias || obj.objectName,
+          })),
+        },
+      ],
+      parameters: {
+        keyvaultName: spec.keyVaultName,
+        tenantId: spec.tenantId,
+        objects: JSON.stringify({ array: objects }),
+        ...(spec.userAssignedIdentityID
+          ? { userAssignedIdentityID: spec.userAssignedIdentityID }
+          : {}),
+      },
+    };
+
+    return this.createApiObject(
+      spec.name,
+      'secrets-store.csi.x-k8s.io/v1',
+      'SecretProviderClass',
+      secretProviderSpec,
+      spec.labels,
+      spec.annotations,
+    );
+  }
+
+  /**
+   * Creates an Azure Container Registry ServiceAccount
+   * @param spec - Azure ACR ServiceAccount specification
+   * @returns Created ServiceAccount ApiObject
+   *
+   * @example
+   * ```typescript
+   * azureResources.addAzureACRServiceAccount({
+   *   name: 'acr-service-account',
+   *   acrName: 'myregistry',
+   *   resourceGroup: 'my-rg'
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addAzureACRServiceAccount(spec: AzureACRServiceAccountSpec): ApiObject {
+    const annotations: Record<string, string> = {
+      'azure.workload.identity/client-id': spec.clientId || '',
+      'azure.workload.identity/tenant-id': spec.tenantId || '',
+      ...(spec.annotations || {}),
+    };
+
+    const serviceAccountSpec = {};
+
+    return this.createApiObject(
+      spec.name,
+      'v1',
+      'ServiceAccount',
+      serviceAccountSpec,
+      spec.labels,
+      annotations,
+    );
+  }
 }
 
 // Type definitions
@@ -208,6 +310,32 @@ export interface AzureAGICIngressSpec {
   requestTimeout?: number;
   connectionDraining?: boolean;
   tls?: Array<{ hosts: string[]; secretName: string }>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface AzureKeyVaultSecretProviderClassSpec {
+  name: string;
+  keyVaultName: string;
+  tenantId: string;
+  objects: Array<{
+    objectName: string;
+    objectType: 'secret' | 'key' | 'cert';
+    objectAlias?: string;
+    objectVersion?: string;
+  }>;
+  secretName?: string;
+  userAssignedIdentityID?: string;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface AzureACRServiceAccountSpec {
+  name: string;
+  acrName: string;
+  resourceGroup?: string;
+  clientId?: string;
+  tenantId?: string;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
 }

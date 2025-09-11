@@ -40,6 +40,8 @@ import type {
   AzureDiskStorageClassSpec,
   AzureFileStorageClassSpec,
   AzureAGICIngressSpec,
+  AzureKeyVaultSecretProviderClassSpec,
+  AzureACRServiceAccountSpec,
 } from './resources/cloud/azure/AzureResources.js';
 import type {
   GCPPersistentDiskStorageClassSpec,
@@ -568,6 +570,28 @@ export class Rutter {
    */
   addAzureApplicationGatewayIngress(spec: AzureAGICIngressSpec): ApiObject {
     return this.azureResources.addApplicationGatewayIngress(spec);
+  }
+
+  /**
+   * Creates an Azure Key Vault SecretProviderClass
+   * @param spec - Azure Key Vault SecretProviderClass specification
+   * @returns Created SecretProviderClass ApiObject
+   *
+   * @since 2.4.0
+   */
+  addAzureKeyVaultSecretProviderClass(spec: AzureKeyVaultSecretProviderClassSpec): ApiObject {
+    return this.azureResources.addAzureKeyVaultSecretProviderClass(spec);
+  }
+
+  /**
+   * Creates an Azure Container Registry ServiceAccount
+   * @param spec - Azure ACR ServiceAccount specification
+   * @returns Created ServiceAccount ApiObject
+   *
+   * @since 2.4.0
+   */
+  addAzureACRServiceAccount(spec: AzureACRServiceAccountSpec): ApiObject {
+    return this.azureResources.addAzureACRServiceAccount(spec);
   }
 
   // GCP Cloud Resources
