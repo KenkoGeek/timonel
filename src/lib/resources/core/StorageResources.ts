@@ -1,6 +1,6 @@
 import type { ApiObject } from 'cdk8s';
 
-import { BaseResourceProvider } from '../BaseResourceProvider.js';
+import { BaseResourceProvider } from '../baseResourceProvider.js';
 
 /**
  * Storage-related Kubernetes resources provider

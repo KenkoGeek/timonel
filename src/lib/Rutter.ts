@@ -5,11 +5,11 @@ import type { ApiObject } from 'cdk8s';
 import YAML from 'yaml';
 
 // Import resource providers
-import { CoreResources } from './resources/core/CoreResources.js';
-import { StorageResources } from './resources/core/StorageResources.js';
-import { AWSResources } from './resources/cloud/aws/AWSResources.js';
-import { AzureResources } from './resources/cloud/azure/AzureResources.js';
-import { GCPResources } from './resources/cloud/gcp/GCPResources.js';
+import { CoreResources } from './resources/core/coreResources.js';
+import { StorageResources } from './resources/core/storageResources.js';
+import { AWSResources } from './resources/cloud/aws/awsResources.js';
+import { AzureResources } from './resources/cloud/azure/azureResources.js';
+import { GCPResources } from './resources/cloud/gcp/gcpResources.js';
 // Import type definitions from providers
 import type {
   DeploymentSpec,
@@ -24,31 +24,31 @@ import type {
   ConfigMapSpec,
   SecretSpec,
   ServiceAccountSpec,
-} from './resources/core/CoreResources.js';
+} from './resources/core/coreResources.js';
 import type {
   PersistentVolumeSpec,
   PersistentVolumeClaimSpec,
   StorageClassSpec,
-} from './resources/core/StorageResources.js';
+} from './resources/core/storageResources.js';
 import type {
   AWSEBSStorageClassSpec,
   AWSEFSStorageClassSpec,
   AWSIRSAServiceAccountSpec,
   AWSALBIngressSpec,
-} from './resources/cloud/aws/AWSResources.js';
+} from './resources/cloud/aws/awsResources.js';
 import type {
   AzureDiskStorageClassSpec,
   AzureFileStorageClassSpec,
   AzureAGICIngressSpec,
   AzureKeyVaultSecretProviderClassSpec,
   AzureACRServiceAccountSpec,
-} from './resources/cloud/azure/AzureResources.js';
+} from './resources/cloud/azure/azureResources.js';
 import type {
   GCPPersistentDiskStorageClassSpec,
   GCPFilestoreStorageClassSpec,
   GCPGCEIngressSpec,
   GCPWorkloadIdentityServiceAccountSpec,
-} from './resources/cloud/gcp/GCPResources.js';
+} from './resources/cloud/gcp/gcpResources.js';
 // Import HelmChartWriter for write functionality
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { include, helm } from './helm.js';
@@ -804,17 +804,17 @@ export type {
   ConfigMapSpec,
   SecretSpec,
   ServiceAccountSpec,
-} from './resources/core/CoreResources.js';
+} from './resources/core/coreResources.js';
 
 export type {
   PersistentVolumeSpec,
   PersistentVolumeClaimSpec,
   StorageClassSpec,
-} from './resources/core/StorageResources.js';
+} from './resources/core/storageResources.js';
 
 export type {
   AWSEBSStorageClassSpec,
   AWSEFSStorageClassSpec,
   AWSIRSAServiceAccountSpec,
   AWSALBIngressSpec,
-} from './resources/cloud/aws/AWSResources.js';
+} from './resources/cloud/aws/awsResources.js';
