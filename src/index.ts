@@ -3,7 +3,7 @@
  * @since 1.0.0
  */
 
-export * from './lib/Rutter.js';
+export * from './lib/rutter.js';
 export * from './lib/helmChartWriter.js';
 export * from './lib/helm.js';
 export * from './lib/umbrella.js';
