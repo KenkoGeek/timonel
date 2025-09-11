@@ -12,6 +12,7 @@ import { AWSResources } from './resources/cloud/aws/AWSResources.js';
 import type {
   DeploymentSpec,
   DaemonSetSpec,
+  StatefulSetSpec,
   ServiceSpec,
   ConfigMapSpec,
   SecretSpec,
@@ -118,6 +119,28 @@ export class Rutter {
    */
   addDaemonSet(spec: DaemonSetSpec): ApiObject {
     return this.coreResources.addDaemonSet(spec);
+  }
+
+  /**
+   * Creates a StatefulSet resource
+   * @param spec - StatefulSet specification
+   * @returns Created StatefulSet ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addStatefulSet({
+   *   name: 'database',
+   *   image: 'postgres:13',
+   *   replicas: 3,
+   *   serviceName: 'database-headless',
+   *   containerPort: 5432
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addStatefulSet(spec: StatefulSetSpec): ApiObject {
+    return this.coreResources.addStatefulSet(spec);
   }
 
   /**

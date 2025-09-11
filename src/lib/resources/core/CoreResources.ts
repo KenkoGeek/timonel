@@ -375,6 +375,163 @@ export class CoreResources extends BaseResourceProvider {
 
     return podSpec;
   }
+
+  /**
+   * Creates a StatefulSet resource
+   * @param spec - StatefulSet specification
+   * @returns Created StatefulSet ApiObject
+   *
+   * @example
+   * ```typescript
+   * coreResources.addStatefulSet({
+   *   name: 'database',
+   *   image: 'postgres:13',
+   *   replicas: 3,
+   *   containerPort: 5432,
+   *   serviceName: 'database-headless'
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addStatefulSet(spec: StatefulSetSpec): ApiObject {
+    const matchLabels = spec.matchLabels ?? {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+    };
+
+    const statefulSetSpec = this.buildStatefulSetSpec(spec, matchLabels);
+    const labels = {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+      ...(spec.labels || {}),
+    };
+
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: CoreResources.APPS_API_VERSION,
+      kind: 'StatefulSet',
+      metadata: {
+        name: spec.name,
+        ...(labels && Object.keys(labels).length > 0 ? { labels } : {}),
+        ...(spec.annotations && Object.keys(spec.annotations).length > 0
+          ? { annotations: spec.annotations }
+          : {}),
+      },
+      spec: statefulSetSpec,
+    });
+  }
+
+  /**
+   * Builds StatefulSet specification object
+   * @private
+   */
+  private buildStatefulSetSpec(
+    spec: StatefulSetSpec,
+    matchLabels: Record<string, string>,
+  ): Record<string, unknown> {
+    const containers = this.buildStatefulSetContainers(spec);
+    const podSpec = this.buildStatefulSetPodSpec(spec, containers);
+
+    const statefulSetSpec: Record<string, unknown> = {
+      replicas: spec.replicas ?? 1,
+      selector: { matchLabels },
+      serviceName: spec.serviceName,
+      template: {
+        metadata: {
+          labels: { ...matchLabels, ...(spec.labels || {}) },
+          ...(spec.annotations && Object.keys(spec.annotations).length > 0
+            ? { annotations: spec.annotations }
+            : {}),
+        },
+        spec: podSpec,
+      },
+    };
+
+    if (spec.volumeClaimTemplates) {
+      statefulSetSpec['volumeClaimTemplates'] = spec.volumeClaimTemplates;
+    }
+    if (spec.updateStrategy) {
+      statefulSetSpec['updateStrategy'] = spec.updateStrategy;
+    }
+    if (spec.podManagementPolicy) {
+      statefulSetSpec['podManagementPolicy'] = spec.podManagementPolicy;
+    }
+    if (spec.revisionHistoryLimit !== undefined) {
+      statefulSetSpec['revisionHistoryLimit'] = spec.revisionHistoryLimit;
+    }
+
+    return statefulSetSpec;
+  }
+
+  /**
+   * Builds container specification for StatefulSet
+   * @private
+   */
+  private buildStatefulSetContainers(spec: StatefulSetSpec): Record<string, unknown>[] {
+    const container: Record<string, unknown> = {
+      name: spec.name,
+      image: spec.image,
+    };
+
+    if (spec.containerPort) {
+      container['ports'] = [{ containerPort: spec.containerPort }];
+    }
+    if (spec.env) {
+      container['env'] = spec.env;
+    }
+    if (spec.resources) {
+      container['resources'] = spec.resources;
+    }
+    if (spec.volumeMounts) {
+      container['volumeMounts'] = spec.volumeMounts;
+    }
+    if (spec.securityContext) {
+      container['securityContext'] = spec.securityContext;
+    }
+    if (spec.livenessProbe) {
+      container['livenessProbe'] = spec.livenessProbe;
+    }
+    if (spec.readinessProbe) {
+      container['readinessProbe'] = spec.readinessProbe;
+    }
+
+    return [container];
+  }
+
+  /**
+   * Builds pod specification for StatefulSet
+   * @private
+   */
+  private buildStatefulSetPodSpec(
+    spec: StatefulSetSpec,
+    containers: Record<string, unknown>[],
+  ): Record<string, unknown> {
+    const podSpec: Record<string, unknown> = {
+      containers,
+    };
+
+    if (spec.serviceAccountName) {
+      podSpec['serviceAccountName'] = spec.serviceAccountName;
+    }
+    if (spec.nodeSelector) {
+      podSpec['nodeSelector'] = spec.nodeSelector;
+    }
+    if (spec.tolerations) {
+      podSpec['tolerations'] = spec.tolerations;
+    }
+    if (spec.affinity) {
+      podSpec['affinity'] = spec.affinity;
+    }
+    if (spec.volumes) {
+      podSpec['volumes'] = spec.volumes;
+    }
+    if (spec.initContainers) {
+      podSpec['initContainers'] = spec.initContainers;
+    }
+    if (spec.terminationGracePeriodSeconds !== undefined) {
+      podSpec['terminationGracePeriodSeconds'] = spec.terminationGracePeriodSeconds;
+    }
+
+    return podSpec;
+  }
 }
 
 // Type definitions
@@ -429,6 +586,43 @@ export interface DaemonSetSpec {
       maxUnavailable?: number | string;
     };
   };
+}
+
+export interface StatefulSetSpec {
+  name: string;
+  image: string;
+  replicas?: number | string;
+  serviceName: string;
+  containerPort?: number;
+  env?: Array<{ name: string; value?: string; valueFrom?: unknown }>;
+  resources?: {
+    requests?: { cpu?: string; memory?: string };
+    limits?: { cpu?: string; memory?: string };
+  };
+  volumeMounts?: Array<{ name: string; mountPath: string; readOnly?: boolean }>;
+  volumes?: Array<unknown>;
+  volumeClaimTemplates?: Array<unknown>;
+  serviceAccountName?: string;
+  securityContext?: unknown;
+  nodeSelector?: Record<string, string>;
+  tolerations?: Array<unknown>;
+  affinity?: unknown;
+  matchLabels?: Record<string, string>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+  initContainers?: Array<unknown>;
+  livenessProbe?: unknown;
+  readinessProbe?: unknown;
+  terminationGracePeriodSeconds?: number;
+  updateStrategy?: {
+    type?: 'RollingUpdate' | 'OnDelete';
+    rollingUpdate?: {
+      partition?: number;
+      maxUnavailable?: number | string;
+    };
+  };
+  podManagementPolicy?: 'OrderedReady' | 'Parallel';
+  revisionHistoryLimit?: number;
 }
 
 export interface ServiceSpec {
