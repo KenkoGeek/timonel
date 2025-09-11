@@ -711,6 +711,164 @@ export class CoreResources extends BaseResourceProvider {
       subjects: spec.subjects,
     });
   }
+
+  /**
+   * Creates a Job resource for batch workloads
+   * @param spec - Job specification
+   * @returns Created Job ApiObject
+   *
+   * @example
+   * ```typescript
+   * coreResources.addJob({
+   *   name: 'data-processor',
+   *   image: 'busybox:1.35',
+   *   command: ['sh', '-c', 'echo "Processing data..." && sleep 30'],
+   *   completions: 1,
+   *   parallelism: 1
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addJob(spec: JobSpec): ApiObject {
+    const matchLabels = spec.matchLabels ?? {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+    };
+
+    const jobSpec = this.buildJobSpec(spec, matchLabels);
+    const labels = {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+      ...(spec.labels || {}),
+    };
+
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: 'batch/v1',
+      kind: 'Job',
+      metadata: {
+        name: spec.name,
+        ...(labels && Object.keys(labels).length > 0 ? { labels } : {}),
+        ...(spec.annotations && Object.keys(spec.annotations).length > 0
+          ? { annotations: spec.annotations }
+          : {}),
+      },
+      spec: jobSpec,
+    });
+  }
+
+  /**
+   * Builds Job specification object
+   * @private
+   */
+  private buildJobSpec(
+    spec: JobSpec,
+    matchLabels: Record<string, string>,
+  ): Record<string, unknown> {
+    const containers = this.buildJobContainers(spec);
+    const podSpec = this.buildJobPodSpec(spec, containers);
+
+    const jobSpec: Record<string, unknown> = {
+      template: {
+        metadata: {
+          labels: { ...matchLabels, ...(spec.labels || {}) },
+          ...(spec.annotations && Object.keys(spec.annotations).length > 0
+            ? { annotations: spec.annotations }
+            : {}),
+        },
+        spec: podSpec,
+      },
+    };
+
+    if (spec.completions !== undefined) {
+      jobSpec['completions'] = spec.completions;
+    }
+    if (spec.parallelism !== undefined) {
+      jobSpec['parallelism'] = spec.parallelism;
+    }
+    if (spec.backoffLimit !== undefined) {
+      jobSpec['backoffLimit'] = spec.backoffLimit;
+    }
+    if (spec.activeDeadlineSeconds !== undefined) {
+      jobSpec['activeDeadlineSeconds'] = spec.activeDeadlineSeconds;
+    }
+    if (spec.ttlSecondsAfterFinished !== undefined) {
+      jobSpec['ttlSecondsAfterFinished'] = spec.ttlSecondsAfterFinished;
+    }
+    if (spec.completionMode) {
+      jobSpec['completionMode'] = spec.completionMode;
+    }
+    if (spec.suspend !== undefined) {
+      jobSpec['suspend'] = spec.suspend;
+    }
+
+    return jobSpec;
+  }
+
+  /**
+   * Builds container specification for Job
+   * @private
+   */
+  private buildJobContainers(spec: JobSpec): Record<string, unknown>[] {
+    const container: Record<string, unknown> = {
+      name: spec.name,
+      image: spec.image,
+    };
+
+    if (spec.command) {
+      container['command'] = spec.command;
+    }
+    if (spec.args) {
+      container['args'] = spec.args;
+    }
+    if (spec.env) {
+      container['env'] = spec.env;
+    }
+    if (spec.resources) {
+      container['resources'] = spec.resources;
+    }
+    if (spec.volumeMounts) {
+      container['volumeMounts'] = spec.volumeMounts;
+    }
+    if (spec.securityContext) {
+      container['securityContext'] = spec.securityContext;
+    }
+
+    return [container];
+  }
+
+  /**
+   * Builds pod specification for Job
+   * @private
+   */
+  private buildJobPodSpec(
+    spec: JobSpec,
+    containers: Record<string, unknown>[],
+  ): Record<string, unknown> {
+    const podSpec: Record<string, unknown> = {
+      containers,
+      restartPolicy: spec.restartPolicy ?? 'Never',
+    };
+
+    if (spec.serviceAccountName) {
+      podSpec['serviceAccountName'] = spec.serviceAccountName;
+    }
+    if (spec.nodeSelector) {
+      podSpec['nodeSelector'] = spec.nodeSelector;
+    }
+    if (spec.tolerations) {
+      podSpec['tolerations'] = spec.tolerations;
+    }
+    if (spec.affinity) {
+      podSpec['affinity'] = spec.affinity;
+    }
+    if (spec.volumes) {
+      podSpec['volumes'] = spec.volumes;
+    }
+    if (spec.initContainers) {
+      podSpec['initContainers'] = spec.initContainers;
+    }
+
+    return podSpec;
+  }
 }
 
 // Type definitions
@@ -864,6 +1022,37 @@ export interface ClusterRoleBindingSpec {
   }>;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
+}
+
+export interface JobSpec {
+  name: string;
+  image: string;
+  command?: string[];
+  args?: string[];
+  completions?: number;
+  parallelism?: number;
+  backoffLimit?: number;
+  activeDeadlineSeconds?: number;
+  ttlSecondsAfterFinished?: number;
+  completionMode?: 'NonIndexed' | 'Indexed';
+  suspend?: boolean;
+  restartPolicy?: 'Never' | 'OnFailure';
+  env?: Array<{ name: string; value?: string; valueFrom?: unknown }>;
+  resources?: {
+    requests?: { cpu?: string; memory?: string };
+    limits?: { cpu?: string; memory?: string };
+  };
+  volumeMounts?: Array<{ name: string; mountPath: string; readOnly?: boolean }>;
+  volumes?: Array<unknown>;
+  serviceAccountName?: string;
+  securityContext?: unknown;
+  nodeSelector?: Record<string, string>;
+  tolerations?: Array<unknown>;
+  affinity?: unknown;
+  matchLabels?: Record<string, string>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+  initContainers?: Array<unknown>;
 }
 
 export interface ServiceSpec {

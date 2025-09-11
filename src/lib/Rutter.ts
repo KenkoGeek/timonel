@@ -17,6 +17,7 @@ import type {
   ClusterRoleSpec,
   RoleBindingSpec,
   ClusterRoleBindingSpec,
+  JobSpec,
   ServiceSpec,
   ConfigMapSpec,
   SecretSpec,
@@ -254,6 +255,27 @@ export class Rutter {
    */
   addClusterRoleBinding(spec: ClusterRoleBindingSpec): ApiObject {
     return this.coreResources.addClusterRoleBinding(spec);
+  }
+
+  /**
+   * Creates a Job resource for batch workloads
+   * @param spec - Job specification
+   * @returns Created Job ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addJob({
+   *   name: 'data-processor',
+   *   image: 'busybox:1.35',
+   *   command: ['sh', '-c', 'echo "Processing..." && sleep 30'],
+   *   completions: 1
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addJob(spec: JobSpec): ApiObject {
+    return this.coreResources.addJob(spec);
   }
 
   /**
