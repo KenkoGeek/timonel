@@ -15,6 +15,7 @@ import type {
   StatefulSetSpec,
   RoleSpec,
   ClusterRoleSpec,
+  RoleBindingSpec,
   ServiceSpec,
   ConfigMapSpec,
   SecretSpec,
@@ -193,6 +194,35 @@ export class Rutter {
    */
   addClusterRole(spec: ClusterRoleSpec): ApiObject {
     return this.coreResources.addClusterRole(spec);
+  }
+
+  /**
+   * Creates a RoleBinding resource for RBAC
+   * @param spec - RoleBinding specification
+   * @returns Created RoleBinding ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addRoleBinding({
+   *   name: 'pod-reader-binding',
+   *   roleRef: {
+   *     kind: 'Role',
+   *     name: 'pod-reader',
+   *     apiGroup: 'rbac.authorization.k8s.io'
+   *   },
+   *   subjects: [
+   *     {
+   *       kind: 'ServiceAccount',
+   *       name: 'my-service-account'
+   *     }
+   *   ]
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addRoleBinding(spec: RoleBindingSpec): ApiObject {
+    return this.coreResources.addRoleBinding(spec);
   }
 
   /**

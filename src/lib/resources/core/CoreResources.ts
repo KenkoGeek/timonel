@@ -12,6 +12,7 @@ import { include } from '../../helm.js';
 export class CoreResources extends BaseResourceProvider {
   private static readonly APPS_API_VERSION = 'apps/v1';
   private static readonly CORE_API_VERSION = 'v1';
+  private static readonly RBAC_API_VERSION = 'rbac.authorization.k8s.io/v1';
   private static readonly LABEL_NAME = 'app.kubernetes.io/name';
   private static readonly HELPER_NAME = 'chart.name';
 
@@ -561,7 +562,7 @@ export class CoreResources extends BaseResourceProvider {
     };
 
     return new ApiObject(this.chart, spec.name, {
-      apiVersion: 'rbac.authorization.k8s.io/v1',
+      apiVersion: CoreResources.RBAC_API_VERSION,
       kind: 'Role',
       metadata: {
         name: spec.name,
@@ -603,7 +604,7 @@ export class CoreResources extends BaseResourceProvider {
     };
 
     return new ApiObject(this.chart, spec.name, {
-      apiVersion: 'rbac.authorization.k8s.io/v1',
+      apiVersion: CoreResources.RBAC_API_VERSION,
       kind: 'ClusterRole',
       metadata: {
         name: spec.name,
@@ -613,6 +614,54 @@ export class CoreResources extends BaseResourceProvider {
           : {}),
       },
       rules: spec.rules,
+    });
+  }
+
+  /**
+   * Creates a RoleBinding resource for RBAC
+   * @param spec - RoleBinding specification
+   * @returns Created RoleBinding ApiObject
+   *
+   * @example
+   * ```typescript
+   * coreResources.addRoleBinding({
+   *   name: 'pod-reader-binding',
+   *   roleRef: {
+   *     kind: 'Role',
+   *     name: 'pod-reader',
+   *     apiGroup: 'rbac.authorization.k8s.io'
+   *   },
+   *   subjects: [
+   *     {
+   *       kind: 'ServiceAccount',
+   *       name: 'my-service-account',
+   *       namespace: 'default'
+   *     }
+   *   ]
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addRoleBinding(spec: RoleBindingSpec): ApiObject {
+    const labels = {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+      ...(spec.labels || {}),
+    };
+
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: CoreResources.RBAC_API_VERSION,
+      kind: 'RoleBinding',
+      metadata: {
+        name: spec.name,
+        ...(spec.namespace && { namespace: spec.namespace }),
+        ...(labels && Object.keys(labels).length > 0 ? { labels } : {}),
+        ...(spec.annotations && Object.keys(spec.annotations).length > 0
+          ? { annotations: spec.annotations }
+          : {}),
+      },
+      roleRef: spec.roleRef,
+      subjects: spec.subjects,
     });
   }
 }
@@ -730,6 +779,24 @@ export interface ClusterRoleSpec {
     resourceNames?: string[];
     verbs: string[];
     nonResourceURLs?: string[];
+  }>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface RoleBindingSpec {
+  name: string;
+  namespace?: string;
+  roleRef: {
+    kind: 'Role' | 'ClusterRole';
+    name: string;
+    apiGroup: string;
+  };
+  subjects: Array<{
+    kind: 'User' | 'Group' | 'ServiceAccount';
+    name: string;
+    namespace?: string;
+    apiGroup?: string;
   }>;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
