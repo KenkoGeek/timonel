@@ -574,6 +574,47 @@ export class CoreResources extends BaseResourceProvider {
       rules: spec.rules,
     });
   }
+
+  /**
+   * Creates a ClusterRole resource for cluster-wide RBAC
+   * @param spec - ClusterRole specification
+   * @returns Created ClusterRole ApiObject
+   *
+   * @example
+   * ```typescript
+   * coreResources.addClusterRole({
+   *   name: 'cluster-admin',
+   *   rules: [
+   *     {
+   *       apiGroups: ['*'],
+   *       resources: ['*'],
+   *       verbs: ['*']
+   *     }
+   *   ]
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addClusterRole(spec: ClusterRoleSpec): ApiObject {
+    const labels = {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+      ...(spec.labels || {}),
+    };
+
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: 'rbac.authorization.k8s.io/v1',
+      kind: 'ClusterRole',
+      metadata: {
+        name: spec.name,
+        ...(labels && Object.keys(labels).length > 0 ? { labels } : {}),
+        ...(spec.annotations && Object.keys(spec.annotations).length > 0
+          ? { annotations: spec.annotations }
+          : {}),
+      },
+      rules: spec.rules,
+    });
+  }
 }
 
 // Type definitions
@@ -670,6 +711,19 @@ export interface StatefulSetSpec {
 export interface RoleSpec {
   name: string;
   namespace?: string;
+  rules: Array<{
+    apiGroups?: string[];
+    resources?: string[];
+    resourceNames?: string[];
+    verbs: string[];
+    nonResourceURLs?: string[];
+  }>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface ClusterRoleSpec {
+  name: string;
   rules: Array<{
     apiGroups?: string[];
     resources?: string[];

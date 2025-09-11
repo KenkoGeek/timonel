@@ -14,6 +14,7 @@ import type {
   DaemonSetSpec,
   StatefulSetSpec,
   RoleSpec,
+  ClusterRoleSpec,
   ServiceSpec,
   ConfigMapSpec,
   SecretSpec,
@@ -167,6 +168,31 @@ export class Rutter {
    */
   addRole(spec: RoleSpec): ApiObject {
     return this.coreResources.addRole(spec);
+  }
+
+  /**
+   * Creates a ClusterRole resource for cluster-wide RBAC
+   * @param spec - ClusterRole specification
+   * @returns Created ClusterRole ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addClusterRole({
+   *   name: 'cluster-reader',
+   *   rules: [
+   *     {
+   *       apiGroups: [''],
+   *       resources: ['nodes', 'namespaces'],
+   *       verbs: ['get', 'list', 'watch']
+   *     }
+   *   ]
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addClusterRole(spec: ClusterRoleSpec): ApiObject {
+    return this.coreResources.addClusterRole(spec);
   }
 
   /**
