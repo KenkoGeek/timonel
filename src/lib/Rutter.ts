@@ -5692,7 +5692,7 @@ export class Rutter {
    * // Creates: ./charts/my-app/Chart.yaml, values.yaml, templates/, etc.
    * ```
    *
-   * @since 1.0.0
+   * @since 2.4.0
    */
   write(outDir: string) {
     // Use cdk8s Testing.synth to obtain manifest objects
