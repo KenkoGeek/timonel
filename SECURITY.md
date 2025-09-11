@@ -27,9 +27,9 @@ We provide security updates for the following versions:
 
 | Version | Supported      | Notes                        |
 | ------- | -------------- | ---------------------------- |
-| 2.3.0+  | ✅ Current     | Enhanced security features   |
-| 2.2.x   | ✅ Supported   | Enhanced security features   |
-| 2.0-2.1 | ⚠️ Limited     | Critical security fixes only |
+| 2.4.0+  | ✅ Current     | Enhanced security features   |
+| 2.3.x   | ✅ Supported   | Enhanced security features   |
+| 2.0-2.2 | ⚠️ Limited     | Critical security fixes only |
 | 1.x.x   | ❌ End of life | No security updates          |
 | < 1.0   | ❌ End of life | No security updates          |
 
