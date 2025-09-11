@@ -1857,6 +1857,24 @@ export interface KarpenterDisruptionBudget {
  * @interface GKEWorkloadIdentityServiceAccountSpec
  * @since 2.3.0
  * @see https://cloud.google.com/kubernetes-engine/docs/concepts/workload-identity
+ *
+ * @example
+ * ```typescript
+ * // Basic workload identity setup
+ * rutter.addGKEWorkloadIdentityServiceAccount({
+ *   name: 'workload-identity-sa',
+ *   gcpServiceAccountEmail: 'my-service@my-project.iam.gserviceaccount.com'
+ * });
+ *
+ * // Advanced setup with custom labels and secrets
+ * rutter.addGKEWorkloadIdentityServiceAccount({
+ *   name: 'advanced-workload-sa',
+ *   gcpServiceAccountEmail: 'advanced-service@my-project.iam.gserviceaccount.com',
+ *   labels: { 'app': 'my-app', 'tier': 'backend' },
+ *   imagePullSecrets: ['gcr-secret'],
+ *   automountServiceAccountToken: true
+ * });
+ * ```
  */
 export interface GKEWorkloadIdentityServiceAccountSpec {
   /** ServiceAccount name */
@@ -1882,6 +1900,37 @@ export interface GKEWorkloadIdentityServiceAccountSpec {
  * @interface GCELoadBalancerIngressSpec
  * @since 2.3.0
  * @see https://cloud.google.com/kubernetes-engine/docs/tutorials/http-balancer
+ *
+ * @example
+ * ```typescript
+ * // Basic HTTP load balancer
+ * rutter.addGCELoadBalancerIngress({
+ *   name: 'web-ingress',
+ *   rules: [{
+ *     paths: [{
+ *       path: '/*',
+ *       pathType: 'ImplementationSpecific',
+ *       backend: { service: { name: 'web-service', port: { number: 80 } } }
+ *     }]
+ *   }]
+ * });
+ *
+ * // HTTPS with managed certificates and static IP
+ * rutter.addGCELoadBalancerIngress({
+ *   name: 'secure-ingress',
+ *   rules: [{
+ *     host: 'api.example.com',
+ *     paths: [{
+ *       path: '/api/*',
+ *       pathType: 'ImplementationSpecific',
+ *       backend: { service: { name: 'api-service', port: { number: 8080 } } }
+ *     }]
+ *   }],
+ *   staticIpName: 'api-static-ip',
+ *   managedCertificates: ['api-ssl-cert'],
+ *   healthCheckPath: '/health'
+ * });
+ * ```
  */
 export interface GCELoadBalancerIngressSpec {
   /** Ingress name */
@@ -1930,6 +1979,35 @@ export interface GCELoadBalancerIngressSpec {
  * @interface GKEPersistentDiskStorageClassSpec
  * @since 2.3.0
  * @see https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/gce-pd-csi-driver
+ *
+ * @example
+ * ```typescript
+ * // Basic balanced disk storage class
+ * rutter.addGKEPersistentDiskStorageClass({
+ *   name: 'fast-storage',
+ *   diskType: 'pd-balanced',
+ *   allowVolumeExpansion: true
+ * });
+ *
+ * // High-performance SSD with encryption
+ * rutter.addGKEPersistentDiskStorageClass({
+ *   name: 'high-perf-ssd',
+ *   diskType: 'pd-ssd',
+ *   fsType: 'ext4',
+ *   encryptionKey: 'projects/my-project/locations/us-central1/keyRings/my-ring/cryptoKeys/my-key',
+ *   volumeBindingMode: 'WaitForFirstConsumer',
+ *   allowVolumeExpansion: true
+ * });
+ *
+ * // Extreme performance disk with custom IOPS
+ * rutter.addGKEPersistentDiskStorageClass({
+ *   name: 'extreme-perf',
+ *   diskType: 'pd-extreme',
+ *   provisionedIops: 50000,
+ *   fsType: 'xfs',
+ *   reclaimPolicy: 'Retain'
+ * });
+ * ```
  */
 export interface GKEPersistentDiskStorageClassSpec {
   /** StorageClass name */
@@ -1946,6 +2024,8 @@ export interface GKEPersistentDiskStorageClassSpec {
   volumeBindingMode?: 'Immediate' | 'WaitForFirstConsumer';
   /** Provisioned IOPS for pd-extreme disks */
   provisionedIops?: number;
+  /** KMS encryption key for disk encryption */
+  encryptionKey?: string;
   /** StorageClass labels */
   labels?: Record<string, string>;
   /** Additional annotations */
@@ -5070,9 +5150,10 @@ export class Rutter {
     if (email.includes('{{') && email.includes('}}')) {
       return true;
     }
-    // Basic validation for GCP service account email format
-    // Format: service-account-name@project-id.iam.gserviceaccount.com
-    const gcpEmailRegex = /^[a-z0-9-]+@[a-z0-9-]+\.iam\.gserviceaccount\.com$/;
+    // Allow project numbers in addition to project IDs
+    // Format: name@project-id.iam.gserviceaccount.com
+    //        name@project-number.iam.gserviceaccount.com
+    const gcpEmailRegex = /^[a-z][a-z0-9-]{5,29}@[a-z0-9-]+\.iam\.gserviceaccount\.com$/;
     return gcpEmailRegex.test(email);
   }
 
@@ -5396,6 +5477,10 @@ export class Rutter {
     }
     if (spec.managedCertificates && spec.managedCertificates.length > 0) {
       annotations['networking.gke.io/managed-certificates'] = spec.managedCertificates.join(',');
+      // Force HTTPS by default for security
+      annotations['kubernetes.io/ingress.allow-http'] = 'false';
+      // Apply modern SSL policy
+      annotations['networking.gke.io/v1beta1.FrontendConfig'] = `${spec.name}-frontend-config`;
     }
     if (spec.healthCheckPath) {
       annotations['ingress.gcp.kubernetes.io/backend-config'] =
@@ -5551,8 +5636,20 @@ export class Rutter {
       );
     }
 
+    // Validate IOPS range for pd-extreme disks
+    if (
+      spec.provisionedIops !== undefined &&
+      (spec.provisionedIops < 10000 || spec.provisionedIops > 120000)
+    ) {
+      throw new Error(
+        `GKE StorageClass ${spec.name}: provisionedIops must be between 10,000 and 120,000 for pd-extreme disks`,
+      );
+    }
+
     const parameters: Record<string, string> = {
       type: spec.diskType ?? 'pd-balanced',
+      'disk-encryption-kms-key': spec.encryptionKey ?? '', // Add encryption key support
+      'csi.storage.k8s.io/disk-encryption': 'true', // Enable encryption by default
     };
 
     if (spec.fsType) {
