@@ -13,7 +13,7 @@ export class CoreResources extends BaseResourceProvider {
   private static readonly APPS_API_VERSION = 'apps/v1';
   private static readonly CORE_API_VERSION = 'v1';
   private static readonly LABEL_NAME = 'app.kubernetes.io/name';
-  private static readonly HELPER_NAME = '{{ include "chart.name" . }}';
+  private static readonly HELPER_NAME = 'chart.name';
 
   /**
    * Creates a Deployment resource
@@ -71,14 +71,18 @@ export class CoreResources extends BaseResourceProvider {
       },
     };
 
-    return this.createApiObject(
-      spec.name,
-      CoreResources.APPS_API_VERSION,
-      'Deployment',
-      deploymentSpec,
-      labels,
-      spec.annotations,
-    );
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: CoreResources.APPS_API_VERSION,
+      kind: 'Deployment',
+      metadata: {
+        name: spec.name,
+        ...(labels && Object.keys(labels).length > 0 ? { labels } : {}),
+        ...(spec.annotations && Object.keys(spec.annotations).length > 0
+          ? { annotations: spec.annotations }
+          : {}),
+      },
+      spec: deploymentSpec,
+    });
   }
 
   /**
@@ -122,14 +126,16 @@ export class CoreResources extends BaseResourceProvider {
       ...(spec.sessionAffinity ? { sessionAffinity: spec.sessionAffinity } : {}),
     };
 
-    return this.createApiObject(
-      spec.name,
-      CoreResources.CORE_API_VERSION,
-      'Service',
-      serviceSpec,
-      spec.labels,
-      spec.annotations,
-    );
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: CoreResources.CORE_API_VERSION,
+      kind: 'Service',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: serviceSpec,
+    });
   }
 
   /**
@@ -229,6 +235,146 @@ export class CoreResources extends BaseResourceProvider {
       ...(spec.secrets ? { secrets: spec.secrets } : {}),
     });
   }
+
+  /**
+   * Creates a DaemonSet resource
+   * @param spec - DaemonSet specification
+   * @returns Created DaemonSet ApiObject
+   *
+   * @example
+   * ```typescript
+   * coreResources.addDaemonSet({
+   *   name: 'log-collector',
+   *   image: 'fluentd:v1.14',
+   *   containerPort: 24224,
+   *   hostNetwork: true
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addDaemonSet(spec: DaemonSetSpec): ApiObject {
+    const matchLabels = spec.matchLabels ?? {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+    };
+
+    const daemonSetSpec = this.buildDaemonSetSpec(spec, matchLabels);
+    const labels = {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+      ...(spec.labels || {}),
+    };
+
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: CoreResources.APPS_API_VERSION,
+      kind: 'DaemonSet',
+      metadata: {
+        name: spec.name,
+        ...(labels && Object.keys(labels).length > 0 ? { labels } : {}),
+        ...(spec.annotations && Object.keys(spec.annotations).length > 0
+          ? { annotations: spec.annotations }
+          : {}),
+      },
+      spec: daemonSetSpec,
+    });
+  }
+
+  /**
+   * Builds DaemonSet specification object
+   * @private
+   */
+  private buildDaemonSetSpec(
+    spec: DaemonSetSpec,
+    matchLabels: Record<string, string>,
+  ): Record<string, unknown> {
+    const containers = this.buildDaemonSetContainers(spec);
+    const podSpec = this.buildDaemonSetPodSpec(spec, containers);
+
+    return {
+      selector: { matchLabels },
+      template: {
+        metadata: {
+          labels: { ...matchLabels, ...(spec.labels || {}) },
+          ...(spec.annotations && Object.keys(spec.annotations).length > 0
+            ? { annotations: spec.annotations }
+            : {}),
+        },
+        spec: podSpec,
+      },
+      ...(spec.updateStrategy && { updateStrategy: spec.updateStrategy }),
+    };
+  }
+
+  /**
+   * Builds container specification for DaemonSet
+   * @private
+   */
+  private buildDaemonSetContainers(spec: DaemonSetSpec): Record<string, unknown>[] {
+    const container: Record<string, unknown> = {
+      name: spec.name,
+      image: spec.image,
+    };
+
+    if (spec.containerPort) {
+      container['ports'] = [{ containerPort: spec.containerPort }];
+    }
+    if (spec.env) {
+      container['env'] = spec.env;
+    }
+    if (spec.resources) {
+      container['resources'] = spec.resources;
+    }
+    if (spec.volumeMounts) {
+      container['volumeMounts'] = spec.volumeMounts;
+    }
+    if (spec.securityContext) {
+      container['securityContext'] = spec.securityContext;
+    }
+
+    return [container];
+  }
+
+  /**
+   * Builds pod specification for DaemonSet
+   * @private
+   */
+  private buildDaemonSetPodSpec(
+    spec: DaemonSetSpec,
+    containers: Record<string, unknown>[],
+  ): Record<string, unknown> {
+    const podSpec: Record<string, unknown> = {
+      containers,
+    };
+
+    if (spec.serviceAccountName) {
+      podSpec['serviceAccountName'] = spec.serviceAccountName;
+    }
+    if (spec.nodeSelector) {
+      podSpec['nodeSelector'] = spec.nodeSelector;
+    }
+    if (spec.tolerations) {
+      podSpec['tolerations'] = spec.tolerations;
+    }
+    if (spec.affinity) {
+      podSpec['affinity'] = spec.affinity;
+    }
+    if (spec.volumes) {
+      podSpec['volumes'] = spec.volumes;
+    }
+    if (spec.hostNetwork) {
+      podSpec['hostNetwork'] = spec.hostNetwork;
+    }
+    if (spec.hostPID) {
+      podSpec['hostPID'] = spec.hostPID;
+    }
+    if (spec.dnsPolicy) {
+      podSpec['dnsPolicy'] = spec.dnsPolicy;
+    }
+    if (spec.priorityClassName) {
+      podSpec['priorityClassName'] = spec.priorityClassName;
+    }
+
+    return podSpec;
+  }
 }
 
 // Type definitions
@@ -252,6 +398,37 @@ export interface DeploymentSpec {
   matchLabels?: Record<string, string>;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
+}
+
+export interface DaemonSetSpec {
+  name: string;
+  image: string;
+  containerPort?: number;
+  env?: Array<{ name: string; value?: string; valueFrom?: unknown }>;
+  resources?: {
+    requests?: { cpu?: string; memory?: string };
+    limits?: { cpu?: string; memory?: string };
+  };
+  volumeMounts?: Array<{ name: string; mountPath: string; readOnly?: boolean }>;
+  volumes?: Array<unknown>;
+  serviceAccountName?: string;
+  securityContext?: unknown;
+  nodeSelector?: Record<string, string>;
+  tolerations?: Array<unknown>;
+  affinity?: unknown;
+  matchLabels?: Record<string, string>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+  hostNetwork?: boolean;
+  hostPID?: boolean;
+  dnsPolicy?: string;
+  priorityClassName?: string;
+  updateStrategy?: {
+    type?: 'RollingUpdate' | 'OnDelete';
+    rollingUpdate?: {
+      maxUnavailable?: number | string;
+    };
+  };
 }
 
 export interface ServiceSpec {

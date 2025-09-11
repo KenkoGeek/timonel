@@ -61,6 +61,11 @@ export abstract class BaseResourceProvider implements IResourceProvider {
         throw new Error(`${resourceType} label value '${value}' exceeds 63 characters`);
       }
 
+      // Skip validation for Helm template values
+      if (value.includes('{{') && value.includes('}}')) {
+        return;
+      }
+
       // Basic character validation
       // eslint-disable-next-line security/detect-unsafe-regex -- Simple character class regex is safe
       const labelRegex = /^[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$/;

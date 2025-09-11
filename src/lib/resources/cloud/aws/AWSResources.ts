@@ -183,6 +183,11 @@ export class AWSResources extends BaseResourceProvider {
    * @param roleArn - Role ARN to validate
    */
   private validateRoleArn(roleArn: string): void {
+    // Skip validation for Helm template values
+    if (roleArn.includes('{{') && roleArn.includes('}}')) {
+      return;
+    }
+
     const arnRegex = /^arn:aws:iam::\d{12}:role\/[\w+=,.@-]+$/;
     if (!arnRegex.test(roleArn)) {
       throw new Error(`Invalid AWS IAM Role ARN format: ${roleArn}`);
