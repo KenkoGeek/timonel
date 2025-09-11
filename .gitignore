@@ -24,3 +24,5 @@ __pycache__/
 imports/
 cdk8s.out/
 DS_Store
+examples/**
+timonel.wiki/

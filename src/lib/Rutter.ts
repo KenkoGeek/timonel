@@ -1789,6 +1789,108 @@ export interface KarpenterDisruptionBudget {
 }
 
 /**
+ * GKE Workload Identity ServiceAccount specification
+ * Enables secure authentication to Google Cloud APIs without service account keys
+ *
+ * @interface GKEWorkloadIdentityServiceAccountSpec
+ * @since 2.3.0
+ * @see https://cloud.google.com/kubernetes-engine/docs/concepts/workload-identity
+ */
+export interface GKEWorkloadIdentityServiceAccountSpec {
+  /** ServiceAccount name */
+  name: string;
+  /** Google Cloud service account email for workload identity */
+  gcpServiceAccountEmail: string;
+  /** Labels to apply to the ServiceAccount */
+  labels?: Record<string, string>;
+  /** Additional annotations to apply to the ServiceAccount */
+  annotations?: Record<string, string>;
+  /** Whether to automount service account token */
+  automountServiceAccountToken?: boolean;
+  /** Names of image pull secrets */
+  imagePullSecrets?: string[];
+  /** Names of secrets to mount */
+  secrets?: string[];
+}
+
+/**
+ * GCE Load Balancer Ingress specification
+ * Creates an Ingress resource that provisions a Google Cloud Load Balancer
+ *
+ * @interface GCELoadBalancerIngressSpec
+ * @since 2.3.0
+ * @see https://cloud.google.com/kubernetes-engine/docs/tutorials/http-balancer
+ */
+export interface GCELoadBalancerIngressSpec {
+  /** Ingress name */
+  name: string;
+  /** Ingress rules for routing */
+  rules: Array<{
+    /** Host name for the rule */
+    host?: string;
+    /** Path rules */
+    paths: Array<{
+      /** URL path */
+      path: string;
+      /** Path matching type */
+      pathType: 'Exact' | 'Prefix' | 'ImplementationSpecific';
+      /** Backend service */
+      backend: {
+        service: { name: string; port: { number?: number; name?: string } };
+      };
+    }>;
+  }>;
+  /** TLS configuration */
+  tls?: Array<{
+    /** TLS hosts */
+    hosts?: string[];
+    /** Secret name containing TLS certificate */
+    secretName?: string;
+  }>;
+  /** Static IP address name (reserved in GCP) */
+  staticIpName?: string;
+  /** Enable Google-managed SSL certificates */
+  managedCertificates?: string[];
+  /** Custom health check path */
+  healthCheckPath?: string;
+  /** Ingress class name */
+  ingressClassName?: string;
+  /** Ingress labels */
+  labels?: Record<string, string>;
+  /** Additional annotations */
+  annotations?: Record<string, string>;
+}
+
+/**
+ * GKE Persistent Disk StorageClass specification
+ * Creates a StorageClass for Google Cloud Persistent Disks using CSI driver
+ *
+ * @interface GKEPersistentDiskStorageClassSpec
+ * @since 2.3.0
+ * @see https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/gce-pd-csi-driver
+ */
+export interface GKEPersistentDiskStorageClassSpec {
+  /** StorageClass name */
+  name: string;
+  /** Persistent disk type */
+  diskType?: 'pd-standard' | 'pd-balanced' | 'pd-ssd' | 'pd-extreme';
+  /** Filesystem type */
+  fsType?: 'ext4' | 'xfs' | 'NTFS';
+  /** Volume reclaim policy */
+  reclaimPolicy?: 'Delete' | 'Retain';
+  /** Allow volume expansion */
+  allowVolumeExpansion?: boolean;
+  /** Volume binding mode */
+  volumeBindingMode?: 'Immediate' | 'WaitForFirstConsumer';
+  /** Provisioned IOPS for pd-extreme disks */
+  provisionedIops?: number;
+  /** StorageClass labels */
+  labels?: Record<string, string>;
+  /** Additional annotations */
+  annotations?: Record<string, string>;
+}
+
+/**
  * Advanced disruption configuration for Karpenter NodePools.
  */
 /**
@@ -4899,6 +5001,20 @@ export class Rutter {
   }
 
   /**
+   * Validate GCP service account email format
+   */
+  private isValidGCPServiceAccountEmail(email: string): boolean {
+    // Skip validation for Helm template values
+    if (email.includes('{{') && email.includes('}}')) {
+      return true;
+    }
+    // Basic validation for GCP service account email format
+    // Format: service-account-name@project-id.iam.gserviceaccount.com
+    const gcpEmailRegex = /^[a-z0-9-]+@[a-z0-9-]+\.iam\.gserviceaccount\.com$/;
+    return gcpEmailRegex.test(email);
+  }
+
+  /**
    * Add Karpenter NodeClaim for individual node provisioning.
    * Creates a NodeClaim resource that represents a request for a single node.
    *
@@ -5139,6 +5255,154 @@ export class Rutter {
         throw new Error('Invalid budget duration format');
       }
     }
+  }
+
+  /**
+   * Add GKE Workload Identity ServiceAccount
+   * Creates a ServiceAccount with GKE Workload Identity annotations for secure authentication
+   *
+   * @param spec - GKE Workload Identity ServiceAccount specification
+   * @returns The created ServiceAccount ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addGKEWorkloadIdentityServiceAccount({
+   *   name: 'workload-identity-sa',
+   *   gcpServiceAccountEmail: 'my-service@my-project.iam.gserviceaccount.com',
+   *   automountServiceAccountToken: true
+   * });
+   * ```
+   *
+   * @since 2.3.0
+   */
+  addGKEWorkloadIdentityServiceAccount(spec: GKEWorkloadIdentityServiceAccountSpec) {
+    if (!this.isValidGCPServiceAccountEmail(spec.gcpServiceAccountEmail)) {
+      throw new Error(
+        `GKE Workload Identity ${spec.name}: Invalid GCP service account email format`,
+      );
+    }
+
+    const annotations: Record<string, string> = {
+      'iam.gke.io/gcp-service-account': spec.gcpServiceAccountEmail,
+      ...(spec.annotations ?? {}),
+    };
+
+    return this.addServiceAccount({
+      name: spec.name,
+      annotations,
+      ...(spec.labels ? { labels: spec.labels } : {}),
+      ...(spec.automountServiceAccountToken !== undefined
+        ? { automountServiceAccountToken: spec.automountServiceAccountToken }
+        : {}),
+      ...(spec.imagePullSecrets ? { imagePullSecrets: spec.imagePullSecrets } : {}),
+      ...(spec.secrets ? { secrets: spec.secrets } : {}),
+    });
+  }
+
+  /**
+   * Add GCE Load Balancer Ingress
+   * Creates an Ingress resource that provisions a Google Cloud Load Balancer
+   *
+   * @param spec - GCE Load Balancer Ingress specification
+   * @returns The created Ingress ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addGCELoadBalancerIngress({
+   *   name: 'web-ingress',
+   *   rules: [{
+   *     paths: [{
+   *       path: '/*',
+   *       pathType: 'ImplementationSpecific',
+   *       backend: { service: { name: 'web-service', port: { number: 80 } } }
+   *     }]
+   *   }],
+   *   staticIpName: 'web-static-ip'
+   * });
+   * ```
+   *
+   * @since 2.3.0
+   */
+  addGCELoadBalancerIngress(spec: GCELoadBalancerIngressSpec) {
+    const annotations: Record<string, string> = {
+      'kubernetes.io/ingress.class': 'gce',
+      ...(spec.annotations ?? {}),
+    };
+
+    if (spec.staticIpName) {
+      annotations['kubernetes.io/ingress.global-static-ip-name'] = spec.staticIpName;
+    }
+    if (spec.managedCertificates && spec.managedCertificates.length > 0) {
+      annotations['networking.gke.io/managed-certificates'] = spec.managedCertificates.join(',');
+    }
+    if (spec.healthCheckPath) {
+      annotations['ingress.gcp.kubernetes.io/backend-config'] =
+        `{"default": "${spec.name}-backend-config"}`;
+    }
+
+    return this.addIngress({
+      name: spec.name,
+      rules: spec.rules,
+      ...(spec.tls ? { tls: spec.tls } : {}),
+      ...(spec.ingressClassName ? { ingressClassName: spec.ingressClassName } : {}),
+      ...(spec.labels ? { labels: spec.labels } : {}),
+      annotations,
+    });
+  }
+
+  /**
+   * Add GKE Persistent Disk StorageClass
+   * Creates a StorageClass for Google Cloud Persistent Disks using CSI driver
+   *
+   * @param spec - GKE Persistent Disk StorageClass specification
+   * @returns The created StorageClass ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addGKEPersistentDiskStorageClass({
+   *   name: 'fast-ssd',
+   *   diskType: 'pd-ssd',
+   *   allowVolumeExpansion: true,
+   *   volumeBindingMode: 'WaitForFirstConsumer'
+   * });
+   * ```
+   *
+   * @since 2.3.0
+   */
+  addGKEPersistentDiskStorageClass(spec: GKEPersistentDiskStorageClassSpec) {
+    if (spec.diskType === 'pd-extreme' && !spec.provisionedIops) {
+      throw new Error(
+        `GKE StorageClass ${spec.name}: pd-extreme disk type requires provisionedIops parameter`,
+      );
+    }
+
+    const parameters: Record<string, string> = {
+      type: spec.diskType ?? 'pd-balanced',
+    };
+
+    if (spec.fsType) {
+      parameters['csi.storage.k8s.io/fstype'] = spec.fsType;
+    }
+    if (spec.provisionedIops) {
+      parameters['provisioned-iops-on-create'] = String(spec.provisionedIops);
+    }
+
+    const sc = new ApiObject(this.chart, spec.name, {
+      apiVersion: Rutter.STORAGE_API_VERSION,
+      kind: 'StorageClass',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      provisioner: 'pd.csi.storage.gke.io',
+      parameters,
+      reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
+      allowVolumeExpansion: spec.allowVolumeExpansion ?? true,
+      volumeBindingMode: spec.volumeBindingMode ?? 'WaitForFirstConsumer',
+    });
+    this.capture(sc, `${spec.name}-storageclass`);
+    return sc;
   }
 
   /**

@@ -8,7 +8,7 @@ pnpm exec commitlint --edit "$1" || {
   echo "📝 Required format: type(scope): description"
   echo ""
   echo "📋 Valid types: feat, fix, docs, style, refactor, perf, test, chore, ci, build, revert"
-  echo "📋 Valid scopes: core, cli, helm, aws, network, umbrella, examples, docs, ci, deps, release"
+  echo "📋 Valid scopes: core, cli, helm, aws, azure, gcp, onprem, network, umbrella, examples, docs, ci, deps, release"
   echo ""
   echo "✅ Examples:"
   echo "   feat(network): add NetworkPolicy helpers"
