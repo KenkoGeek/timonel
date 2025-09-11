@@ -8,7 +8,7 @@ import { join } from 'path';
 
 import YAML from 'yaml';
 
-import type { Rutter } from './rutter.js';
+import type { Rutter } from './Rutter.js';
 import type { HelmChartMeta } from './helmChartWriter.js';
 import { SecurityUtils } from './security.js';
 
