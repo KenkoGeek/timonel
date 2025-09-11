@@ -664,6 +664,53 @@ export class CoreResources extends BaseResourceProvider {
       subjects: spec.subjects,
     });
   }
+
+  /**
+   * Creates a ClusterRoleBinding resource for cluster-wide RBAC
+   * @param spec - ClusterRoleBinding specification
+   * @returns Created ClusterRoleBinding ApiObject
+   *
+   * @example
+   * ```typescript
+   * coreResources.addClusterRoleBinding({
+   *   name: 'cluster-admin-binding',
+   *   roleRef: {
+   *     kind: 'ClusterRole',
+   *     name: 'cluster-admin',
+   *     apiGroup: 'rbac.authorization.k8s.io'
+   *   },
+   *   subjects: [
+   *     {
+   *       kind: 'ServiceAccount',
+   *       name: 'admin-user',
+   *       namespace: 'kube-system'
+   *     }
+   *   ]
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addClusterRoleBinding(spec: ClusterRoleBindingSpec): ApiObject {
+    const labels = {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+      ...(spec.labels || {}),
+    };
+
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: CoreResources.RBAC_API_VERSION,
+      kind: 'ClusterRoleBinding',
+      metadata: {
+        name: spec.name,
+        ...(labels && Object.keys(labels).length > 0 ? { labels } : {}),
+        ...(spec.annotations && Object.keys(spec.annotations).length > 0
+          ? { annotations: spec.annotations }
+          : {}),
+      },
+      roleRef: spec.roleRef,
+      subjects: spec.subjects,
+    });
+  }
 }
 
 // Type definitions
@@ -787,6 +834,23 @@ export interface ClusterRoleSpec {
 export interface RoleBindingSpec {
   name: string;
   namespace?: string;
+  roleRef: {
+    kind: 'Role' | 'ClusterRole';
+    name: string;
+    apiGroup: string;
+  };
+  subjects: Array<{
+    kind: 'User' | 'Group' | 'ServiceAccount';
+    name: string;
+    namespace?: string;
+    apiGroup?: string;
+  }>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface ClusterRoleBindingSpec {
+  name: string;
   roleRef: {
     kind: 'Role' | 'ClusterRole';
     name: string;

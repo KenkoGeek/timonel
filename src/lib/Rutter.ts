@@ -16,6 +16,7 @@ import type {
   RoleSpec,
   ClusterRoleSpec,
   RoleBindingSpec,
+  ClusterRoleBindingSpec,
   ServiceSpec,
   ConfigMapSpec,
   SecretSpec,
@@ -223,6 +224,36 @@ export class Rutter {
    */
   addRoleBinding(spec: RoleBindingSpec): ApiObject {
     return this.coreResources.addRoleBinding(spec);
+  }
+
+  /**
+   * Creates a ClusterRoleBinding resource for cluster-wide RBAC
+   * @param spec - ClusterRoleBinding specification
+   * @returns Created ClusterRoleBinding ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addClusterRoleBinding({
+   *   name: 'cluster-reader-binding',
+   *   roleRef: {
+   *     kind: 'ClusterRole',
+   *     name: 'cluster-reader',
+   *     apiGroup: 'rbac.authorization.k8s.io'
+   *   },
+   *   subjects: [
+   *     {
+   *       kind: 'ServiceAccount',
+   *       name: 'monitoring-agent',
+   *       namespace: 'monitoring'
+   *     }
+   *   ]
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addClusterRoleBinding(spec: ClusterRoleBindingSpec): ApiObject {
+    return this.coreResources.addClusterRoleBinding(spec);
   }
 
   /**
