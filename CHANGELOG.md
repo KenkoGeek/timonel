@@ -1,3 +1,9 @@
+# [2.4.0](https://github.com/KenkoGeek/timonel/compare/v2.3.0...v2.4.0) (2025-09-11)
+
+### Features
+
+- **core:** add GKE Workload Identity ServiceAccount, AWS ECR ServiceAccount helpers. implement modular architecture. add Role resource support for RBAC. with resource providers. add DaemonSet resource support. add StatefulSet resource support. add ClusterRole resource support for cluster-wide RBAC. add RoleBinding resource support for RBAC ([#33](https://github.com/KenkoGeek/timonel/issues/33)) ([eabe972](https://github.com/KenkoGeek/timonel/commit/eabe9729865ea56ce45480a60510704f28704367))
+
 # [2.3.0](https://github.com/KenkoGeek/timonel/compare/v2.2.0...v2.3.0) (2025-09-10)
 
 ### Bug Fixes
