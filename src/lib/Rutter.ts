@@ -1232,6 +1232,41 @@ export interface AzureFilesPersistentVolumeClaimSpec {
 }
 
 /**
+ * Configuration interface for AWS ECR ServiceAccount.
+ * Simplifies ECR integration with EKS using IRSA.
+ *
+ * @interface AWSECRServiceAccountSpec
+ * @since 2.3.0
+ * @see https://docs.aws.amazon.com/AmazonECR/latest/userguide/registry_auth.html
+ */
+export interface AWSECRServiceAccountSpec {
+  /** Name of the ServiceAccount */
+  name: string;
+  /** IAM role ARN with ECR permissions */
+  roleArn: string;
+  /** AWS region for ECR registry */
+  region?: string;
+  /** ECR registry IDs to access (defaults to current account) */
+  registryIds?: string[];
+  /** IRSA audience for token validation */
+  audience?: string;
+  /** AWS STS endpoint type */
+  stsEndpointType?: 'regional' | 'legacy';
+  /** Token expiration time in seconds (900-43200) */
+  tokenExpiration?: number;
+  /** Labels to apply to the ServiceAccount */
+  labels?: Record<string, string>;
+  /** Additional annotations to apply to the ServiceAccount */
+  annotations?: Record<string, string>;
+  /** Whether to automount service account token */
+  automountServiceAccountToken?: boolean;
+  /** Names of additional image pull secrets */
+  imagePullSecrets?: string[];
+  /** Names of secrets to mount */
+  secrets?: string[];
+}
+
+/**
  * Configuration interface for Azure Container Registry ServiceAccount.
  * Simplifies ACR integration with AKS using managed identity.
  */
@@ -1246,6 +1281,33 @@ export interface AzureACRServiceAccountSpec {
   clientId?: string;
   /** Tenant ID for Workload Identity (optional) */
   tenantId?: string;
+  /** Labels to apply to the ServiceAccount */
+  labels?: Record<string, string>;
+  /** Additional annotations to apply to the ServiceAccount */
+  annotations?: Record<string, string>;
+  /** Whether to automount service account token */
+  automountServiceAccountToken?: boolean;
+  /** Names of additional image pull secrets */
+  imagePullSecrets?: string[];
+  /** Names of secrets to mount */
+  secrets?: string[];
+}
+
+/**
+ * Configuration interface for GCP Artifact Registry ServiceAccount.
+ * Simplifies Artifact Registry integration with GKE using Workload Identity.
+ *
+ * @interface GCPArtifactRegistryServiceAccountSpec
+ * @since 2.3.0
+ * @see https://cloud.google.com/artifact-registry/docs/docker/authentication
+ */
+export interface GCPArtifactRegistryServiceAccountSpec {
+  /** Name of the ServiceAccount */
+  name: string;
+  /** Google Cloud service account email for workload identity */
+  gcpServiceAccountEmail: string;
+  /** Artifact Registry locations to access */
+  locations?: string[];
   /** Labels to apply to the ServiceAccount */
   labels?: Record<string, string>;
   /** Additional annotations to apply to the ServiceAccount */
@@ -5347,6 +5409,119 @@ export class Rutter {
       ...(spec.ingressClassName ? { ingressClassName: spec.ingressClassName } : {}),
       ...(spec.labels ? { labels: spec.labels } : {}),
       annotations,
+    });
+  }
+
+  /**
+   * Add AWS ECR ServiceAccount
+   * Creates a ServiceAccount with IRSA for secure ECR access without credentials
+   *
+   * @param spec - AWS ECR ServiceAccount specification
+   * @returns The created ServiceAccount ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addAWSECRServiceAccount({
+   *   name: 'ecr-access',
+   *   roleArn: 'arn:aws:iam::123456789012:role/ECRAccessRole',
+   *   region: 'us-west-2',
+   *   registryIds: ['123456789012'],
+   *   stsEndpointType: 'regional'
+   * });
+   * ```
+   *
+   * @since 2.3.0
+   */
+  addAWSECRServiceAccount(spec: AWSECRServiceAccountSpec) {
+    // Validate token expiration range
+    if (
+      spec.tokenExpiration !== undefined &&
+      (spec.tokenExpiration < 900 || spec.tokenExpiration > 43200)
+    ) {
+      throw new Error(
+        `AWS ECR ServiceAccount ${spec.name}: tokenExpiration must be between 900 and 43200 seconds`,
+      );
+    }
+
+    // Validate IAM role ARN format
+    if (!spec.roleArn.match(/^arn:aws:iam::\d{12}:role\/[\w+=,.@-]+$/)) {
+      throw new Error(`AWS ECR ServiceAccount ${spec.name}: Invalid IAM role ARN format`);
+    }
+
+    const annotations: Record<string, string> = {
+      'eks.amazonaws.com/role-arn': spec.roleArn,
+      'eks.amazonaws.com/sts-regional-endpoints': spec.stsEndpointType ?? 'regional',
+      ...(spec.audience ? { 'eks.amazonaws.com/audience': spec.audience } : {}),
+      ...(spec.tokenExpiration !== undefined
+        ? { 'eks.amazonaws.com/token-expiration': String(spec.tokenExpiration) }
+        : {}),
+      ...(spec.annotations ?? {}),
+    };
+
+    // Add ECR-specific annotations for registry access
+    if (spec.region) {
+      annotations['ecr.amazonaws.com/region'] = spec.region;
+    }
+    if (spec.registryIds && spec.registryIds.length > 0) {
+      annotations['ecr.amazonaws.com/registry-ids'] = spec.registryIds.join(',');
+    }
+
+    return this.addServiceAccount({
+      name: spec.name,
+      annotations,
+      ...(spec.labels ? { labels: spec.labels } : {}),
+      ...(spec.automountServiceAccountToken !== undefined
+        ? { automountServiceAccountToken: spec.automountServiceAccountToken }
+        : {}),
+      ...(spec.imagePullSecrets ? { imagePullSecrets: spec.imagePullSecrets } : {}),
+      ...(spec.secrets ? { secrets: spec.secrets } : {}),
+    });
+  }
+
+  /**
+   * Add GCP Artifact Registry ServiceAccount
+   * Creates a ServiceAccount with Workload Identity for secure Artifact Registry access
+   *
+   * @param spec - GCP Artifact Registry ServiceAccount specification
+   * @returns The created ServiceAccount ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addGCPArtifactRegistryServiceAccount({
+   *   name: 'artifact-registry-access',
+   *   gcpServiceAccountEmail: 'artifact-registry@my-project.iam.gserviceaccount.com',
+   *   locations: ['us-central1', 'us-west1']
+   * });
+   * ```
+   *
+   * @since 2.3.0
+   */
+  addGCPArtifactRegistryServiceAccount(spec: GCPArtifactRegistryServiceAccountSpec) {
+    if (!this.isValidGCPServiceAccountEmail(spec.gcpServiceAccountEmail)) {
+      throw new Error(
+        `GCP Artifact Registry ServiceAccount ${spec.name}: Invalid GCP service account email format`,
+      );
+    }
+
+    const annotations: Record<string, string> = {
+      'iam.gke.io/gcp-service-account': spec.gcpServiceAccountEmail,
+      ...(spec.annotations ?? {}),
+    };
+
+    // Add Artifact Registry-specific annotations for location access
+    if (spec.locations && spec.locations.length > 0) {
+      annotations['artifact-registry.gcp.io/locations'] = spec.locations.join(',');
+    }
+
+    return this.addServiceAccount({
+      name: spec.name,
+      annotations,
+      ...(spec.labels ? { labels: spec.labels } : {}),
+      ...(spec.automountServiceAccountToken !== undefined
+        ? { automountServiceAccountToken: spec.automountServiceAccountToken }
+        : {}),
+      ...(spec.imagePullSecrets ? { imagePullSecrets: spec.imagePullSecrets } : {}),
+      ...(spec.secrets ? { secrets: spec.secrets } : {}),
     });
   }
 
