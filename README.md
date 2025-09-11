@@ -19,9 +19,13 @@ using cdk8s. Define Kubernetes resources with classes and synthesize a full Helm
 - **Type-safe API** with strict TypeScript and cdk8s constructs
 - **Multi-environment support** with automatic values files generation
 - **Umbrella Charts** for managing multiple subcharts as a single unit
-- **Multi-cloud integrations** for AWS, Azure, and GCP
+- **Complete multi-cloud integrations** for AWS, Azure, and GCP
+  - **Azure**: Disk/Files StorageClass, AGIC Ingress, Key Vault, ACR ServiceAccount
+  - **GCP**: Filestore StorageClass, GCE Ingress, Artifact Registry ServiceAccount
+  - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount
 - **Security-first approach** with NetworkPolicies and best practices
 - **Minimal CLI** (`tl`) for scaffolding and chart generation
+- **100% backward compatibility** with all existing methods
 
 ## 🚀 Quick Start
 

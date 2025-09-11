@@ -1,8 +1,16 @@
+/**
+ * @fileoverview Security utilities for input validation and sanitization
+ * Focused on CLI tool security concerns: path traversal, injection prevention
+ * @since 2.2.0
+ */
+
 import * as path from 'path';
 
 /**
  * Security utilities for input validation and sanitization
  * Focused on CLI tool security concerns: path traversal, injection prevention
+ *
+ * @since 2.2.0
  */
 export class SecurityUtils {
   /**
@@ -11,6 +19,8 @@ export class SecurityUtils {
    * @param allowedBasePath - The base path that the input should be within
    * @returns Sanitized path if valid
    * @throws Error if path is invalid or contains traversal sequences
+   *
+   * @since 2.2.0
    */
   static validatePath(inputPath: string, allowedBasePath: string): string {
     if (!inputPath || typeof inputPath !== 'string') {
@@ -43,6 +53,8 @@ export class SecurityUtils {
    * Sanitizes log messages to prevent log injection attacks
    * @param message - The message to sanitize
    * @returns Sanitized message with control characters removed
+   *
+   * @since 2.2.0
    */
   static sanitizeLogMessage(message: string): string {
     if (typeof message !== 'string') {
@@ -65,6 +77,8 @@ export class SecurityUtils {
    * @param env - Environment name to sanitize
    * @returns Sanitized environment name
    * @throws Error if environment name is invalid
+   *
+   * @since 2.2.0
    */
   static sanitizeEnvironmentName(env: string): string {
     if (!env || typeof env !== 'string') {
@@ -89,6 +103,8 @@ export class SecurityUtils {
    * Validates TypeScript file extensions for dynamic imports
    * @param filePath - The file path to validate
    * @returns True if the file has a valid TypeScript extension
+   *
+   * @since 2.2.0
    */
   static isValidTypeScriptFile(filePath: string): boolean {
     const allowedExtensions = ['.ts', '.tsx'];
@@ -100,6 +116,8 @@ export class SecurityUtils {
    * Validates Helm template path syntax
    * @param templatePath - The template path to validate
    * @returns True if the path is valid for Helm templates
+   *
+   * @since 2.2.0
    */
   static isValidHelmTemplatePath(templatePath: string): boolean {
     if (!templatePath || typeof templatePath !== 'string') {
@@ -115,6 +133,8 @@ export class SecurityUtils {
    * Validates chart names according to Helm conventions
    * @param chartName - Chart name to validate
    * @returns True if chart name follows Helm naming rules
+   *
+   * @since 2.2.0
    */
   static isValidChartName(chartName: string): boolean {
     if (!chartName || typeof chartName !== 'string') {
@@ -131,6 +151,8 @@ export class SecurityUtils {
    * Validates subchart names according to Helm conventions
    * @param subchartName - Subchart name to validate
    * @returns True if subchart name is valid
+   *
+   * @since 2.2.0
    */
   static isValidSubchartName(subchartName: string): boolean {
     return this.isValidChartName(subchartName);
