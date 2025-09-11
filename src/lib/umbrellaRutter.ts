@@ -1,35 +1,83 @@
+/**
+ * @fileoverview UmbrellaRutter class for managing Helm umbrella charts with multiple subcharts
+ * @since 0.2.0
+ */
+
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 import YAML from 'yaml';
 
-import type { Rutter } from './Rutter.js';
-import type { HelmChartMeta } from './HelmChartWriter.js';
+import type { Rutter } from './rutter.js';
+import type { HelmChartMeta } from './helmChartWriter.js';
 import { SecurityUtils } from './security.js';
 
+/**
+ * Configuration for a subchart within an umbrella chart
+ *
+ * @since 0.2.0
+ */
 export interface SubchartSpec {
+  /** Name of the subchart */
   name: string;
+  /** Rutter instance that generates the subchart */
   rutter: Rutter;
+  /** Version of the subchart (optional) */
   version?: string;
+  /** Helm condition for enabling/disabling the subchart */
   condition?: string;
+  /** Tags for grouping subcharts */
   tags?: string[];
+  /** Repository URL for the subchart */
   repository?: string;
 }
 
+/**
+ * Configuration properties for UmbrellaRutter
+ *
+ * @since 0.2.0
+ */
 export interface UmbrellaRutterProps {
+  /** Metadata for the umbrella chart */
   meta: HelmChartMeta;
+  /** Array of subchart specifications */
   subcharts: SubchartSpec[];
+  /** Default values for the umbrella chart */
   defaultValues?: Record<string, unknown>;
+  /** Environment-specific values */
   envValues?: Record<string, Record<string, unknown>>;
 }
 
 /**
  * UmbrellaRutter manages multiple Rutter instances as subcharts
  * to create Helm umbrella charts with dependencies.
+ *
+ * @example
+ * ```typescript
+ * const umbrella = new UmbrellaRutter({
+ *   meta: { name: 'my-app', version: '1.0.0' },
+ *   subcharts: [
+ *     { name: 'frontend', rutter: frontendChart },
+ *     { name: 'backend', rutter: backendChart }
+ *   ]
+ * });
+ *
+ * umbrella.write('./charts/my-app');
+ * ```
+ *
+ * @since 0.2.0
  */
 export class UmbrellaRutter {
   private readonly props: UmbrellaRutterProps;
 
+  /**
+   * Creates a new UmbrellaRutter instance
+   *
+   * @param props - Configuration properties for the umbrella chart
+   * @throws {Error} If chart metadata is invalid
+   *
+   * @since 0.2.0
+   */
   constructor(props: UmbrellaRutterProps) {
     // Validate chart metadata
     this.validateMetadata(props.meta);
@@ -52,6 +100,22 @@ export class UmbrellaRutter {
 
   /**
    * Write the umbrella chart with all subcharts to the output directory
+   *
+   * Creates the complete umbrella chart structure including:
+   * - Parent Chart.yaml with dependencies
+   * - Parent values.yaml with global and subchart values
+   * - Individual subchart directories under charts/
+   * - NOTES.txt template
+   *
+   * @param outDir - Output directory path for the umbrella chart
+   * @throws {Error} If output directory path is invalid
+   *
+   * @example
+   * ```typescript
+   * umbrella.write('./dist/my-umbrella-chart');
+   * ```
+   *
+   * @since 0.2.0
    */
   write(outDir: string): void {
     // Validate output directory path
