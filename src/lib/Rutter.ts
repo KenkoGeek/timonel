@@ -8,6 +8,8 @@ import YAML from 'yaml';
 import { CoreResources } from './resources/core/CoreResources.js';
 import { StorageResources } from './resources/core/StorageResources.js';
 import { AWSResources } from './resources/cloud/aws/AWSResources.js';
+import { AzureResources } from './resources/cloud/azure/AzureResources.js';
+import { GCPResources } from './resources/cloud/gcp/GCPResources.js';
 // Import type definitions from providers
 import type {
   DeploymentSpec,
@@ -34,6 +36,17 @@ import type {
   AWSIRSAServiceAccountSpec,
   AWSALBIngressSpec,
 } from './resources/cloud/aws/AWSResources.js';
+import type {
+  AzureDiskStorageClassSpec,
+  AzureFileStorageClassSpec,
+  AzureAGICIngressSpec,
+} from './resources/cloud/azure/AzureResources.js';
+import type {
+  GCPPersistentDiskStorageClassSpec,
+  GCPFilestoreStorageClassSpec,
+  GCPGCEIngressSpec,
+  GCPWorkloadIdentityServiceAccountSpec,
+} from './resources/cloud/gcp/GCPResources.js';
 // Import HelmChartWriter for write functionality
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { include, helm } from './helm.js';
@@ -57,6 +70,8 @@ export class Rutter {
   private readonly coreResources: CoreResources;
   private readonly storageResources: StorageResources;
   private readonly awsResources: AWSResources;
+  private readonly azureResources: AzureResources;
+  private readonly gcpResources: GCPResources;
 
   // Chart metadata and configuration
   private readonly meta: ChartMetadata;
@@ -80,6 +95,8 @@ export class Rutter {
     this.coreResources = new CoreResources(this.chart);
     this.storageResources = new StorageResources(this.chart);
     this.awsResources = new AWSResources(this.chart);
+    this.azureResources = new AzureResources(this.chart);
+    this.gcpResources = new GCPResources(this.chart);
   }
 
   // Core Kubernetes Resources
@@ -516,6 +533,87 @@ export class Rutter {
    */
   addAWSALBIngress(spec: AWSALBIngressSpec): ApiObject {
     return this.awsResources.addALBIngress(spec);
+  }
+
+  // Azure Cloud Resources
+
+  /**
+   * Creates an Azure Disk StorageClass
+   * @param spec - Azure Disk StorageClass specification
+   * @returns Created StorageClass ApiObject
+   *
+   * @since 2.4.0
+   */
+  addAzureDiskStorageClass(spec: AzureDiskStorageClassSpec): ApiObject {
+    return this.azureResources.addAzureDiskStorageClass(spec);
+  }
+
+  /**
+   * Creates an Azure File StorageClass
+   * @param spec - Azure File StorageClass specification
+   * @returns Created StorageClass ApiObject
+   *
+   * @since 2.4.0
+   */
+  addAzureFileStorageClass(spec: AzureFileStorageClassSpec): ApiObject {
+    return this.azureResources.addAzureFileStorageClass(spec);
+  }
+
+  /**
+   * Creates an Azure Application Gateway Ingress
+   * @param spec - AGIC Ingress specification
+   * @returns Created Ingress ApiObject
+   *
+   * @since 2.4.0
+   */
+  addAzureApplicationGatewayIngress(spec: AzureAGICIngressSpec): ApiObject {
+    return this.azureResources.addApplicationGatewayIngress(spec);
+  }
+
+  // GCP Cloud Resources
+
+  /**
+   * Creates a GCP Persistent Disk StorageClass
+   * @param spec - GCP PD StorageClass specification
+   * @returns Created StorageClass ApiObject
+   *
+   * @since 2.4.0
+   */
+  addGCPPersistentDiskStorageClass(spec: GCPPersistentDiskStorageClassSpec): ApiObject {
+    return this.gcpResources.addPersistentDiskStorageClass(spec);
+  }
+
+  /**
+   * Creates a GCP Filestore StorageClass
+   * @param spec - GCP Filestore StorageClass specification
+   * @returns Created StorageClass ApiObject
+   *
+   * @since 2.4.0
+   */
+  addGCPFilestoreStorageClass(spec: GCPFilestoreStorageClassSpec): ApiObject {
+    return this.gcpResources.addFilestoreStorageClass(spec);
+  }
+
+  /**
+   * Creates a GCE Ingress with Google Cloud Load Balancer
+   * @param spec - GCE Ingress specification
+   * @returns Created Ingress ApiObject
+   *
+   * @since 2.4.0
+   */
+  addGCPGCEIngress(spec: GCPGCEIngressSpec): ApiObject {
+    return this.gcpResources.addGCEIngress(spec);
+  }
+
+  /**
+   * Creates a ServiceAccount with Workload Identity annotations
+   * @param spec - Workload Identity ServiceAccount specification
+   * @returns Created ServiceAccount ApiObject
+   *
+   * @since 2.4.0
+   */
+  addGCPWorkloadIdentityServiceAccount(spec: GCPWorkloadIdentityServiceAccountSpec): ApiObject {
+    return this.gcpResources.addWorkloadIdentityServiceAccount(spec);
   }
 
   // Utility methods
