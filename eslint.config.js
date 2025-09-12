@@ -77,6 +77,17 @@ export default [
     },
   },
   {
+    files: ['tests/**/*.ts'],
+    rules: {
+      'sonarjs/no-duplicate-string': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      'security/detect-non-literal-fs-filename': 'off',
+      'security/detect-object-injection': 'off',
+      'no-undef': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
+  {
     files: ['src/cli.ts', 'src/lib/UmbrellaRutter.ts'],
     rules: {
       '@typescript-eslint/no-var-requires': 'off',
