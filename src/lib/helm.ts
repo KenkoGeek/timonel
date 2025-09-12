@@ -292,3 +292,110 @@ export function floatRef(path: string): string {
   }
   return `{{ .Values.${path} | float64 }}`;
 }
+
+/**
+ * Creates a conditional reference to a value in .Values
+ *
+ * Generates a Helm template expression that conditionally renders
+ * the value only if the condition is truthy.
+ *
+ * @param {string} path - Path to the value using dot notation
+ * @param {string} condition - Path to the condition value
+ * @returns {string} Helm template expression with conditional logic
+ * @throws {Error} If the path or condition is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const secretName = conditionalRef('database.secretName', 'database.enabled');
+ * // Returns: '{{ if .Values.database.enabled }}{{ .Values.database.secretName }}{{ end }}'
+ * ```
+ *
+ * @since 1.1.0
+ */
+export function conditionalRef(path: string, condition: string): string {
+  if (!isValidHelmPath(path)) {
+    throw new Error(`Invalid Helm template path: ${path}`);
+  }
+  if (!isValidHelmPath(condition)) {
+    throw new Error(`Invalid Helm template condition path: ${condition}`);
+  }
+  return `{{ if .Values.${condition} }}{{ .Values.${path} }}{{ end }}`;
+}
+
+/**
+ * Creates a reference to a value in .Values with a default fallback
+ *
+ * Generates a Helm template expression that uses the default filter
+ * to provide a fallback value when the path is not set.
+ *
+ * @param {string} path - Path to the value using dot notation
+ * @param {string} defaultValue - Default value to use if path is not set
+ * @returns {string} Helm template expression with default fallback
+ * @throws {Error} If the path is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const image = defaultRef('image.tag', 'latest');
+ * // Returns: '{{ .Values.image.tag | default "latest" }}'
+ * ```
+ *
+ * @since 1.1.0
+ */
+export function defaultRef(path: string, defaultValue: string): string {
+  if (!isValidHelmPath(path)) {
+    throw new Error(`Invalid Helm template path: ${path}`);
+  }
+  // Escape quotes and backslashes in defaultValue to prevent template injection
+  const escapedValue = defaultValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `{{ .Values.${path} | default "${escapedValue}" }}`;
+}
+
+/**
+ * Creates a base64-encoded reference to a value in .Values
+ *
+ * Generates a Helm template expression that encodes the value
+ * using base64 encoding, useful for secrets and certificates.
+ *
+ * @param {string} path - Path to the value using dot notation
+ * @returns {string} Helm template expression with base64 encoding
+ * @throws {Error} If the path is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const encodedSecret = base64Ref('secrets.apiKey');
+ * // Returns: '{{ .Values.secrets.apiKey | b64enc }}'
+ * ```
+ *
+ * @since 1.1.0
+ */
+export function base64Ref(path: string): string {
+  if (!isValidHelmPath(path)) {
+    throw new Error(`Invalid Helm template path: ${path}`);
+  }
+  return `{{ .Values.${path} | b64enc }}`;
+}
+
+/**
+ * Creates a JSON-serialized reference to a value in .Values
+ *
+ * Generates a Helm template expression that serializes the value
+ * to JSON format, useful for complex configuration objects.
+ *
+ * @param {string} path - Path to the value using dot notation
+ * @returns {string} Helm template expression with JSON serialization
+ * @throws {Error} If the path is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const configJson = jsonRef('app.config');
+ * // Returns: '{{ .Values.app.config | toJson }}'
+ * ```
+ *
+ * @since 1.1.0
+ */
+export function jsonRef(path: string): string {
+  if (!isValidHelmPath(path)) {
+    throw new Error(`Invalid Helm template path: ${path}`);
+  }
+  return `{{ .Values.${path} | toJson }}`;
+}
