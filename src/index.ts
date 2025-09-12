@@ -8,3 +8,24 @@ export * from './lib/helmChartWriter.js';
 export * from './lib/helm.js';
 export * from './lib/umbrella.js';
 export * from './lib/security.js';
+
+// Re-export specific items from new modules to avoid conflicts
+export {
+  generateHelpersTemplate,
+  getDefaultHelpers,
+  formatHelpers,
+  STANDARD_HELPERS,
+  AWS_HELPERS,
+  AZURE_HELPERS,
+  GCP_HELPERS,
+  type HelperDefinition,
+} from './lib/helmHelpers.js';
+
+export {
+  getResourceName,
+  generateManifestName,
+  sanitizeKubernetesName,
+  isValidKubernetesName,
+  type NamingStrategy,
+  type KubernetesResource,
+} from './lib/resourceNaming.js';
