@@ -160,7 +160,7 @@ describe('Helm Helpers', () => {
     });
 
     it('should handle invalid cloud provider', () => {
-      // @ts-ignore - Testing invalid input
+      // @ts-expect-error - Testing invalid input
       const helpers = getDefaultHelpers('invalid');
       expect(Array.isArray(helpers)).toBe(true);
       expect(helpers.length).toBe(STANDARD_HELPERS.length);

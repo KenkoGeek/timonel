@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { Rutter } from '../../dist/lib/rutter.js';
-import { valuesRef } from '../../dist/lib/helm.js';
 import * as fs from 'fs';
 import * as path from 'path';
+
+import * as YAML from 'yaml';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+import { Rutter } from '../../dist/lib/rutter.js';
+import { valuesRef } from '../../dist/lib/helm.js';
 
 describe('Basic Chart Generation Integration', () => {
   const testChartsDir = path.join(__dirname, '__charts__');
@@ -270,10 +273,10 @@ describe('Basic Chart Generation Integration', () => {
 
       // Test that all YAML files can be parsed without errors
       const chartYaml = fs.readFileSync(path.join(yamlValidationPath, 'Chart.yaml'), 'utf8');
-      expect(() => require('yaml').parse(chartYaml)).not.toThrow();
+      expect(() => YAML.parse(chartYaml)).not.toThrow();
 
       const valuesYaml = fs.readFileSync(path.join(yamlValidationPath, 'values.yaml'), 'utf8');
-      expect(() => require('yaml').parse(valuesYaml)).not.toThrow();
+      expect(() => YAML.parse(valuesYaml)).not.toThrow();
 
       // Test template files
       const templatesDir = path.join(yamlValidationPath, 'templates');

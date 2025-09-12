@@ -1,10 +1,12 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 import { describe, it, expect, vi } from 'vitest';
+import YAML from 'yaml';
+
 import { HelmChartWriter } from '../../dist/lib/helmChartWriter.js';
 import { Rutter } from '../../dist/lib/rutter.js';
 import { valuesRef } from '../../dist/lib/helm.js';
-import YAML from 'yaml';
-import * as fs from 'fs';
-import * as path from 'path';
 
 // Mock filesystem
 vi.mock('fs');
@@ -32,14 +34,14 @@ function normalizeYaml(yamlContent: string): string {
       lineWidth: 0,
       minContentWidth: 0,
     });
-  } catch (error) {
+  } catch (_error) {
     // If parsing fails, return original content
     return yamlContent;
   }
 }
 
 describe('YAML Snapshot Tests', () => {
-  const goldensDir = path.join(__dirname, '__goldens__');
+  const _goldensDir = path.join(__dirname, '__goldens__');
   const testOutputDir = path.join(process.cwd(), 'test-snapshot');
 
   beforeEach(() => {
