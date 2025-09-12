@@ -34,6 +34,7 @@ function usageAndExit(msg?: string): never {
       '  --env <environment>                  Use environment-specific values',
       '  --set <key=value>                    Override values (can be used multiple times)',
       '  --version, -v                        Show version information',
+      '  --help, -h                           Show this help message',
       '',
       'Examples:',
       '  tl init my-app',
@@ -400,7 +401,8 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
   }
 
   // Enable TS runtime with inline config
-  require('ts-node').register({
+  const { register } = await import('ts-node');
+  register({
     transpileOnly: true,
     compilerOptions: {
       module: 'CommonJS',
@@ -412,49 +414,42 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
     },
   });
 
-  // Comprehensive path validation to prevent path traversal and code injection
-  const resolvedPath = path.resolve(umbrellaFile);
-  const cwd = path.resolve(process.cwd());
-
-  // Ensure path is within current working directory (prevent path traversal)
-  if (!resolvedPath.startsWith(cwd + path.sep) && resolvedPath !== cwd) {
-    console.error('Security: Module path must be within current working directory');
-    console.error(`Attempted: ${resolvedPath}`);
-    console.error(`Allowed: ${cwd}`);
-    process.exit(1);
-  }
-
-  // Validate file extension to prevent loading non-TypeScript files
-  if (!umbrellaFile.endsWith('.ts')) {
+  // Validate TypeScript file extension
+  if (!SecurityUtils.isValidTypeScriptFile(umbrellaFile)) {
     console.error('Security: Only TypeScript files (.ts) are allowed');
     process.exit(1);
   }
 
-  // Additional security: normalize path to prevent bypass attempts
-  const normalizedPath = path.normalize(resolvedPath);
-  if (normalizedPath !== resolvedPath) {
-    console.error('Security: Path normalization mismatch detected');
+  // Additional path validation is already done by SecurityUtils.validatePath above
+  const resolvedPath = path.resolve(umbrellaFile);
+
+  try {
+    // Use createRequire for CommonJS compatibility in ES modules
+    const require = createRequire(import.meta.url);
+
+    const mod = require(resolvedPath);
+    const runner = mod.default || mod.run || mod.synth;
+    if (typeof runner !== 'function') {
+      console.error('umbrella.ts must export a default/run/synth function');
+      process.exit(1);
+    }
+
+    const output = outDir || path.join(process.cwd(), 'dist');
+
+    if (flags?.dryRun) {
+      log(`[DRY RUN] Would write umbrella chart to ${output}`, flags.silent);
+      return;
+    }
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+    fs.mkdirSync(output, { recursive: true });
+    await Promise.resolve(runner(output));
+    log(`Umbrella chart written to ${output}`, flags?.silent);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(SecurityUtils.sanitizeLogMessage(`Failed to import module: ${errorMsg}`));
     process.exit(1);
   }
-
-  const mod = require(resolvedPath);
-  const runner = mod.default || mod.run || mod.synth;
-  if (typeof runner !== 'function') {
-    console.error('umbrella.ts must export a default/run/synth function');
-    process.exit(1);
-  }
-
-  const output = outDir || path.join(process.cwd(), 'dist');
-
-  if (flags?.dryRun) {
-    log(`[DRY RUN] Would write umbrella chart to ${output}`, flags.silent);
-    return;
-  }
-
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  fs.mkdirSync(output, { recursive: true });
-  await Promise.resolve(runner(output));
-  log(`Umbrella chart written to ${output}`, flags?.silent);
 }
 
 async function cmdPackage(chartDir?: string, out?: string, silent = false) {
@@ -678,6 +673,8 @@ function parseArgs(): { cmd: string; args: string[]; flags: CliFlags } {
     } else if (arg === '--version' || arg === '-v') {
       showVersion();
       process.exit(0);
+    } else if (arg === '--help' || arg === '-h') {
+      usageAndExit();
     } else if (arg && !arg.startsWith('--')) {
       if (!cmd) {
         cmd = arg;
@@ -732,13 +729,6 @@ async function main() {
     case 'umbrella':
       await cmdUmbrella(args[0], args.slice(1), flags);
       break;
-    case 'version':
-    case '-v':
-    case '--version':
-      showVersion();
-      break;
-    case '-h':
-    case '--help':
     default:
       usageAndExit();
   }
