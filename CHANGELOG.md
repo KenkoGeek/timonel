@@ -1,3 +1,9 @@
+## [2.5.1](https://github.com/KenkoGeek/timonel/compare/v2.5.0...v2.5.1) (2025-09-12)
+
+### Bug Fixes
+
+- **ci:** add comprehensive test suite with unit and integration tests ([#38](https://github.com/KenkoGeek/timonel/issues/38)) ([ffae52f](https://github.com/KenkoGeek/timonel/commit/ffae52fe357a8324959d74c5dd88594b21dafde1))
+
 # [2.5.0](https://github.com/KenkoGeek/timonel/compare/v2.4.0...v2.5.0) (2025-09-12)
 
 ### Features
