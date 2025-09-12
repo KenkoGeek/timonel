@@ -19,7 +19,7 @@ export {
   AZURE_HELPERS,
   GCP_HELPERS,
   type HelperDefinition,
-} from './lib/helmHelpers.js';
+} from './lib/utils/helmHelpers.js';
 
 export {
   getResourceName,
@@ -28,4 +28,15 @@ export {
   isValidKubernetesName,
   type NamingStrategy,
   type KubernetesResource,
-} from './lib/resourceNaming.js';
+} from './lib/utils/resourceNaming.js';
+
+export {
+  createSecurePodTemplate,
+  createWorkloadPodTemplate,
+  createSidecarPodTemplate,
+  createHealthyPodTemplate,
+  type ContainerSpec,
+  type PodTemplateSpec,
+  type SecurityProfile,
+  type WorkloadType,
+} from './lib/utils/podTemplates.js';

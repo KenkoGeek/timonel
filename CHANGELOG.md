@@ -1,3 +1,10 @@
+# [2.5.0](https://github.com/KenkoGeek/timonel/compare/v2.4.0...v2.5.0) (2025-09-12)
+
+### Features
+
+- **core:** add reusable pod template helpers with security profiles, workload optimization, sidecar patterns, and health checks ([a1372fa](https://github.com/KenkoGeek/timonel/commit/a1372fa2d9ac32a2655faf0f94302eb04aca4898))
+- **core:** restore v2.3.0 functionality with modern architecture ([836d0e0](https://github.com/KenkoGeek/timonel/commit/836d0e0ede36d11059c125a612690c16e069e7c8)), closes [#34](https://github.com/KenkoGeek/timonel/issues/34) [#35](https://github.com/KenkoGeek/timonel/issues/35) [#36](https://github.com/KenkoGeek/timonel/issues/36)
+
 # [2.4.0](https://github.com/KenkoGeek/timonel/compare/v2.3.0...v2.4.0) (2025-09-11)
 
 ### Features
