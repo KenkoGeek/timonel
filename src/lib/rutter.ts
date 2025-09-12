@@ -52,10 +52,10 @@ import type {
 // Import HelmChartWriter for write functionality
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { include, helm } from './helm.js';
-import { generateHelpersTemplate } from './helmHelpers.js';
-import { generateManifestName } from './resourceNaming.js';
-import type { HelperDefinition } from './helmHelpers.js';
-import type { NamingStrategy } from './resourceNaming.js';
+import { generateHelpersTemplate } from './utils/helmHelpers.js';
+import { generateManifestName } from './utils/resourceNaming.js';
+import type { HelperDefinition } from './utils/helmHelpers.js';
+import type { NamingStrategy } from './utils/resourceNaming.js';
 
 /**
  * Rutter class with modular architecture
