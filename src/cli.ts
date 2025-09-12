@@ -420,13 +420,14 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
     process.exit(1);
   }
 
-  // Additional path validation is already done by SecurityUtils.validatePath above
-  const resolvedPath = path.resolve(umbrellaFile);
+  // Validate path to prevent traversal attacks
+  const validatedPath = SecurityUtils.validatePath(umbrellaFile, process.cwd());
+  const resolvedPath = path.resolve(validatedPath);
 
   try {
     // Use createRequire for CommonJS compatibility in ES modules
     const require = createRequire(import.meta.url);
-
+    // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
     const mod = require(resolvedPath);
     const runner = mod.default || mod.run || mod.synth;
     if (typeof runner !== 'function') {
