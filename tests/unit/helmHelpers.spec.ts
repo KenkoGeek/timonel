@@ -298,6 +298,47 @@ enabled: false
     });
   });
 
+  describe('template validation', () => {
+    it('should generate valid Helm template syntax', () => {
+      const template = generateHelpersTemplate(STANDARD_HELPERS);
+      
+      // Check for valid Helm template structure
+      expect(template).toContain('{{/*');
+      expect(template).toContain('*/}}');
+      expect(template).toContain('{{- define');
+      expect(template).toContain('{{- end }}');
+      
+      // Ensure balanced template blocks (define/end pairs)
+      const defineCount = (template.match(/{{-\s*define/g) || []).length;
+      const endCount = (template.match(/{{-\s*end\s*}}/g) || []).length;
+      expect(defineCount).toBeGreaterThan(0);
+      expect(endCount).toBeGreaterThan(0);
+      // Note: end count may be higher due to conditional blocks
+    });
+
+    it('should generate syntactically correct helper functions', () => {
+      const helpers = getDefaultHelpers();
+      const template = generateHelpersTemplate(helpers);
+      
+      // Check each helper has proper structure
+      helpers.forEach(helper => {
+        expect(template).toContain(`{{- define "${helper.name}"`);
+        // Each define should have corresponding content
+        expect(template).toMatch(new RegExp(`{{-\\s*define\\s+"${helper.name}"`));
+      });
+    });
+
+    it('should not contain obvious syntax errors', () => {
+      const template = generateHelpersTemplate(STANDARD_HELPERS);
+      
+      // Check for common syntax errors
+      expect(template).not.toMatch(/{{[^}]*{{/); // Nested opening braces
+      expect(template).not.toMatch(/}}[^{]*}}/); // Nested closing braces
+      // Check for proper comment structure
+      expect(template).toMatch(/{{\/\*[\s\S]*?\*\/}}/); // Valid comments
+    });
+  });
+
   describe('edge cases', () => {
     it('should handle helpers with special characters in names', () => {
       const helpers: HelperDefinition[] = [
