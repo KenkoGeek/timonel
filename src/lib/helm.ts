@@ -310,7 +310,7 @@ export function floatRef(path: string): string {
  * // Returns: '{{ if .Values.database.enabled }}{{ .Values.database.secretName }}{{ end }}'
  * ```
  *
- * @since 1.1.0
+ * @since 2.6.0
  */
 export function conditionalRef(path: string, condition: string): string {
   if (!isValidHelmPath(path)) {
@@ -339,7 +339,7 @@ export function conditionalRef(path: string, condition: string): string {
  * // Returns: '{{ .Values.image.tag | default "latest" }}'
  * ```
  *
- * @since 1.1.0
+ * @since 2.6.0
  */
 export function defaultRef(path: string, defaultValue: string): string {
   if (!isValidHelmPath(path)) {
@@ -366,7 +366,7 @@ export function defaultRef(path: string, defaultValue: string): string {
  * // Returns: '{{ .Values.secrets.apiKey | b64enc }}'
  * ```
  *
- * @since 1.1.0
+ * @since 2.6.0
  */
 export function base64Ref(path: string): string {
   if (!isValidHelmPath(path)) {
@@ -391,7 +391,7 @@ export function base64Ref(path: string): string {
  * // Returns: '{{ .Values.app.config | toJson }}'
  * ```
  *
- * @since 1.1.0
+ * @since 2.6.0
  */
 export function jsonRef(path: string): string {
   if (!isValidHelmPath(path)) {
