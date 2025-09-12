@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { HelmChartWriter } from '@/lib/helmChartWriter.js';
-import type { HelmChartMeta, HelmChartWriteOptions } from '@/lib/helmChartWriter.js';
+import { HelmChartWriter } from '../../dist/lib/helmChartWriter.js';
+import type { HelmChartMeta, HelmChartWriteOptions } from '../../dist/lib/helmChartWriter.js';
 import * as fs from 'fs';
 import * as path from 'path';
 

@@ -9,7 +9,7 @@ import {
   quote,
   indent,
   helm,
-} from '@/lib/helm.js';
+} from '../../dist/lib/helm.js';
 
 describe('Helm Template Helpers', () => {
   describe('valuesRef', () => {

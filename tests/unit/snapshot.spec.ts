@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { HelmChartWriter } from '@/lib/helmChartWriter.js';
-import { Rutter } from '@/lib/rutter.js';
-import { valuesRef } from '@/lib/helm.js';
+import { HelmChartWriter } from '../../dist/lib/helmChartWriter.js';
+import { Rutter } from '../../dist/lib/rutter.js';
+import { valuesRef } from '../../dist/lib/helm.js';
 import YAML from 'yaml';
 import * as fs from 'fs';
 import * as path from 'path';

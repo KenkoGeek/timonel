@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { Rutter } from '@/lib/rutter.js';
-import { valuesRef } from '@/lib/helm.js';
+import { Rutter } from '../../dist/lib/rutter.js';
+import { valuesRef } from '../../dist/lib/helm.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
