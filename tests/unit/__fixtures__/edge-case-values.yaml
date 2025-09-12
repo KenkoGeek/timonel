@@ -1,0 +1,14 @@
+service:
+  type: NodePort
+  port: 0 # Edge case: port 0
+  nodePort: 30080
+
+deployment:
+  replicas: 0 # Edge case: 0 replicas
+
+resources: {} # Empty resources
+
+env: [] # Empty array
+
+configMap:
+  data: null # Null value
