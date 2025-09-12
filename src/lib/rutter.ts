@@ -52,6 +52,10 @@ import type {
 // Import HelmChartWriter for write functionality
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { include, helm } from './helm.js';
+import { generateHelpersTemplate } from './helmHelpers.js';
+import { generateManifestName } from './resourceNaming.js';
+import type { HelperDefinition } from './helmHelpers.js';
+import type { NamingStrategy } from './resourceNaming.js';
 
 /**
  * Rutter class with modular architecture
@@ -79,9 +83,11 @@ export class Rutter {
   private readonly meta: ChartMetadata;
   private readonly defaultValues: Record<string, unknown>;
   private readonly envValues: Record<string, Record<string, unknown>>;
+  private readonly props: RutterProps;
   private readonly assets: Array<{ id: string; yaml: string; target: string }> = [];
 
   constructor(props: RutterProps) {
+    this.props = props;
     this.meta = props.meta;
     this.defaultValues = props.defaultValues ?? {};
     this.envValues = props.envValues ?? {};
@@ -718,40 +724,49 @@ export class Rutter {
           'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
           'app.kubernetes.io/part-of': helm.chartName,
         };
-        for (const [k, v] of Object.entries(defaults)) {
-          if (!(k in labels)) {
+
+        // Apply defaults only if not already set
+        for (const [key, value] of Object.entries(defaults)) {
+          if (!(key in labels)) {
             // eslint-disable-next-line security/detect-object-injection -- Safe: controlled label assignment
-            labels[k] = v;
+            labels[key] = value;
           }
         }
       }
       return obj;
     });
 
-    // Convert to SynthAsset format
     const synthAssets: SynthAsset[] = [];
 
-    // Add main manifests
-    if (enriched.length > 0) {
+    if (this.props.singleManifestFile) {
+      // Combine all resources into single manifest
       const combinedYaml = enriched
         .map((obj) => YAML.stringify(obj).trim())
         .filter(Boolean)
         .join('\n---\n');
 
-      synthAssets.push({
-        id: 'manifests',
-        yaml: combinedYaml,
+      const manifestId = this.props.manifestPrefix ?? 'manifests';
+      synthAssets.push({ id: manifestId, yaml: combinedYaml });
+    } else {
+      // Create separate files for each resource (default behavior)
+      enriched.forEach((obj, index) => {
+        const yaml = YAML.stringify(obj).trim();
+        if (yaml) {
+          const manifestId = generateManifestName(
+            obj,
+            this.props.namingStrategy ?? 'descriptive',
+            index + 1,
+            this.props.manifestPrefix,
+          );
+          synthAssets.push({ id: manifestId, yaml });
+        }
       });
     }
 
-    // Add custom assets (CRDs, etc.)
-    for (const asset of this.assets) {
-      synthAssets.push({
-        id: asset.id,
-        yaml: asset.yaml,
-        target: asset.target as 'templates' | 'crds',
-      });
-    }
+    // Add any additional assets (CRDs, etc.)
+    this.assets.forEach((asset) => {
+      synthAssets.push({ id: asset.id, yaml: asset.yaml });
+    });
 
     return synthAssets;
   }
@@ -763,12 +778,35 @@ export class Rutter {
    * @since 1.0.0
    */
   write(outDir: string): void {
+    // Generate helpers template
+    let helpersContent: string | undefined;
+    if (this.props.helpersTpl) {
+      if (typeof this.props.helpersTpl === 'string') {
+        helpersContent = this.props.helpersTpl;
+      } else {
+        helpersContent = this.props.helpersTpl
+          .map(
+            (helper) => `{{/*
+${helper.name}
+*/}}
+{{- define "${helper.name}" -}}
+${helper.template}
+{{- end }}`,
+          )
+          .join('\n\n');
+      }
+    } else {
+      // Auto-generate standard helpers
+      helpersContent = generateHelpersTemplate(this.props.cloudProvider);
+    }
+
     HelmChartWriter.write({
       outDir,
       meta: this.meta,
       defaultValues: this.defaultValues,
       envValues: this.envValues,
       assets: this.toSynthArray(),
+      helpersTpl: helpersContent,
     });
   }
 }
@@ -795,6 +833,16 @@ export interface RutterProps {
   envValues?: Record<string, Record<string, unknown>>;
   namespace?: string;
   chartProps?: ChartProps;
+  /** Custom Helm helpers content or definitions */
+  helpersTpl?: string | HelperDefinition[];
+  /** Cloud provider for default helpers */
+  cloudProvider?: 'aws' | 'azure' | 'gcp';
+  /** Manifest file naming strategy */
+  namingStrategy?: NamingStrategy;
+  /** Custom prefix for manifest files */
+  manifestPrefix?: string;
+  /** Combine all resources into single manifest file */
+  singleManifestFile?: boolean;
 }
 
 // Re-export types for backward compatibility
