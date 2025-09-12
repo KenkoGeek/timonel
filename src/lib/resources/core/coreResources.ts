@@ -808,31 +808,19 @@ export class CoreResources extends BaseResourceProvider {
    * @private
    */
   private buildJobContainers(spec: JobSpec): Record<string, unknown>[] {
-    const container: Record<string, unknown> = {
+    const containerSpec: Record<string, unknown> = {
       name: spec.name,
       image: spec.image,
     };
 
-    if (spec.command) {
-      container['command'] = spec.command;
-    }
-    if (spec.args) {
-      container['args'] = spec.args;
-    }
-    if (spec.env) {
-      container['env'] = spec.env;
-    }
-    if (spec.resources) {
-      container['resources'] = spec.resources;
-    }
-    if (spec.volumeMounts) {
-      container['volumeMounts'] = spec.volumeMounts;
-    }
-    if (spec.securityContext) {
-      container['securityContext'] = spec.securityContext;
-    }
+    if (spec.command) containerSpec['command'] = spec.command;
+    if (spec.args) containerSpec['args'] = spec.args;
+    if (spec.env) containerSpec['env'] = spec.env;
+    if (spec.resources) containerSpec['resources'] = spec.resources;
+    if (spec.volumeMounts) containerSpec['volumeMounts'] = spec.volumeMounts;
+    if (spec.securityContext) containerSpec['securityContext'] = spec.securityContext;
 
-    return [container];
+    return this.buildGenericContainers(containerSpec);
   }
 
   /**
@@ -865,6 +853,281 @@ export class CoreResources extends BaseResourceProvider {
     }
     if (spec.initContainers) {
       podSpec['initContainers'] = spec.initContainers;
+    }
+
+    return podSpec;
+  }
+
+  /**
+   * Creates a ReplicaSet resource
+   * @param spec - ReplicaSet specification
+   * @returns Created ReplicaSet ApiObject
+   *
+   * @example
+   * ```typescript
+   * coreResources.addReplicaSet({
+   *   name: 'web-replica',
+   *   image: 'nginx:1.21',
+   *   replicas: 3,
+   *   containerPort: 80
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addReplicaSet(spec: ReplicaSetSpec): ApiObject {
+    const matchLabels = spec.matchLabels ?? {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+    };
+
+    const containers = [
+      {
+        name: spec.name,
+        image: spec.image,
+        ...(spec.containerPort ? { ports: [{ containerPort: spec.containerPort }] } : {}),
+        ...(spec.env ? { env: spec.env } : {}),
+        ...(spec.resources ? { resources: spec.resources } : {}),
+        ...(spec.volumeMounts ? { volumeMounts: spec.volumeMounts } : {}),
+        ...(spec.securityContext ? { securityContext: spec.securityContext } : {}),
+      },
+    ];
+
+    const replicaSetSpec = {
+      replicas: spec.replicas ?? 1,
+      selector: { matchLabels },
+      template: {
+        metadata: { labels: { ...matchLabels, ...spec.labels } },
+        spec: {
+          containers,
+          ...(spec.volumes ? { volumes: spec.volumes } : {}),
+          ...(spec.serviceAccountName ? { serviceAccountName: spec.serviceAccountName } : {}),
+          ...(spec.nodeSelector ? { nodeSelector: spec.nodeSelector } : {}),
+          ...(spec.tolerations ? { tolerations: spec.tolerations } : {}),
+          ...(spec.affinity ? { affinity: spec.affinity } : {}),
+        },
+      },
+    };
+
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: CoreResources.APPS_API_VERSION,
+      kind: 'ReplicaSet',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: replicaSetSpec,
+    });
+  }
+
+  /**
+   * Creates a Pod resource
+   * @param spec - Pod specification
+   * @returns Created Pod ApiObject
+   *
+   * @example
+   * ```typescript
+   * coreResources.addPod({
+   *   name: 'web-pod',
+   *   image: 'nginx:1.21',
+   *   containerPort: 80
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addPod(spec: PodSpec): ApiObject {
+    const containers = [
+      {
+        name: spec.name,
+        image: spec.image,
+        ...(spec.containerPort ? { ports: [{ containerPort: spec.containerPort }] } : {}),
+        ...(spec.env ? { env: spec.env } : {}),
+        ...(spec.resources ? { resources: spec.resources } : {}),
+        ...(spec.volumeMounts ? { volumeMounts: spec.volumeMounts } : {}),
+        ...(spec.securityContext ? { securityContext: spec.securityContext } : {}),
+      },
+    ];
+
+    const podSpec = {
+      containers,
+      restartPolicy: spec.restartPolicy ?? 'Always',
+      ...(spec.volumes ? { volumes: spec.volumes } : {}),
+      ...(spec.serviceAccountName ? { serviceAccountName: spec.serviceAccountName } : {}),
+      ...(spec.nodeSelector ? { nodeSelector: spec.nodeSelector } : {}),
+      ...(spec.tolerations ? { tolerations: spec.tolerations } : {}),
+      ...(spec.affinity ? { affinity: spec.affinity } : {}),
+      ...(spec.initContainers ? { initContainers: spec.initContainers } : {}),
+    };
+
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: CoreResources.CORE_API_VERSION,
+      kind: 'Pod',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: podSpec,
+    });
+  }
+
+  /**
+   * Creates a CronJob resource
+   * @param spec - CronJob specification
+   * @returns Created CronJob ApiObject
+   *
+   * @example
+   * ```typescript
+   * coreResources.addCronJob({
+   *   name: 'backup-job',
+   *   schedule: '0 2 * * *',
+   *   image: 'backup:latest',
+   *   command: ['sh', '-c', 'backup-script.sh']
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  addCronJob(spec: CronJobSpec): ApiObject {
+    const matchLabels = spec.matchLabels ?? {
+      [CoreResources.LABEL_NAME]: include(CoreResources.HELPER_NAME),
+    };
+
+    const cronJobSpec = this.buildCronJobSpec(spec, matchLabels);
+
+    return new ApiObject(this.chart, spec.name, {
+      apiVersion: 'batch/v1',
+      kind: 'CronJob',
+      metadata: {
+        name: spec.name,
+        ...(spec.labels ? { labels: spec.labels } : {}),
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
+      },
+      spec: cronJobSpec,
+    });
+  }
+
+  /**
+   * Builds CronJob specification object
+   * @private
+   */
+  private buildCronJobSpec(
+    spec: CronJobSpec,
+    matchLabels: Record<string, string>,
+  ): Record<string, unknown> {
+    const containerSpec: Record<string, unknown> = {
+      name: spec.name,
+      image: spec.image,
+    };
+
+    if (spec.command) containerSpec['command'] = spec.command;
+    if (spec.args) containerSpec['args'] = spec.args;
+    if (spec.env) containerSpec['env'] = spec.env;
+    if (spec.resources) containerSpec['resources'] = spec.resources;
+    if (spec.volumeMounts) containerSpec['volumeMounts'] = spec.volumeMounts;
+    if (spec.securityContext) containerSpec['securityContext'] = spec.securityContext;
+
+    const containers = this.buildGenericContainers(containerSpec);
+    const podSpec = this.buildCronJobPodSpec(spec, containers);
+
+    const cronJobSpec: Record<string, unknown> = {
+      schedule: spec.schedule,
+      jobTemplate: {
+        spec: {
+          template: {
+            metadata: { labels: { ...matchLabels, ...spec.labels } },
+            spec: podSpec,
+          },
+          ...(spec.backoffLimit !== undefined ? { backoffLimit: spec.backoffLimit } : {}),
+          ...(spec.activeDeadlineSeconds !== undefined
+            ? { activeDeadlineSeconds: spec.activeDeadlineSeconds }
+            : {}),
+        },
+      },
+    };
+
+    if (spec.concurrencyPolicy) {
+      cronJobSpec['concurrencyPolicy'] = spec.concurrencyPolicy;
+    }
+    if (spec.suspend !== undefined) {
+      cronJobSpec['suspend'] = spec.suspend;
+    }
+    if (spec.successfulJobsHistoryLimit !== undefined) {
+      cronJobSpec['successfulJobsHistoryLimit'] = spec.successfulJobsHistoryLimit;
+    }
+    if (spec.failedJobsHistoryLimit !== undefined) {
+      cronJobSpec['failedJobsHistoryLimit'] = spec.failedJobsHistoryLimit;
+    }
+    if (spec.startingDeadlineSeconds !== undefined) {
+      cronJobSpec['startingDeadlineSeconds'] = spec.startingDeadlineSeconds;
+    }
+
+    return cronJobSpec;
+  }
+
+  /**
+   * Builds generic container specification
+   * @private
+   */
+  private buildGenericContainers(spec: Record<string, unknown>): Record<string, unknown>[] {
+    const container: Record<string, unknown> = {
+      name: spec['name'],
+      image: spec['image'],
+    };
+
+    if (spec['containerPort']) {
+      container['ports'] = [{ containerPort: spec['containerPort'] }];
+    }
+    if (spec['command']) {
+      container['command'] = spec['command'];
+    }
+    if (spec['args']) {
+      container['args'] = spec['args'];
+    }
+    if (spec['env']) {
+      container['env'] = spec['env'];
+    }
+    if (spec['resources']) {
+      container['resources'] = spec['resources'];
+    }
+    if (spec['volumeMounts']) {
+      container['volumeMounts'] = spec['volumeMounts'];
+    }
+    if (spec['securityContext']) {
+      container['securityContext'] = spec['securityContext'];
+    }
+
+    return [container];
+  }
+
+  /**
+   * Builds pod specification for CronJob
+   * @private
+   */
+  private buildCronJobPodSpec(
+    spec: CronJobSpec,
+    containers: Record<string, unknown>[],
+  ): Record<string, unknown> {
+    const podSpec: Record<string, unknown> = {
+      containers,
+      restartPolicy: spec.restartPolicy ?? 'OnFailure',
+    };
+
+    if (spec.volumes) {
+      podSpec['volumes'] = spec.volumes;
+    }
+    if (spec.serviceAccountName) {
+      podSpec['serviceAccountName'] = spec.serviceAccountName;
+    }
+    if (spec.nodeSelector) {
+      podSpec['nodeSelector'] = spec.nodeSelector;
+    }
+    if (spec.tolerations) {
+      podSpec['tolerations'] = spec.tolerations;
+    }
+    if (spec.affinity) {
+      podSpec['affinity'] = spec.affinity;
     }
 
     return podSpec;
@@ -1098,6 +1361,81 @@ export interface ServiceAccountSpec {
   automountServiceAccountToken?: boolean;
   imagePullSecrets?: Array<{ name: string }>;
   secrets?: Array<{ name: string }>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface ReplicaSetSpec {
+  name: string;
+  image: string;
+  replicas?: number;
+  containerPort?: number;
+  env?: Array<{ name: string; value?: string; valueFrom?: unknown }>;
+  resources?: {
+    requests?: { cpu?: string; memory?: string };
+    limits?: { cpu?: string; memory?: string };
+  };
+  volumeMounts?: Array<{ name: string; mountPath: string; readOnly?: boolean }>;
+  volumes?: Array<unknown>;
+  serviceAccountName?: string;
+  securityContext?: unknown;
+  nodeSelector?: Record<string, string>;
+  tolerations?: Array<unknown>;
+  affinity?: unknown;
+  matchLabels?: Record<string, string>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface PodSpec {
+  name: string;
+  image: string;
+  containerPort?: number;
+  restartPolicy?: 'Always' | 'OnFailure' | 'Never';
+  env?: Array<{ name: string; value?: string; valueFrom?: unknown }>;
+  resources?: {
+    requests?: { cpu?: string; memory?: string };
+    limits?: { cpu?: string; memory?: string };
+  };
+  volumeMounts?: Array<{ name: string; mountPath: string; readOnly?: boolean }>;
+  volumes?: Array<unknown>;
+  serviceAccountName?: string;
+  securityContext?: unknown;
+  nodeSelector?: Record<string, string>;
+  tolerations?: Array<unknown>;
+  affinity?: unknown;
+  initContainers?: Array<unknown>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface CronJobSpec {
+  name: string;
+  schedule: string;
+  image: string;
+  command?: string[];
+  args?: string[];
+  restartPolicy?: 'OnFailure' | 'Never';
+  concurrencyPolicy?: 'Allow' | 'Forbid' | 'Replace';
+  suspend?: boolean;
+  successfulJobsHistoryLimit?: number;
+  failedJobsHistoryLimit?: number;
+  startingDeadlineSeconds?: number;
+  backoffLimit?: number;
+  activeDeadlineSeconds?: number;
+  env?: Array<{ name: string; value?: string; valueFrom?: unknown }>;
+  resources?: {
+    requests?: { cpu?: string; memory?: string };
+    limits?: { cpu?: string; memory?: string };
+  };
+  volumeMounts?: Array<{ name: string; mountPath: string; readOnly?: boolean }>;
+  volumes?: Array<unknown>;
+  serviceAccountName?: string;
+  securityContext?: unknown;
+  nodeSelector?: Record<string, string>;
+  tolerations?: Array<unknown>;
+  affinity?: unknown;
+  matchLabels?: Record<string, string>;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
 }
