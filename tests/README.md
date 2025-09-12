@@ -45,31 +45,37 @@ Integration tests verify end-to-end functionality:
 ## Running Tests
 
 ### All Tests
+
 ```bash
 pnpm test
 ```
 
 ### Unit Tests Only
+
 ```bash
 pnpm test:unit
 ```
 
 ### Integration Tests Only
+
 ```bash
 pnpm test:integration
 ```
 
 ### Basic Integration Tests (No External Tools Required)
+
 ```bash
 pnpm test:basic-integration
 ```
 
 ### Watch Mode
+
 ```bash
 pnpm test:watch
 ```
 
 ### Coverage Report
+
 ```bash
 pnpm test:coverage
 ```
@@ -101,7 +107,7 @@ pnpm test:coverage
 When available, integration tests also validate with:
 
 - **Helm**: `helm lint` and `helm template` validation
-- **kubectl**: `kubectl --dry-run=client` validation  
+- **kubectl**: `kubectl --dry-run=client` validation
 - **kubeconform**: Schema validation against Kubernetes API
 
 ## Test Configuration
@@ -123,6 +129,7 @@ When available, integration tests also validate with:
 ### Filesystem Mocking
 
 Unit tests mock the filesystem to:
+
 - Avoid actual file I/O during testing
 - Verify correct file paths and content
 - Enable fast, isolated testing
@@ -130,6 +137,7 @@ Unit tests mock the filesystem to:
 ### Security Validation
 
 Tests respect the library's security constraints:
+
 - Output paths must be within the project directory
 - Helm template paths are validated for safety
 - Kubernetes names follow RFC 1123 conventions

@@ -210,7 +210,7 @@ describe('Resource Naming', () => {
       const originalName = 'My_Complex.App@Name';
       const sanitized = sanitizeKubernetesName(originalName);
       const isValid = isValidKubernetesName(sanitized);
-      
+
       const resource: KubernetesResource = {
         kind: 'Deployment',
         metadata: { name: sanitized },
@@ -225,10 +225,11 @@ describe('Resource Naming', () => {
     });
 
     it('should handle very long names in complete workflow', () => {
-      const longName = 'very-long-application-name-that-exceeds-kubernetes-limits-and-needs-truncation';
+      const longName =
+        'very-long-application-name-that-exceeds-kubernetes-limits-and-needs-truncation';
       const sanitized = sanitizeKubernetesName(longName);
       const isValid = isValidKubernetesName(sanitized);
-      
+
       const resource: KubernetesResource = {
         kind: 'Service',
         metadata: { name: sanitized },

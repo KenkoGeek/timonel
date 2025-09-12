@@ -21,13 +21,13 @@ const mockFs = vi.mocked(fs);
 function normalizeYaml(yamlContent: string): string {
   try {
     const parsed = YAML.parse(yamlContent);
-    
+
     // Remove dynamic fields that might change between runs
     if (parsed && typeof parsed === 'object') {
       delete parsed.generated;
       delete parsed.timestamp;
     }
-    
+
     // Re-serialize with consistent options
     return YAML.stringify(parsed, {
       sortKeys: true,
@@ -69,13 +69,13 @@ describe('YAML Snapshot Tests', () => {
 
       // Find the Chart.yaml write call
       const chartYamlCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'Chart.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'Chart.yaml'),
       );
 
       expect(chartYamlCall).toBeDefined();
       const chartYamlContent = chartYamlCall![1] as string;
       const normalizedContent = normalizeYaml(chartYamlContent);
-      
+
       expect(normalizedContent).toMatchSnapshot('Chart.yaml content');
     });
 
@@ -115,13 +115,13 @@ describe('YAML Snapshot Tests', () => {
 
       // Find the values.yaml write call
       const valuesYamlCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'values.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'values.yaml'),
       );
 
       expect(valuesYamlCall).toBeDefined();
       const valuesYamlContent = valuesYamlCall![1] as string;
       const normalizedContent = normalizeYaml(valuesYamlContent);
-      
+
       expect(normalizedContent).toMatchSnapshot('values.yaml content');
     });
   });
@@ -198,13 +198,13 @@ describe('YAML Snapshot Tests', () => {
       HelmChartWriter.write(options);
 
       const valuesCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'values.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'values.yaml'),
       );
 
       expect(valuesCall).toBeDefined();
       const valuesContent = valuesCall![1] as string;
       const normalizedContent = normalizeYaml(valuesContent);
-      
+
       expect(normalizedContent).toMatchSnapshot('zero values snapshot');
     });
 
@@ -242,13 +242,13 @@ describe('YAML Snapshot Tests', () => {
       HelmChartWriter.write(options);
 
       const valuesCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'values.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'values.yaml'),
       );
 
       expect(valuesCall).toBeDefined();
       const valuesContent = valuesCall![1] as string;
       const normalizedContent = normalizeYaml(valuesContent);
-      
+
       expect(normalizedContent).toMatchSnapshot('complex nested structure snapshot');
     });
   });
@@ -291,7 +291,7 @@ describe('YAML Snapshot Tests', () => {
 
       // Check dev values
       const devValuesCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'values-dev.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'values-dev.yaml'),
       );
       expect(devValuesCall).toBeDefined();
       const devContent = normalizeYaml(devValuesCall![1] as string);
@@ -299,7 +299,7 @@ describe('YAML Snapshot Tests', () => {
 
       // Check prod values
       const prodValuesCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'values-prod.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'values-prod.yaml'),
       );
       expect(prodValuesCall).toBeDefined();
       const prodContent = normalizeYaml(prodValuesCall![1] as string);

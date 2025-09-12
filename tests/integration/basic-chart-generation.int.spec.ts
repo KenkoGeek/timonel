@@ -149,7 +149,7 @@ describe('Basic Chart Generation Integration', () => {
       expect(templateFiles.length).toBeGreaterThan(0);
 
       // Verify specific template files exist
-      const yamlFiles = templateFiles.filter(f => f.endsWith('.yaml'));
+      const yamlFiles = templateFiles.filter((f) => f.endsWith('.yaml'));
       expect(yamlFiles.length).toBeGreaterThan(0);
 
       // Check that at least one template contains Kubernetes resources
@@ -280,9 +280,9 @@ describe('Basic Chart Generation Integration', () => {
 
       // Test template files
       const templatesDir = path.join(yamlValidationPath, 'templates');
-      const templateFiles = fs.readdirSync(templatesDir).filter(f => f.endsWith('.yaml'));
-      
-      templateFiles.forEach(file => {
+      const templateFiles = fs.readdirSync(templatesDir).filter((f) => f.endsWith('.yaml'));
+
+      templateFiles.forEach((file) => {
         const content = fs.readFileSync(path.join(templatesDir, file), 'utf8');
         // Template files contain Helm expressions, so we just check they're not empty
         expect(content.trim().length).toBeGreaterThan(0);

@@ -26,21 +26,21 @@ describe('Helm Helpers', () => {
     });
 
     it('should contain basic chart helpers', () => {
-      const helperNames = STANDARD_HELPERS.map(h => h.name);
+      const helperNames = STANDARD_HELPERS.map((h) => h.name);
       expect(helperNames).toContain('chart.name');
       expect(helperNames).toContain('chart.labels');
       expect(helperNames).toContain('chart.selectorLabels');
     });
 
     it('should generate chart name helper correctly', () => {
-      const helper = STANDARD_HELPERS.find(h => h.name === 'chart.name');
+      const helper = STANDARD_HELPERS.find((h) => h.name === 'chart.name');
       expect(helper).toBeDefined();
       expect(helper!.template).toContain('.Chart.Name');
       expect(helper!.template).toContain('nameOverride');
     });
 
     it('should generate chart labels helper correctly', () => {
-      const helper = STANDARD_HELPERS.find(h => h.name === 'chart.labels');
+      const helper = STANDARD_HELPERS.find((h) => h.name === 'chart.labels');
       expect(helper).toBeDefined();
       expect(helper!.template).toContain('helm.sh/chart');
       expect(helper!.template).toContain('chart.selectorLabels');
@@ -55,7 +55,7 @@ describe('Helm Helpers', () => {
     });
 
     it('should contain AWS-specific helpers', () => {
-      const helperNames = AWS_HELPERS.map(h => h.name);
+      const helperNames = AWS_HELPERS.map((h) => h.name);
       expect(helperNames).toContain('aws.region');
       expect(helperNames).toContain('aws.accountId');
     });
@@ -69,7 +69,7 @@ describe('Helm Helpers', () => {
     });
 
     it('should generate AWS role ARN helper correctly', () => {
-      const helper = AWS_HELPERS.find(h => h.name === 'aws.irsaRoleArn');
+      const helper = AWS_HELPERS.find((h) => h.name === 'aws.irsaRoleArn');
       expect(helper).toBeDefined();
       expect(helper!.template).toContain('arn:aws:iam::');
       expect(helper!.template).toContain('aws.accountId');
@@ -83,7 +83,7 @@ describe('Helm Helpers', () => {
     });
 
     it('should contain Azure-specific helpers', () => {
-      const helperNames = AZURE_HELPERS.map(h => h.name);
+      const helperNames = AZURE_HELPERS.map((h) => h.name);
       expect(helperNames).toContain('azure.resourceGroup');
       expect(helperNames).toContain('azure.subscriptionId');
     });
@@ -104,7 +104,7 @@ describe('Helm Helpers', () => {
     });
 
     it('should contain GCP-specific helpers', () => {
-      const helperNames = GCP_HELPERS.map(h => h.name);
+      const helperNames = GCP_HELPERS.map((h) => h.name);
       expect(helperNames).toContain('gcp.projectId');
       expect(helperNames).toContain('gcp.region');
     });
@@ -123,8 +123,8 @@ describe('Helm Helpers', () => {
       const helpers = getDefaultHelpers();
       expect(Array.isArray(helpers)).toBe(true);
       expect(helpers.length).toBe(STANDARD_HELPERS.length);
-      
-      const helperNames = helpers.map(h => h.name);
+
+      const helperNames = helpers.map((h) => h.name);
       expect(helperNames).toContain('chart.name');
       expect(helperNames).toContain('chart.labels');
     });
@@ -133,8 +133,8 @@ describe('Helm Helpers', () => {
       const helpers = getDefaultHelpers('aws');
       expect(Array.isArray(helpers)).toBe(true);
       expect(helpers.length).toBe(STANDARD_HELPERS.length + AWS_HELPERS.length);
-      
-      const helperNames = helpers.map(h => h.name);
+
+      const helperNames = helpers.map((h) => h.name);
       expect(helperNames).toContain('chart.name'); // Standard
       expect(helperNames).toContain('aws.region'); // AWS
     });
@@ -143,8 +143,8 @@ describe('Helm Helpers', () => {
       const helpers = getDefaultHelpers('azure');
       expect(Array.isArray(helpers)).toBe(true);
       expect(helpers.length).toBe(STANDARD_HELPERS.length + AZURE_HELPERS.length);
-      
-      const helperNames = helpers.map(h => h.name);
+
+      const helperNames = helpers.map((h) => h.name);
       expect(helperNames).toContain('chart.name'); // Standard
       expect(helperNames).toContain('azure.resourceGroup'); // Azure
     });
@@ -153,8 +153,8 @@ describe('Helm Helpers', () => {
       const helpers = getDefaultHelpers('gcp');
       expect(Array.isArray(helpers)).toBe(true);
       expect(helpers.length).toBe(STANDARD_HELPERS.length + GCP_HELPERS.length);
-      
-      const helperNames = helpers.map(h => h.name);
+
+      const helperNames = helpers.map((h) => h.name);
       expect(helperNames).toContain('chart.name'); // Standard
       expect(helperNames).toContain('gcp.projectId'); // GCP
     });
@@ -230,7 +230,7 @@ enabled: false
   describe('generateHelpersTemplate', () => {
     it('should generate complete helpers template with standard helpers', () => {
       const result = generateHelpersTemplate();
-      
+
       expect(result).toContain('{{- define "chart.name" -}}');
       expect(result).toContain('{{- define "chart.labels" -}}');
       expect(result).toContain('{{- define "chart.selectorLabels" -}}');
@@ -238,7 +238,7 @@ enabled: false
 
     it('should generate helpers template with AWS helpers', () => {
       const result = generateHelpersTemplate('aws');
-      
+
       expect(result).toContain('{{- define "chart.name" -}}');
       expect(result).toContain('{{- define "aws.region" -}}');
       expect(result).toContain('{{- define "aws.accountId" -}}');
@@ -246,7 +246,7 @@ enabled: false
 
     it('should generate helpers template with Azure helpers', () => {
       const result = generateHelpersTemplate('azure');
-      
+
       expect(result).toContain('{{- define "chart.name" -}}');
       expect(result).toContain('{{- define "azure.resourceGroup" -}}');
       expect(result).toContain('{{- define "azure.subscriptionId" -}}');
@@ -254,7 +254,7 @@ enabled: false
 
     it('should generate helpers template with GCP helpers', () => {
       const result = generateHelpersTemplate('gcp');
-      
+
       expect(result).toContain('{{- define "chart.name" -}}');
       expect(result).toContain('{{- define "gcp.projectId" -}}');
       expect(result).toContain('{{- define "gcp.region" -}}');
@@ -269,7 +269,7 @@ enabled: false
       ];
 
       const result = generateHelpersTemplate(undefined, customHelpers);
-      
+
       expect(result).toContain('{{- define "chart.name" -}}');
       expect(result).toContain('{{- define "custom.helper" -}}');
       expect(result).toContain('{{ .Values.custom.value }}');
@@ -284,7 +284,7 @@ enabled: false
       ];
 
       const result = generateHelpersTemplate('aws', customHelpers);
-      
+
       expect(result).toContain('{{- define "chart.name" -}}');
       expect(result).toContain('{{- define "aws.region" -}}');
       expect(result).toContain('{{- define "app.database" -}}');
@@ -292,7 +292,7 @@ enabled: false
 
     it('should handle empty custom helpers', () => {
       const result = generateHelpersTemplate('aws', []);
-      
+
       expect(result).toContain('{{- define "chart.name" -}}');
       expect(result).toContain('{{- define "aws.region" -}}');
     });

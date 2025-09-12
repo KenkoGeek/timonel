@@ -1,7 +1,7 @@
 image:
   pullPolicy: IfNotPresent
   repository: nginx
-  tag: "1.27"
+  tag: '1.27'
 replicas: 2
 resources:
   limits:

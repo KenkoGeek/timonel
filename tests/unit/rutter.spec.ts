@@ -239,10 +239,9 @@ describe('Rutter', () => {
       );
 
       // Verify templates directory and manifests
-      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
-        path.join(testOutputDir, 'templates'),
-        { recursive: true },
-      );
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(path.join(testOutputDir, 'templates'), {
+        recursive: true,
+      });
     });
 
     it('should handle write with no resources', () => {

@@ -45,7 +45,9 @@ describe('Helm Template Helpers', () => {
   describe('requiredValuesRef', () => {
     it('should create required values reference with default message', () => {
       const result = requiredValuesRef('database.password');
-      expect(result).toBe('{{ required "database.password is required" .Values.database.password }}');
+      expect(result).toBe(
+        '{{ required "database.password is required" .Values.database.password }}',
+      );
     });
 
     it('should create required values reference with custom message', () => {
@@ -151,7 +153,7 @@ describe('Helm Template Helpers', () => {
 
     it('should handle complex Helm expressions', () => {
       const result = quote('{{ .Values.image.tag | default "latest" }}');
-      expect(result).toBe("'{{ .Values.image.tag | default \"latest\" }}'");
+      expect(result).toBe('\'{{ .Values.image.tag | default "latest" }}\'');
     });
 
     it('should handle empty strings', () => {
@@ -229,7 +231,7 @@ describe('Helm Template Helpers', () => {
     it('should handle template names with special characters', () => {
       const result = include('my-app.labels');
       expect(result).toBe('{{ include "my-app.labels" . }}');
-      
+
       const result2 = template('my_app.selector_labels');
       expect(result2).toBe('{{ template "my_app.selector_labels" . }}');
     });
@@ -241,7 +243,7 @@ describe('Helm Template Helpers', () => {
       const imageTag = valuesRef('image.tag');
       const replicas = numberRef('replicas');
       const enabled = boolRef('feature.enabled');
-      
+
       expect(imageRepo).toBe('{{ .Values.image.repository }}');
       expect(imageTag).toBe('{{ .Values.image.tag }}');
       expect(replicas).toBe('{{ .Values.replicas | int }}');
@@ -251,7 +253,7 @@ describe('Helm Template Helpers', () => {
     it('should handle quoted template expressions in YAML context', () => {
       const templateExpr = valuesRef('image.tag');
       const quoted = quote(templateExpr);
-      
+
       expect(templateExpr).toBe('{{ .Values.image.tag }}');
       expect(quoted).toBe("'{{ .Values.image.tag }}'");
     });
@@ -259,7 +261,7 @@ describe('Helm Template Helpers', () => {
     it('should handle indented multi-line template content', () => {
       const labels = include('myapp.labels');
       const indentedLabels = indent(4, labels);
-      
+
       expect(indentedLabels).toBe('    {{ include "myapp.labels" . }}');
     });
   });

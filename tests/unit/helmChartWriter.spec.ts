@@ -63,10 +63,9 @@ describe('HelmChartWriter', () => {
       HelmChartWriter.write(options);
 
       // Verify directory creation - HelmChartWriter creates directories as needed
-      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
-        path.join(testOutputDir, 'templates'),
-        { recursive: true },
-      );
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(path.join(testOutputDir, 'templates'), {
+        recursive: true,
+      });
 
       // Verify Chart.yaml
       expect(mockFs.writeFileSync).toHaveBeenCalledWith(
@@ -157,7 +156,7 @@ describe('HelmChartWriter', () => {
       HelmChartWriter.write(options);
 
       const chartYamlCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'Chart.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'Chart.yaml'),
       );
 
       expect(chartYamlCall?.[1]).toContain('name: complex-app');
@@ -282,11 +281,11 @@ describe('HelmChartWriter', () => {
       HelmChartWriter.write(options);
 
       const chartYamlCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'Chart.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'Chart.yaml'),
       );
 
       const valuesYamlCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'values.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'values.yaml'),
       );
 
       // Chart.yaml should be valid YAML
@@ -318,7 +317,7 @@ describe('HelmChartWriter', () => {
       HelmChartWriter.write(options);
 
       const valuesCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'values.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'values.yaml'),
       );
 
       expect(valuesCall?.[1]).toContain('config: null');
@@ -341,7 +340,7 @@ describe('HelmChartWriter', () => {
       HelmChartWriter.write(options);
 
       const valuesCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'values.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'values.yaml'),
       );
 
       expect(valuesCall?.[1]).toContain('specialString:');
@@ -364,7 +363,7 @@ describe('HelmChartWriter', () => {
       HelmChartWriter.write(options);
 
       const valuesCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'values.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'values.yaml'),
       );
 
       expect(valuesCall?.[1]).toContain('port: 0');
@@ -395,7 +394,7 @@ describe('HelmChartWriter', () => {
       HelmChartWriter.write(options);
 
       const valuesCall = mockFs.writeFileSync.mock.calls.find(
-        call => call[0] === path.join(testOutputDir, 'values.yaml'),
+        (call) => call[0] === path.join(testOutputDir, 'values.yaml'),
       );
 
       expect(valuesCall?.[1]).toContain('deepValue: found');
