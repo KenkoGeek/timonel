@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
+
 import {
   getResourceName,
   generateManifestName,
   sanitizeKubernetesName,
   isValidKubernetesName,
-} from '../../dist/lib/resourceNaming.js';
-import type { KubernetesResource } from '../../dist/lib/resourceNaming.js';
+} from '../../dist/lib/utils/resourceNaming.js';
+import type { KubernetesResource } from '../../dist/lib/utils/resourceNaming.js';
 
 describe('Resource Naming', () => {
   describe('getResourceName', () => {

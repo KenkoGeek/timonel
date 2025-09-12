@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import {
   generateHelpersTemplate,
   getDefaultHelpers,
@@ -7,8 +8,8 @@ import {
   AWS_HELPERS,
   AZURE_HELPERS,
   GCP_HELPERS,
-} from '../../dist/lib/helmHelpers.js';
-import type { HelperDefinition } from '../../dist/lib/helmHelpers.js';
+} from '../../dist/lib/utils/helmHelpers.js';
+import type { HelperDefinition } from '../../dist/lib/utils/helmHelpers.js';
 
 describe('Helm Helpers', () => {
   describe('STANDARD_HELPERS', () => {
