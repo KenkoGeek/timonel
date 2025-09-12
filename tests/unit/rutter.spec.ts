@@ -335,4 +335,63 @@ describe('Rutter', () => {
       );
     });
   });
+
+  describe('error handling', () => {
+    it('should handle write errors gracefully', () => {
+      mockFs.writeFileSync.mockImplementation(() => {
+        throw new Error('Permission denied');
+      });
+
+      const rutter = new Rutter({
+        meta: { name: 'error-test', version: '1.0.0' },
+      });
+
+      const validPath = path.join(process.cwd(), 'test-output');
+      expect(() => rutter.write(validPath)).toThrow('Permission denied');
+    });
+
+    it('should handle directory creation errors', () => {
+      mockFs.mkdirSync.mockImplementation(() => {
+        throw new Error('Cannot create directory');
+      });
+
+      const rutter = new Rutter({
+        meta: { name: 'error-test', version: '1.0.0' },
+      });
+
+      const validPath = path.join(process.cwd(), 'test-output');
+      expect(() => rutter.write(validPath)).toThrow('Cannot create directory');
+    });
+
+    it('should handle invalid chart metadata', () => {
+      expect(() => {
+        new Rutter({
+          meta: { name: '', version: '1.0.0' }, // Empty name
+        });
+      }).toThrow();
+    });
+
+    it('should handle filesystem errors during template writing', () => {
+      const rutter = new Rutter({
+        meta: { name: 'test-app', version: '1.0.0' },
+      });
+
+      rutter.addDeployment({
+        name: 'test-deployment',
+        image: 'nginx:1.27',
+        replicas: 1,
+        containerPort: 80,
+      });
+
+      // Mock specific file write to fail
+      mockFs.writeFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('deployment')) {
+          throw new Error('Disk full');
+        }
+      });
+
+      const validPath = path.join(process.cwd(), 'test-output');
+      expect(() => rutter.write(validPath)).toThrow('Disk full');
+    });
+  });
 });
