@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build project
+        run: pnpm build
+
       - name: Run type checking
         run: pnpm typecheck
 
@@ -122,6 +125,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build project
+        run: pnpm build
+
       - name: Run ESLint
         run: pnpm lint
 
@@ -150,6 +156,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build project
+        run: pnpm build
 
       - name: Run security audit
         run: pnpm security:audit
