@@ -78,7 +78,7 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: '1.29.0'
+          version: 'latest'
 
       - name: Install kubeconform
         run: |
