@@ -324,7 +324,7 @@ enabled: false
       helpers.forEach(helper => {
         expect(template).toContain(`{{- define "${helper.name}"`);
         // Each define should have corresponding content
-        expect(template).toMatch(new RegExp(`{{-\\s*define\\s+"${helper.name}"`));
+        expect(template).toContain(`{{- define "${helper.name}"`);
       });
     });
 
