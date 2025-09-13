@@ -32,12 +32,38 @@ export interface ACMEDNS01Config {
   /** DNS provider configuration */
   route53?: {
     /** AWS region for Route53 */
+  /** DNS provider configuration */
+  route53?: {
+    /** AWS region for Route53 */
     region: string;
-    /** Hosted zone ID */
+    /** Hosted zone ID (must start with 'Z') */
     hostedZoneID?: string;
-    /** IAM role ARN for Route53 access */
+    /** IAM role ARN (must be a valid ARN format) */
     role?: string;
     /** Access key ID secret reference */
+    accessKeyID?: {
+      name: string;
+      key: string;
+    };
+    /** Secret access key secret reference */
+    secretAccessKey?: {
+      name: string;
+      key: string;
+    };
+    /** Validate inputs */
+    validate(): boolean {
+      if (this.region && !/^[a-z]{2}-[a-z]+-\d{1}$/.test(this.region)) {
+        throw new Error('Invalid AWS region format');
+      }
+      if (this.hostedZoneID && !/^Z[A-Z0-9]+$/.test(this.hostedZoneID)) {
+        throw new Error('Invalid hosted zone ID format');
+      }
+      if (this.role && !/^arn:aws:iam::\d{12}:role\/[\w+=,.@-]+$/.test(this.role)) {
+        throw new Error('Invalid IAM role ARN format');
+      }
+      return true;
+    }
+  };
     accessKeyID?: {
       name: string;
       key: string;
