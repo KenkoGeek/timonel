@@ -1,3 +1,9 @@
+# [2.8.0-beta.2](https://github.com/KenkoGeek/timonel/compare/v2.8.0-beta.1...v2.8.0-beta.2) (2025-09-13)
+
+### Bug Fixes
+
+- **core:** addIngress already normalized with NGINX best practices ([33fd0ae](https://github.com/KenkoGeek/timonel/commit/33fd0aee20db1c65a92bf36cbdc683b7028c80f8))
+
 # [2.8.0-beta.1](https://github.com/KenkoGeek/timonel/compare/v2.7.3...v2.8.0-beta.1) (2025-09-13)
 
 ### Bug Fixes
