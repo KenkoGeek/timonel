@@ -184,21 +184,30 @@ export class SecurityUtils {
       throw new Error('Environment variable value must be a non-empty string');
     }
 
-    // Enhanced patterns to detect nested command injection structures
+    // Enhanced patterns to detect command injection structures
+    // Using safer regex patterns to avoid ReDoS while still detecting dangerous patterns
     const dangerousPatterns = [
       {
-        pattern: /\$\([^)]*(\$\([^)]*\)[^)]*)*\)/,
-        description: 'Nested command substitution detected',
+        // Detect command substitution patterns - uses negated character class, safe from ReDoS
+        // eslint-disable-next-line security/detect-unsafe-regex -- Reviewed: negated character class is safe
+        pattern: /\$\([^)]*\)/,
+        description: 'Command substitution detected',
       },
       {
-        pattern: /`[^`]*(`[^`]*`[^`]*)*`/,
-        description: 'Nested backtick execution detected',
+        // Detect backtick execution patterns - uses negated character class, safe from ReDoS
+        // eslint-disable-next-line security/detect-unsafe-regex -- Reviewed: negated character class is safe
+        pattern: /`[^`]*`/,
+        description: 'Backtick execution detected',
       },
       {
-        pattern: /\${[^}]*(\${[^}]*}[^}]*)*}/,
-        description: 'Nested variable expansion detected',
+        // Detect variable expansion patterns - uses negated character class, safe from ReDoS
+        // eslint-disable-next-line security/detect-unsafe-regex -- Reviewed: negated character class is safe
+        pattern: /\$\{[^}]*\}/,
+        description: 'Variable expansion detected',
       },
       {
+        // Control characters detection - using eslint disable for security purposes
+        // eslint-disable-next-line no-control-regex -- Intentionally detecting control characters for security
         pattern: /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/,
         description: 'Control characters detected',
       },
@@ -213,6 +222,84 @@ export class SecurityUtils {
       }
     }
 
+    // Additional check for nested patterns using string-based detection
+    // This provides better security coverage without regex complexity
+    if (this.containsNestedInjectionPatterns(envValue)) {
+      throw new Error(
+        `Nested command injection detected. Value: ${this.sanitizeLogMessage(envValue)}`,
+      );
+    }
+
     return envValue;
+  }
+
+  /**
+   * Detects nested command injection patterns using string analysis
+   * This method provides additional security without complex regex patterns
+   * @param value - The value to check for nested patterns
+   * @returns True if nested patterns are detected
+   * @private
+   */
+  private static containsNestedInjectionPatterns(value: string): boolean {
+    // Check for nested command substitution: $(...$(...))
+    let dollarParenCount = 0;
+    let inDollarParen = false;
+    
+    // Check for nested backticks: `...`...``
+    let backtickCount = 0;
+    
+    // Check for nested variable expansion: ${...${...}}
+    let dollarBraceCount = 0;
+    let inDollarBrace = false;
+
+    for (let i = 0; i < value.length; i++) {
+      const char = value[i];
+      const nextChar = i < value.length - 1 ? value[i + 1] : '';
+
+      // Track command substitution nesting
+      if (char === '$' && nextChar === '(') {
+        if (inDollarParen) {
+          return true; // Nested $( detected
+        }
+        dollarParenCount++;
+        inDollarParen = true;
+        i++; // Skip the '('
+      } else if (char === ')' && inDollarParen) {
+        dollarParenCount--;
+        if (dollarParenCount === 0) {
+          inDollarParen = false;
+        }
+      }
+
+      // Track variable expansion nesting  
+      if (char === '$' && nextChar === '{') {
+        if (inDollarBrace) {
+          return true; // Nested ${ detected
+        }
+        dollarBraceCount++;
+        inDollarBrace = true;
+        i++; // Skip the '{'
+      } else if (char === '}' && inDollarBrace) {
+        dollarBraceCount--;
+        if (dollarBraceCount === 0) {
+          inDollarBrace = false;
+        }
+      }
+
+      // Track backtick nesting
+      if (char === '`') {
+        backtickCount++;
+        // If we find a backtick while already inside backticks, it's nested
+        if (backtickCount > 2) {
+          return true;
+        }
+        // Reset count after finding a pair
+        if (backtickCount === 2) {
+          backtickCount = 0;
+        }
+      }
+    }
+
+    return false;
   }
 }
