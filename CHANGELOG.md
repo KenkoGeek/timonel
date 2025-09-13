@@ -1,3 +1,13 @@
+## [Unreleased]
+
+### Security
+
+- **security:** expand dangerous image tags list for better security ([#43](https://github.com/KenkoGeek/timonel/issues/43))
+  - Added `validateImageTag` function to SecurityUtils class
+  - Expanded dangerous tags list to include: `unstable`, `nightly`, `edge`, `canary`, `current`, `snapshot`
+  - Enhanced security posture against supply chain attacks through mutable tag usage
+  - Added comprehensive test coverage for image tag validation
+
 ## [2.5.1](https://github.com/KenkoGeek/timonel/compare/v2.5.0...v2.5.1) (2025-09-12)
 
 ### Bug Fixes

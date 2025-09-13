@@ -157,4 +157,41 @@ export class SecurityUtils {
   static isValidSubchartName(subchartName: string): boolean {
     return this.isValidChartName(subchartName);
   }
+
+  /**
+   * Validates image tags to prevent use of dangerous/mutable tags
+   * @param imageTag - Image tag to validate
+   * @returns True if image tag is safe to use
+   * @throws Error if image tag is dangerous or invalid
+   *
+   * @since 2.2.0
+   */
+  static validateImageTag(imageTag: string): boolean {
+    if (!imageTag || typeof imageTag !== 'string') {
+      throw new Error('Image tag must be a non-empty string');
+    }
+
+    // List of dangerous/mutable tags that pose security risks
+    const dangerousTags = [
+      'latest', 'master', 'main', 'dev', 'development', 'test', 'staging',
+      'unstable', 'nightly', 'edge', 'canary', 'current', 'snapshot'
+    ];
+
+    const normalizedTag = imageTag.trim().toLowerCase();
+
+    if (dangerousTags.includes(normalizedTag)) {
+      throw new Error(
+        `Dangerous image tag detected: "${imageTag}". ` +
+        `Mutable tags like "${normalizedTag}" pose security risks. ` +
+        'Use specific version tags (e.g., "1.2.3", "v1.2.3", "sha256:abc123") instead.'
+      );
+    }
+
+    // Additional validation for empty or whitespace-only tags
+    if (normalizedTag.length === 0) {
+      throw new Error('Image tag cannot be empty or whitespace-only');
+    }
+
+    return true;
+  }
 }
