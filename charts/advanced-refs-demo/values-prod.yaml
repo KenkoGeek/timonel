@@ -1,0 +1,8 @@
+replicas: 5
+database:
+  enabled: true
+  host: prod-db.example.com
+features:
+  monitoring:
+    enabled: true
+    endpoint: http://prod-prometheus:9090
