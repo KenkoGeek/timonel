@@ -157,4 +157,62 @@ export class SecurityUtils {
   static isValidSubchartName(subchartName: string): boolean {
     return this.isValidChartName(subchartName);
   }
+
+  /**
+   * Sanitizes environment variable values to prevent command injection attacks (CWE-78)
+   * Detects nested command substitution, backtick execution, and variable expansion patterns
+   * @param envValue - Environment variable value to sanitize
+   * @returns Sanitized environment variable value
+   * @throws Error if dangerous command injection patterns are detected
+   *
+   * @example
+   * ```typescript
+   * // Safe values pass through unchanged
+   * SecurityUtils.sanitizeEnvVar('production'); // Returns: 'production'
+   * SecurityUtils.sanitizeEnvVar('app-v1.2.3'); // Returns: 'app-v1.2.3'
+   * 
+   * // Dangerous patterns throw errors
+   * SecurityUtils.sanitizeEnvVar('$(whoami)'); // Throws: Command injection detected
+   * SecurityUtils.sanitizeEnvVar('`cat /etc/passwd`'); // Throws: Command injection detected
+   * SecurityUtils.sanitizeEnvVar('$(echo $(id))'); // Throws: Nested command injection detected
+   * ```
+   *
+   * @since 2.2.0
+   */
+  static sanitizeEnvVar(envValue: string): string {
+    if (!envValue || typeof envValue !== 'string') {
+      throw new Error('Environment variable value must be a non-empty string');
+    }
+
+    // Enhanced patterns to detect nested command injection structures
+    const dangerousPatterns = [
+      {
+        pattern: /\$\([^)]*(\$\([^)]*\)[^)]*)*\)/,
+        description: 'Nested command substitution detected',
+      },
+      {
+        pattern: /`[^`]*(`[^`]*`[^`]*)*`/,
+        description: 'Nested backtick execution detected',
+      },
+      {
+        pattern: /\${[^}]*(\${[^}]*}[^}]*)*}/,
+        description: 'Nested variable expansion detected',
+      },
+      {
+        pattern: /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/,
+        description: 'Control characters detected',
+      },
+    ];
+
+    // Check for dangerous patterns
+    for (const { pattern, description } of dangerousPatterns) {
+      if (pattern.test(envValue)) {
+        throw new Error(
+          `Command injection detected: ${description}. Value: ${this.sanitizeLogMessage(envValue)}`,
+        );
+      }
+    }
+
+    return envValue;
+  }
 }
