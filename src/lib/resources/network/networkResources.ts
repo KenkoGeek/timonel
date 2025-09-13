@@ -340,30 +340,32 @@ export class NetworkResources extends BaseResourceProvider {
   }
 
   /**
-   * Validates hostname format (supports wildcards)
+   * Validates hostname format (supports wildcards) with ReDoS protection
    * @param hostname - Hostname to validate
    * @returns True if hostname is valid
    * @since 2.8.0
    */
   private isValidHostname(hostname: string): boolean {
-    if (!hostname || hostname.length === 0) {
+    if (!hostname || hostname.length === 0 || hostname.length > 253) {
       return false;
     }
 
-    // Allow wildcard patterns like *.example.com
-    // This regex is safe as it only matches specific DNS patterns
-    const wildcardRegex =
-      // eslint-disable-next-line security/detect-unsafe-regex
-      /^\*\.(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i;
+    // Split hostname into parts and validate each part
+    const parts = hostname.split('.');
+    if (parts.length < 2) return false;
+
+    // Handle wildcard
     if (hostname.startsWith('*.')) {
-      return wildcardRegex.test(hostname);
+      parts.shift(); // Remove wildcard part
+      if (parts.length < 2) return false; // Must have at least two parts after wildcard
     }
 
-    // Standard hostname validation - safe regex for DNS names
-    const hostnameRegex =
-      // eslint-disable-next-line security/detect-unsafe-regex
-      /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i;
-    return hostnameRegex.test(hostname) && hostname.length <= 253;
+    // Validate each part
+    return parts.every((part) => {
+      if (part.length === 0 || part.length > 63) return false;
+      if (part.startsWith('-') || part.endsWith('-')) return false;
+      return /^[a-z0-9-]+$/i.test(part);
+    });
   }
 
   /**
@@ -390,12 +392,13 @@ export class NetworkResources extends BaseResourceProvider {
 
     // Add security headers for production environments
     if (spec.environment === 'production' || spec.requireTLS) {
-      // NGINX security headers
+      // NGINX security headers with CSP
       annotations['nginx.ingress.kubernetes.io/configuration-snippet'] = `
         more_set_headers "X-Frame-Options: DENY";
         more_set_headers "X-Content-Type-Options: nosniff";
         more_set_headers "X-XSS-Protection: 1; mode=block";
         more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+        more_set_headers "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';";
       `.trim();
     }
 

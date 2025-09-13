@@ -430,6 +430,199 @@ describe('Ingress TLS Security Validation', () => {
     });
   });
 
+  describe('hostname validation edge cases', () => {
+    it('should handle hostname edge cases correctly', () => {
+      const maxLengthHostname = 'a'.repeat(63) + '.example.com';
+      const maxLengthLabel = 'a'.repeat(64); // Too long
+      const invalidWildcard = 'foo.*.example.com';
+
+      // Valid max length hostname
+      expect(() =>
+        networkResources.addSecureIngress({
+          name: 'edge-case-ingress',
+          environment: 'production',
+          tls: [
+            {
+              hosts: [maxLengthHostname],
+              secretName: 'tls-secret',
+            },
+          ],
+          rules: [
+            {
+              host: maxLengthHostname,
+              http: {
+                paths: [
+                  {
+                    path: '/',
+                    pathType: 'Prefix',
+                    backend: {
+                      service: { name: 'web', port: { number: 80 } },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ).not.toThrow();
+
+      // Invalid max length label
+      expect(() =>
+        networkResources.addSecureIngress({
+          name: 'invalid-label-ingress',
+          environment: 'production',
+          tls: [
+            {
+              hosts: [maxLengthLabel + '.example.com'],
+              secretName: 'tls-secret',
+            },
+          ],
+          rules: [
+            {
+              host: maxLengthLabel + '.example.com',
+              http: {
+                paths: [
+                  {
+                    path: '/',
+                    pathType: 'Prefix',
+                    backend: {
+                      service: { name: 'web', port: { number: 80 } },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ).toThrow('Invalid hostname');
+
+      // Invalid wildcard pattern
+      expect(() =>
+        networkResources.addSecureIngress({
+          name: 'invalid-wildcard-ingress',
+          environment: 'production',
+          tls: [
+            {
+              hosts: [invalidWildcard],
+              secretName: 'tls-secret',
+            },
+          ],
+          rules: [
+            {
+              host: invalidWildcard,
+              http: {
+                paths: [
+                  {
+                    path: '/',
+                    pathType: 'Prefix',
+                    backend: {
+                      service: { name: 'web', port: { number: 80 } },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ).toThrow('Invalid hostname');
+    });
+
+    it('should validate hostname length limits', () => {
+      const tooLongHostname = 'a'.repeat(254); // Exceeds 253 character limit
+
+      expect(() =>
+        networkResources.addSecureIngress({
+          name: 'too-long-hostname',
+          environment: 'production',
+          tls: [
+            {
+              hosts: [tooLongHostname],
+              secretName: 'tls-secret',
+            },
+          ],
+          rules: [
+            {
+              host: tooLongHostname,
+              http: {
+                paths: [
+                  {
+                    path: '/',
+                    pathType: 'Prefix',
+                    backend: {
+                      service: { name: 'web', port: { number: 80 } },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ).toThrow('Invalid hostname');
+    });
+
+    it('should validate wildcard patterns correctly', () => {
+      // Valid wildcard
+      expect(() =>
+        networkResources.addSecureIngress({
+          name: 'valid-wildcard',
+          environment: 'production',
+          tls: [
+            {
+              hosts: ['*.valid.example.com'],
+              secretName: 'tls-secret',
+            },
+          ],
+          rules: [
+            {
+              host: '*.valid.example.com',
+              http: {
+                paths: [
+                  {
+                    path: '/',
+                    pathType: 'Prefix',
+                    backend: {
+                      service: { name: 'web', port: { number: 80 } },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ).not.toThrow();
+
+      // Invalid wildcard (not at start)
+      expect(() =>
+        networkResources.addSecureIngress({
+          name: 'invalid-wildcard-position',
+          environment: 'production',
+          tls: [
+            {
+              hosts: ['sub.*.example.com'],
+              secretName: 'tls-secret',
+            },
+          ],
+          rules: [
+            {
+              host: 'sub.*.example.com',
+              http: {
+                paths: [
+                  {
+                    path: '/',
+                    pathType: 'Prefix',
+                    backend: {
+                      service: { name: 'web', port: { number: 80 } },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ).toThrow('Invalid hostname');
+    });
+  });
+
   describe('TLS host validation', () => {
     it('should warn when rule hosts are not covered by TLS', () => {
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
