@@ -48,7 +48,7 @@ export class AWSResources extends BaseResourceProvider {
       volumeBindingMode: spec.volumeBindingMode ?? 'WaitForFirstConsumer',
     };
 
-    // Validate required provisioner is present
+    // Validate EBS-specific provisioner
     this.validateStorageClassProvisioner(storageClassSpec.provisioner, 'EBS');
 
     return this.createApiObject(
@@ -94,7 +94,7 @@ export class AWSResources extends BaseResourceProvider {
       volumeBindingMode: spec.volumeBindingMode ?? 'Immediate',
     };
 
-    // Validate required provisioner is present
+    // Validate EFS-specific provisioner
     this.validateStorageClassProvisioner(storageClassSpec.provisioner, 'EFS');
 
     return this.createApiObject(
@@ -173,9 +173,18 @@ export class AWSResources extends BaseResourceProvider {
 
     const annotations = this.buildALBAnnotations(spec);
 
+    // Transform rules to correct networking.k8s.io/v1 format with http wrapper
+    const transformedRules = spec.rules.map((rule) => ({
+      ...(rule.host ? { host: rule.host } : {}),
+      http: {
+        paths: rule.paths,
+      },
+    }));
+
     const ingressSpec = {
-      ...(spec.ingressClassName ? { ingressClassName: spec.ingressClassName } : {}),
-      rules: spec.rules,
+      // Use ingressClassName instead of deprecated annotation
+      ingressClassName: spec.ingressClassName ?? 'alb',
+      rules: transformedRules,
       ...(spec.tls ? { tls: spec.tls } : {}),
     };
 
@@ -266,8 +275,16 @@ export class AWSResources extends BaseResourceProvider {
       throw new Error('Ingress path must be a non-empty string');
     }
 
-    if (!path.startsWith('/')) {
+    // Normalize path and check for traversal attempts
+    const normalizedPath = path.replace(/\/+/g, '/');
+    if (!normalizedPath.startsWith('/')) {
       throw new Error(`Ingress path "${path}" must start with /`);
+    }
+
+    // For Kubernetes Ingress paths, we allow URL patterns but warn about suspicious ones
+    if (normalizedPath.includes('../') || normalizedPath.includes('./')) {
+      // Note: These could be valid URL patterns in some cases, but are suspicious
+      console.warn(`Warning: Ingress path "${path}" contains path traversal-like sequences`);
     }
   }
 
@@ -324,11 +341,20 @@ export class AWSResources extends BaseResourceProvider {
       throw new Error(`${storageType} StorageClass must have a valid provisioner`);
     }
 
-    // Validate AWS CSI provisioner format
-    const validProvisioners = ['ebs.csi.aws.com', 'efs.csi.aws.com'];
-    if (!validProvisioners.includes(provisioner)) {
+    const validProvisioners = {
+      EBS: 'ebs.csi.aws.com',
+      EFS: 'efs.csi.aws.com',
+    };
+
+    // Validate provisioner matches storage type
+    const expectedProvisioner = validProvisioners[storageType as keyof typeof validProvisioners];
+    if (!expectedProvisioner) {
+      throw new Error(`Invalid storage type: ${storageType}`);
+    }
+
+    if (provisioner !== expectedProvisioner) {
       throw new Error(
-        `Invalid AWS ${storageType} provisioner "${provisioner}". Must be one of: ${validProvisioners.join(', ')}`,
+        `Invalid AWS ${storageType} provisioner "${provisioner}". Must be: ${expectedProvisioner}`,
       );
     }
   }
@@ -356,7 +382,8 @@ export class AWSResources extends BaseResourceProvider {
    */
   private buildALBAnnotations(spec: AWSALBIngressSpec): Record<string, string> {
     const annotations: Record<string, string> = {
-      'kubernetes.io/ingress.class': 'alb',
+      // Remove deprecated kubernetes.io/ingress.class annotation
+      // Use spec.ingressClassName instead
       ...(spec.annotations ?? {}),
     };
 

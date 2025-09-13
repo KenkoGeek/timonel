@@ -679,11 +679,12 @@ export class Rutter {
    */
   addCrd(yamlOrObject: string | Record<string, unknown>, id = 'crd'): void {
     let yaml: string;
+    let crdObject: Record<string, unknown>;
 
     if (typeof yamlOrObject === 'string') {
       // Validate YAML string
       try {
-        YAML.parse(yamlOrObject);
+        crdObject = YAML.parse(yamlOrObject) as Record<string, unknown>;
         yaml = yamlOrObject.trim();
       } catch (error) {
         throw new Error(
@@ -691,7 +692,8 @@ export class Rutter {
         );
       }
     } else if (typeof yamlOrObject === 'object' && yamlOrObject !== null) {
-      // Convert object to YAML
+      // Use object directly and convert to YAML
+      crdObject = yamlOrObject;
       try {
         yaml = YAML.stringify(yamlOrObject).trim();
       } catch (error) {
@@ -708,7 +710,48 @@ export class Rutter {
       throw new Error('addCrd() received empty or invalid content');
     }
 
+    // Validate CRD structure
+    this.validateCrdStructure(crdObject);
+
     this.assets.push({ id, yaml, target: 'crds' });
+  }
+
+  /**
+   * Validates CRD structure according to Kubernetes specification
+   * @param crd - CRD object to validate
+   * @private
+   * @since 2.5.0
+   */
+  private validateCrdStructure(crd: Record<string, unknown>): void {
+    if (crd['apiVersion'] !== 'apiextensions.k8s.io/v1') {
+      throw new Error('CRD must use apiVersion: apiextensions.k8s.io/v1');
+    }
+
+    if (crd['kind'] !== 'CustomResourceDefinition') {
+      throw new Error('CRD must have kind: CustomResourceDefinition');
+    }
+
+    if (!crd['metadata'] || typeof crd['metadata'] !== 'object' || crd['metadata'] === null) {
+      throw new Error('CRD must have a metadata object');
+    }
+
+    const metadata = crd['metadata'] as Record<string, unknown>;
+    if (!metadata['name'] || typeof metadata['name'] !== 'string') {
+      throw new Error('CRD must have a valid metadata.name');
+    }
+
+    if (!crd['spec'] || typeof crd['spec'] !== 'object' || crd['spec'] === null) {
+      throw new Error('CRD must have a spec object');
+    }
+
+    const spec = crd['spec'] as Record<string, unknown>;
+    if (!spec['group'] || typeof spec['group'] !== 'string') {
+      throw new Error('CRD must have a valid spec.group');
+    }
+
+    if (!Array.isArray(spec['versions']) || spec['versions'].length === 0) {
+      throw new Error('CRD must have at least one version in spec.versions');
+    }
   }
 
   /**

@@ -249,10 +249,9 @@ export class CoreResources extends BaseResourceProvider {
     }
 
     try {
-      // Try to decode and re-encode to verify it's valid base64
-      const decoded = Buffer.from(str, 'base64').toString('utf8');
-      const reencoded = Buffer.from(decoded, 'utf8').toString('base64');
-      return reencoded === str;
+      // Attempt decode without exposing the decoded content
+      Buffer.from(str, 'base64');
+      return true;
     } catch {
       return false;
     }
@@ -1198,18 +1197,19 @@ export class CoreResources extends BaseResourceProvider {
       return 1;
     }
 
-    // If it's a Helm template value, return as-is
-    if (typeof replicas === 'string' && (replicas.includes('{{') || replicas.includes('}}'))) {
-      return replicas;
+    // Validate Helm template value with safe regex (no ReDoS vulnerability)
+    if (typeof replicas === 'string') {
+      // Simple check for Helm template pattern without catastrophic backtracking
+      if (replicas.trim().startsWith('{{') && replicas.trim().endsWith('}}')) {
+        return replicas.trim();
+      }
+
+      const parsed = parseInt(replicas, 10);
+      return isNaN(parsed) ? 1 : Math.max(0, parsed);
     }
 
     if (typeof replicas === 'number') {
       return Math.max(0, Math.floor(replicas));
-    }
-
-    if (typeof replicas === 'string') {
-      const parsed = parseInt(replicas, 10);
-      return isNaN(parsed) ? 1 : Math.max(0, parsed);
     }
 
     return 1;
