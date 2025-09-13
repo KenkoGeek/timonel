@@ -1,0 +1,19 @@
+# VCS
+.git/
+.hg/
+.svn/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# Backups
+*.swp
+*.bak
+*.tmp
+*.orig
+
+# Chart dependencies and packages
+charts/
+*.tgz

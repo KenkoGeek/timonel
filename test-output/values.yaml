@@ -1,0 +1,21 @@
+app:
+  name: web-app
+  image:
+    repository: nginx
+    tag: 1.27-alpine
+    pullPolicy: IfNotPresent
+  replicas: 2
+  port: 80
+ingress:
+  enabled: true
+  className: nginx
+  host: example.com
+  additionalHosts:
+    - www.example.com
+  tls:
+    enabled: true
+    clusterIssuer: letsencrypt-prod
+certManager:
+  enabled: true
+  email: admin@example.com
+  staging: false
