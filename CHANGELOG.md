@@ -1,3 +1,9 @@
+## [2.7.1](https://github.com/KenkoGeek/timonel/compare/v2.7.0...v2.7.1) (2025-09-13)
+
+### Bug Fixes
+
+- **core:** TypeScript interfaces for GCP Artifact Registry and Karpenter helpers ([#72](https://github.com/KenkoGeek/timonel/issues/72)) ([b91d270](https://github.com/KenkoGeek/timonel/commit/b91d270c7662327861d8f1216966dd00677c857b))
+
 # [2.7.0](https://github.com/KenkoGeek/timonel/compare/v2.6.2...v2.7.0) (2025-09-13)
 
 ### Features
