@@ -987,7 +987,7 @@ export class Rutter {
   }
 
   /**
-   * Creates an Ingress resource
+   * Creates an Ingress resource with optional TLS validation
    * @param spec - Ingress specification
    * @returns Created Ingress ApiObject
    *
@@ -1010,10 +1010,48 @@ export class Rutter {
    * });
    * ```
    *
+   * @deprecated Use addSecureIngress for enhanced security validation
    * @since 2.7.0
    */
   addIngress(spec: IngressSpec): ApiObject {
     return this.networkResources.addIngress(spec);
+  }
+
+  /**
+   * Creates a secure Ingress resource with TLS validation and environment-aware security defaults
+   * @param spec - Enhanced Ingress specification with security options
+   * @returns Created Ingress ApiObject
+   *
+   * @example
+   * ```typescript
+   * // Production Ingress with mandatory TLS
+   * rutter.addSecureIngress({
+   *   name: 'secure-web-ingress',
+   *   environment: 'production',
+   *   tls: [{
+   *     hosts: ['secure.example.com'],
+   *     secretName: 'secure-example-tls'
+   *   }],
+   *   forceSSLRedirect: true,
+   *   rules: [{
+   *     host: 'secure.example.com',
+   *     http: {
+   *       paths: [{
+   *         path: '/',
+   *         pathType: 'Prefix',
+   *         backend: {
+   *           service: { name: 'web-service', port: { number: 80 } }
+   *         }
+   *       }]
+   *     }
+   *   }]
+   * });
+   * ```
+   *
+   * @since 2.8.0
+   */
+  addSecureIngress(spec: IngressSpec): ApiObject {
+    return this.networkResources.addSecureIngress(spec);
   }
 
   // AWS ECR ServiceAccount

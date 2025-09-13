@@ -61,7 +61,12 @@ export type {
   CronJobSpec,
 } from './lib/resources/autoscaling/autoscalingResources.js';
 
-export type { NetworkPolicySpec, IngressSpec } from './lib/resources/network/networkResources.js';
+export type {
+  NetworkPolicySpec,
+  IngressSpec,
+  IngressTLSConfig,
+  IngressEnvironment,
+} from './lib/resources/network/networkResources.js';
 
 export type {
   KarpenterNodePoolSpec,
