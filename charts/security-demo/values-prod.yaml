@@ -1,0 +1,6 @@
+replicas: 3
+app:
+  environment: production
+  logLevel: warn
+monitoring:
+  endpoint: https://prod-prometheus.example.com/metrics

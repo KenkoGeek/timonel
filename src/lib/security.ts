@@ -157,4 +157,236 @@ export class SecurityUtils {
   static isValidSubchartName(subchartName: string): boolean {
     return this.isValidChartName(subchartName);
   }
+
+  /**
+   * Sanitizes environment variable names and values for Kubernetes security
+   * Prevents injection attacks and ensures compliance with Kubernetes naming rules
+   * @param name - Environment variable name to sanitize
+   * @param value - Environment variable value to sanitize
+   * @returns Object with sanitized name and value
+   * @throws Error if name or value contains dangerous patterns
+   *
+   * @since 2.6.0
+   */
+  static sanitizeEnvVar(name: string, value: string): { name: string; value: string } {
+    if (!name || typeof name !== 'string') {
+      throw new Error('Environment variable name must be a non-empty string');
+    }
+
+    if (typeof value !== 'string') {
+      throw new Error('Environment variable value must be a string');
+    }
+
+    // Kubernetes env var name validation (RFC 1123 compatible)
+    let sanitizedName = name.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+
+    // Ensure name starts with letter or underscore
+    if (/^[0-9]/.test(sanitizedName)) {
+      sanitizedName = `_${sanitizedName}`;
+    }
+
+    const nameRegex = /^[A-Z_][A-Z0-9_]*$/;
+    if (!nameRegex.test(sanitizedName)) {
+      throw new Error(`Invalid environment variable name: ${this.sanitizeLogMessage(name)}`);
+    }
+
+    // Check for dangerous patterns in value
+    const dangerousPatterns = [
+      /\$\([^)]*\)/, // Command substitution
+      /`[^`]*`/, // Backtick command execution
+      /\${[^}]*}/, // Variable expansion that could be dangerous
+      // eslint-disable-next-line no-control-regex -- Intentionally checking for control characters for security
+      /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/, // Control characters
+    ];
+
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(value)) {
+        throw new Error(
+          `Environment variable value contains dangerous pattern: ${this.sanitizeLogMessage(value)}`,
+        );
+      }
+    }
+
+    // Limit value length to prevent DoS
+    if (value.length > 32768) {
+      throw new Error('Environment variable value exceeds maximum length (32KB)');
+    }
+
+    return {
+      name: sanitizedName,
+      value: value.trim(),
+    };
+  }
+
+  /**
+   * Validates container image tags for security best practices
+   * Prevents use of dangerous tags and ensures proper versioning
+   * @param tag - Image tag to validate
+   * @returns True if tag is valid and secure
+   * @throws Error if tag violates security policies
+   *
+   * @since 2.6.0
+   */
+  static validateImageTag(tag: string): boolean {
+    if (!tag || typeof tag !== 'string') {
+      throw new Error('Image tag must be a non-empty string');
+    }
+
+    const trimmedTag = tag.trim();
+
+    // Reject dangerous or non-specific tags
+    const dangerousTags = ['latest', 'master', 'main', 'dev', 'development', 'test', 'staging'];
+    if (dangerousTags.includes(trimmedTag.toLowerCase())) {
+      throw new Error(
+        `Insecure image tag detected: '${trimmedTag}'. Use specific version tags for security.`,
+      );
+    }
+
+    // Validate tag format (Docker tag rules)
+    const tagRegex = /^[a-zA-Z0-9._-]+$/;
+    if (!tagRegex.test(trimmedTag)) {
+      throw new Error(`Invalid image tag format: ${this.sanitizeLogMessage(trimmedTag)}`);
+    }
+
+    // Check length limits
+    if (trimmedTag.length > 128) {
+      throw new Error('Image tag exceeds maximum length (128 characters)');
+    }
+
+    // Prefer semantic versioning patterns
+    // eslint-disable-next-line security/detect-unsafe-regex -- Simple regex patterns are safe for validation
+    const semverPattern = /^v?\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/;
+    const hashPattern = /^[a-f0-9]{7,64}$/;
+    // eslint-disable-next-line security/detect-unsafe-regex -- Simple date pattern is safe for validation
+    const datePattern = /^\d{4}-\d{2}-\d{2}(-[a-zA-Z0-9.-]+)?$/;
+
+    if (
+      !semverPattern.test(trimmedTag) &&
+      !hashPattern.test(trimmedTag) &&
+      !datePattern.test(trimmedTag)
+    ) {
+      // Warning for non-standard tags but don't fail
+      console.warn(
+        `Warning: Image tag '${trimmedTag}' doesn't follow recommended patterns (semver, hash, or date)`,
+      );
+    }
+
+    return true;
+  }
+
+  /**
+   * Generates secure names for Kubernetes secrets
+   * Ensures names follow RFC 1123 and are safe for Kubernetes
+   * @param baseName - Base name for the secret
+   * @param suffix - Optional suffix to append
+   * @returns Secure secret name
+   * @throws Error if generated name is invalid
+   *
+   * @since 2.6.0
+   */
+  static generateSecretName(baseName: string, suffix?: string): string {
+    if (!baseName || typeof baseName !== 'string') {
+      throw new Error('Base name must be a non-empty string');
+    }
+
+    let sanitizedBase = this.sanitizeBaseName(baseName);
+
+    if (suffix) {
+      sanitizedBase = this.appendSuffix(sanitizedBase, suffix);
+    }
+
+    // Ensure name starts with letter (not number)
+    if (/^[0-9]/.test(sanitizedBase)) {
+      sanitizedBase = `s${sanitizedBase}`;
+    }
+
+    sanitizedBase = this.truncateIfNeeded(sanitizedBase, suffix);
+
+    // Final validation
+    if (!this.isValidChartName(sanitizedBase)) {
+      throw new Error(`Generated secret name is invalid: ${sanitizedBase}`);
+    }
+
+    return sanitizedBase;
+  }
+
+  /**
+   * Sanitizes the base name for secret generation
+   * @param baseName - Base name to sanitize
+   * @returns Sanitized base name
+   * @throws Error if no valid characters remain
+   *
+   * @since 2.6.0
+   */
+  private static sanitizeBaseName(baseName: string): string {
+    // Initial sanitization
+    let sanitized = baseName
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-') // Replace invalid chars with hyphens
+      .replace(/-+/g, '-'); // Collapse multiple hyphens
+
+    // Remove leading/trailing hyphens
+    sanitized = sanitized.replace(/^-+|-+$/g, '');
+
+    if (!sanitized) {
+      throw new Error('Base name contains no valid characters');
+    }
+
+    return sanitized;
+  }
+
+  /**
+   * Appends suffix to sanitized base name
+   * @param baseName - Sanitized base name
+   * @param suffix - Suffix to append
+   * @returns Base name with suffix
+   * @throws Error if suffix is invalid
+   *
+   * @since 2.6.0
+   */
+  private static appendSuffix(baseName: string, suffix: string): string {
+    if (typeof suffix !== 'string') {
+      throw new Error('Suffix must be a string');
+    }
+
+    const sanitizedSuffix = suffix
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-+/g, '-');
+
+    if (sanitizedSuffix) {
+      return `${baseName}-${sanitizedSuffix}`;
+    }
+
+    return baseName;
+  }
+
+  /**
+   * Truncates name if it exceeds length limits
+   * @param name - Name to potentially truncate
+   * @param suffix - Original suffix for preservation
+   * @returns Truncated name if needed
+   *
+   * @since 2.6.0
+   */
+  private static truncateIfNeeded(name: string, suffix?: string): string {
+    const maxLength = 63;
+
+    if (name.length <= maxLength) {
+      return name;
+    }
+
+    // Truncate but preserve suffix if possible
+    if (suffix) {
+      const suffixPart = `-${suffix.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
+      const maxBaseLength = maxLength - suffixPart.length;
+
+      if (maxBaseLength > 0) {
+        return name.substring(0, maxBaseLength) + suffixPart;
+      }
+    }
+
+    return name.substring(0, maxLength);
+  }
 }
