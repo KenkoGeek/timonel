@@ -40,3 +40,8 @@ export {
   type SecurityProfile,
   type WorkloadType,
 } from './lib/utils/podTemplates.js';
+
+// Re-export security utilities for direct access
+export {
+  SecurityUtils,
+} from './lib/security.js';

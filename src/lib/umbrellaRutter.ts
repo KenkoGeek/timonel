@@ -85,15 +85,13 @@ export class UmbrellaRutter {
   }
 
   private validateMetadata(meta: HelmChartMeta): void {
-    // Validate chart name follows Helm conventions
-    // eslint-disable-next-line security/detect-unsafe-regex -- Safe regex for chart name validation
-    if (!/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(meta.name)) {
+    // Validate chart name follows Helm conventions using centralized validation
+    if (!SecurityUtils.isValidChartName(meta.name)) {
       throw new Error('Chart name must contain only lowercase letters, numbers, and dashes');
     }
 
-    // Validate semantic versioning
-    // eslint-disable-next-line security/detect-unsafe-regex -- Safe regex for semver validation
-    if (!/^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/.test(meta.version)) {
+    // Validate semantic versioning using secure validation to prevent ReDoS
+    if (!SecurityUtils.validateImageTag(meta.version)) {
       throw new Error('Chart version must follow semantic versioning (e.g., 1.0.0)');
     }
   }
