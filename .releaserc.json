@@ -1,5 +1,11 @@
 {
-  "branches": ["main"],
+  "branches": [
+    {
+      "name": "main",
+      "prerelease": "beta"
+    },
+    "release"
+  ],
   "plugins": [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
