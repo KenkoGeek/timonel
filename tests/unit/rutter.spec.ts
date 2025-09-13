@@ -336,6 +336,149 @@ describe('Rutter', () => {
     });
   });
 
+  describe('addIngress', () => {
+    it('should create Ingress with basic configuration', () => {
+      const ingress = rutter.addIngress({
+        name: 'web-ingress',
+        rules: [
+          {
+            host: 'example.com',
+            http: {
+              paths: [
+                {
+                  path: '/',
+                  pathType: 'Prefix',
+                  backend: {
+                    service: { name: 'web-service', port: { number: 80 } },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+
+      expect(ingress).toBeDefined();
+      expect(ingress.kind).toBe('Ingress');
+    });
+
+    it('should create Ingress with TLS configuration', () => {
+      const ingress = rutter.addIngress({
+        name: 'secure-ingress',
+        tls: [
+          {
+            hosts: ['secure.example.com'],
+            secretName: 'secure-tls',
+          },
+        ],
+        rules: [
+          {
+            host: 'secure.example.com',
+            http: {
+              paths: [
+                {
+                  path: '/',
+                  pathType: 'Prefix',
+                  backend: {
+                    service: { name: 'web-service', port: { number: 80 } },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+
+      expect(ingress).toBeDefined();
+      expect(ingress.kind).toBe('Ingress');
+    });
+  });
+
+  describe('addSecureIngress', () => {
+    it('should create secure Ingress with production environment', () => {
+      const ingress = rutter.addSecureIngress({
+        name: 'production-ingress',
+        environment: 'production',
+        tls: [
+          {
+            hosts: ['prod.example.com'],
+            secretName: 'prod-tls',
+          },
+        ],
+        rules: [
+          {
+            host: 'prod.example.com',
+            http: {
+              paths: [
+                {
+                  path: '/',
+                  pathType: 'Prefix',
+                  backend: {
+                    service: { name: 'web-service', port: { number: 80 } },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+
+      expect(ingress).toBeDefined();
+      expect(ingress.kind).toBe('Ingress');
+    });
+
+    it('should throw error for production without TLS', () => {
+      expect(() =>
+        rutter.addSecureIngress({
+          name: 'insecure-production',
+          environment: 'production',
+          rules: [
+            {
+              host: 'example.com',
+              http: {
+                paths: [
+                  {
+                    path: '/',
+                    pathType: 'Prefix',
+                    backend: {
+                      service: { name: 'web-service', port: { number: 80 } },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ).toThrow('TLS configuration is required for production Ingress resources');
+    });
+
+    it('should create development Ingress without TLS', () => {
+      const ingress = rutter.addSecureIngress({
+        name: 'dev-ingress',
+        environment: 'development',
+        rules: [
+          {
+            host: 'dev.example.com',
+            http: {
+              paths: [
+                {
+                  path: '/',
+                  pathType: 'Prefix',
+                  backend: {
+                    service: { name: 'web-service', port: { number: 80 } },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+
+      expect(ingress).toBeDefined();
+      expect(ingress.kind).toBe('Ingress');
+    });
+  });
+
   describe('error handling', () => {
     it('should handle write errors gracefully', () => {
       mockFs.writeFileSync.mockImplementation(() => {

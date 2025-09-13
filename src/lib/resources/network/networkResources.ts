@@ -66,7 +66,24 @@ export interface NetworkPolicySpec {
 }
 
 /**
- * Ingress specification
+ * TLS configuration for Ingress
+ * @since 2.8.0
+ */
+export interface IngressTLSConfig {
+  /** Hosts covered by the TLS certificate */
+  hosts?: string[];
+  /** Name of the secret containing the TLS certificate and key */
+  secretName?: string;
+}
+
+/**
+ * Environment types for Ingress security validation
+ * @since 2.8.0
+ */
+export type IngressEnvironment = 'development' | 'staging' | 'production';
+
+/**
+ * Ingress specification with enhanced TLS validation and security defaults
  * @since 2.7.0
  */
 export interface IngressSpec {
@@ -74,11 +91,8 @@ export interface IngressSpec {
   name: string;
   /** Ingress class name */
   ingressClassName?: string;
-  /** TLS configuration */
-  tls?: Array<{
-    hosts?: string[];
-    secretName?: string;
-  }>;
+  /** TLS configuration with validation */
+  tls?: IngressTLSConfig[];
   /** Ingress rules */
   rules?: Array<{
     host?: string;
@@ -98,6 +112,12 @@ export interface IngressSpec {
       }>;
     };
   }>;
+  /** Environment for security validation (production requires TLS) */
+  environment?: IngressEnvironment;
+  /** Force TLS requirement regardless of environment */
+  requireTLS?: boolean;
+  /** Automatically redirect HTTP to HTTPS */
+  forceSSLRedirect?: boolean;
   /** Resource labels */
   labels?: Record<string, string>;
   /** Resource annotations */
@@ -110,6 +130,10 @@ export interface IngressSpec {
  * @since 2.7.0
  */
 export class NetworkResources extends BaseResourceProvider {
+  private static readonly TLS_REQUIRED_ERROR_MESSAGE =
+    'TLS configuration is required for production Ingress resources. Please configure the "tls" field with valid certificate references.';
+  private static readonly NETWORKING_API_VERSION = 'networking.k8s.io/v1';
+
   /**
    * Creates a NetworkPolicy resource
    * @param spec - NetworkPolicy specification
@@ -135,7 +159,7 @@ export class NetworkResources extends BaseResourceProvider {
 
     return this.createApiObject(
       spec.name,
-      'networking.k8s.io/v1',
+      NetworkResources.NETWORKING_API_VERSION,
       'NetworkPolicy',
       policySpec,
       spec.labels,
@@ -248,12 +272,177 @@ export class NetworkResources extends BaseResourceProvider {
   }
 
   /**
-   * Creates an Ingress resource
-   * @param spec - Ingress specification
-   * @returns Created Ingress ApiObject
-   * @since 2.7.0
+   * Validates TLS configuration for security compliance
+   * @param spec - Ingress specification to validate
+   * @throws Error if TLS validation fails
+   * @since 2.8.0
    */
-  addIngress(spec: IngressSpec): ApiObject {
+  private validateIngressSecurity(spec: IngressSpec): void {
+    const isProductionEnvironment = spec.environment === 'production';
+    const tlsRequired = spec.requireTLS || isProductionEnvironment;
+
+    // Check if TLS is required but not configured
+    if (tlsRequired && (!spec.tls || spec.tls.length === 0)) {
+      throw new Error(NetworkResources.TLS_REQUIRED_ERROR_MESSAGE);
+    }
+
+    // Validate TLS configuration if present
+    if (spec.tls && spec.tls.length > 0) {
+      spec.tls.forEach((tlsConfig, index) => {
+        if (!tlsConfig.secretName) {
+          throw new Error(
+            `TLS configuration at index ${index} must specify a secretName. ` +
+              'The secret should contain "tls.crt" and "tls.key" data.',
+          );
+        }
+
+        // Validate secret name format (RFC 1123 DNS subdomain)
+        // This regex is safe as it only matches alphanumeric characters and hyphens
+        // eslint-disable-next-line security/detect-unsafe-regex
+        const secretNameRegex = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+        if (!secretNameRegex.test(tlsConfig.secretName)) {
+          throw new Error(
+            `Invalid TLS secret name "${tlsConfig.secretName}" at index ${index}. ` +
+              'Secret names must be valid RFC 1123 DNS subdomains (lowercase alphanumeric and hyphens).',
+          );
+        }
+
+        // Validate hosts if specified
+        if (tlsConfig.hosts && tlsConfig.hosts.length > 0) {
+          tlsConfig.hosts.forEach((host, hostIndex) => {
+            if (!this.isValidHostname(host)) {
+              throw new Error(
+                `Invalid hostname "${host}" in TLS configuration at index ${index}, host ${hostIndex}. ` +
+                  'Hostnames must be valid DNS names or wildcard patterns.',
+              );
+            }
+          });
+        }
+      });
+    }
+
+    // Validate that TLS hosts match Ingress rule hosts
+    if (spec.tls && spec.rules) {
+      const tlsHosts = new Set(spec.tls.flatMap((tls) => tls.hosts || []));
+      const ruleHosts = spec.rules
+        .map((rule) => rule.host)
+        .filter((host): host is string => Boolean(host));
+
+      for (const ruleHost of ruleHosts) {
+        if (!tlsHosts.has(ruleHost)) {
+          console.warn(
+            `Warning: Host "${ruleHost}" in Ingress rules is not covered by TLS configuration. ` +
+              'Consider adding it to the TLS hosts for secure communication.',
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * Validates hostname format (supports wildcards) with ReDoS protection
+   * @param hostname - Hostname to validate
+   * @returns True if hostname is valid
+   * @since 2.8.0
+   */
+  private isValidHostname(hostname: string): boolean {
+    if (!hostname || hostname.length === 0 || hostname.length > 253) {
+      return false;
+    }
+
+    // Split hostname into parts and validate each part
+    const parts = hostname.split('.');
+    if (parts.length < 2) return false;
+
+    // Handle wildcard
+    if (hostname.startsWith('*.')) {
+      parts.shift(); // Remove wildcard part
+      if (parts.length < 2) return false; // Must have at least two parts after wildcard
+    }
+
+    // Validate each part
+    return parts.every((part) => {
+      if (part.length === 0 || part.length > 63) return false;
+      if (part.startsWith('-') || part.endsWith('-')) return false;
+      return /^[a-z0-9-]+$/i.test(part);
+    });
+  }
+
+  /**
+   * Applies security defaults to Ingress annotations
+   * @param spec - Ingress specification
+   * @returns Enhanced annotations with security defaults
+   * @since 2.8.0
+   */
+  private applySecurityDefaults(spec: IngressSpec): Record<string, string> {
+    const annotations = { ...spec.annotations };
+
+    // Apply SSL redirect if TLS is configured or force SSL redirect is enabled
+    if ((spec.tls && spec.tls.length > 0) || spec.forceSSLRedirect) {
+      // NGINX Ingress Controller annotations
+      annotations['nginx.ingress.kubernetes.io/ssl-redirect'] = 'true';
+      annotations['nginx.ingress.kubernetes.io/force-ssl-redirect'] = 'true';
+
+      // Traefik annotations
+      annotations['traefik.ingress.kubernetes.io/redirect-entry-point'] = 'https';
+
+      // HAProxy annotations
+      annotations['haproxy.org/ssl-redirect'] = 'true';
+    }
+
+    // Add security headers for production environments
+    if (spec.environment === 'production' || spec.requireTLS) {
+      // NGINX security headers with CSP
+      annotations['nginx.ingress.kubernetes.io/configuration-snippet'] = `
+        more_set_headers "X-Frame-Options: DENY";
+        more_set_headers "X-Content-Type-Options: nosniff";
+        more_set_headers "X-XSS-Protection: 1; mode=block";
+        more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+        more_set_headers "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';";
+      `.trim();
+    }
+
+    return annotations;
+  }
+
+  /**
+   * Creates a secure Ingress with TLS validation and environment-aware defaults
+   * @param spec - Enhanced Ingress specification
+   * @returns Created Ingress ApiObject
+   * @example
+   * ```typescript
+   * // Production Ingress with mandatory TLS
+   * networkResources.addSecureIngress({
+   *   name: 'web-ingress',
+   *   environment: 'production',
+   *   tls: [{
+   *     hosts: ['example.com'],
+   *     secretName: 'example-tls'
+   *   }],
+   *   rules: [{
+   *     host: 'example.com',
+   *     http: {
+   *       paths: [{
+   *         path: '/',
+   *         pathType: 'Prefix',
+   *         backend: {
+   *           service: { name: 'web-service', port: { number: 80 } }
+   *         }
+   *       }]
+   *     }
+   *   }]
+   * });
+   * ```
+   * @since 2.8.0
+   */
+  addSecureIngress(spec: IngressSpec): ApiObject {
+    // Validate TLS configuration and security requirements
+    this.validateIngressSecurity(spec);
+
+    // Apply security defaults to annotations
+    const enhancedAnnotations = this.applySecurityDefaults(spec);
+
+    // Create the Ingress with enhanced security
     const ingressSpec: Record<string, unknown> = {};
 
     if (spec.ingressClassName) {
@@ -270,7 +459,69 @@ export class NetworkResources extends BaseResourceProvider {
 
     return this.createApiObject(
       spec.name,
-      'networking.k8s.io/v1',
+      NetworkResources.NETWORKING_API_VERSION,
+      'Ingress',
+      ingressSpec,
+      spec.labels,
+      enhancedAnnotations,
+    );
+  }
+
+  /**
+   * Creates an Ingress resource with optional TLS validation
+   * @param spec - Ingress specification
+   * @returns Created Ingress ApiObject
+   * @deprecated Use addSecureIngress for enhanced security validation
+   * @since 2.7.0
+   */
+  addIngress(spec: IngressSpec): ApiObject {
+    // Apply basic validation if environment is specified
+    if (spec.environment || spec.requireTLS) {
+      this.validateIngressSecurity(spec);
+      const enhancedAnnotations = this.applySecurityDefaults(spec);
+
+      const ingressSpec: Record<string, unknown> = {};
+
+      if (spec.ingressClassName) {
+        ingressSpec['ingressClassName'] = spec.ingressClassName;
+      }
+
+      if (spec.tls) {
+        ingressSpec['tls'] = spec.tls;
+      }
+
+      if (spec.rules) {
+        ingressSpec['rules'] = spec.rules;
+      }
+
+      return this.createApiObject(
+        spec.name,
+        NetworkResources.NETWORKING_API_VERSION,
+        'Ingress',
+        ingressSpec,
+        spec.labels,
+        enhancedAnnotations,
+      );
+    }
+
+    // Legacy behavior for backward compatibility
+    const ingressSpec: Record<string, unknown> = {};
+
+    if (spec.ingressClassName) {
+      ingressSpec['ingressClassName'] = spec.ingressClassName;
+    }
+
+    if (spec.tls) {
+      ingressSpec['tls'] = spec.tls;
+    }
+
+    if (spec.rules) {
+      ingressSpec['rules'] = spec.rules;
+    }
+
+    return this.createApiObject(
+      spec.name,
+      NetworkResources.NETWORKING_API_VERSION,
       'Ingress',
       ingressSpec,
       spec.labels,
