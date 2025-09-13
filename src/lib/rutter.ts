@@ -760,6 +760,106 @@ export class Rutter {
     return this.karpenterResources.addKarpenterEC2NodeClass(spec);
   }
 
+  /**
+   * Creates a Karpenter NodePool with optimized disruption settings for cost efficiency
+   * @param spec - NodePool specification with disruption optimization
+   * @returns Created NodePool ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addKarpenterNodePoolWithDisruption({
+   *   name: 'cost-optimized',
+   *   nodeClassRef: {
+   *     apiVersion: 'karpenter.k8s.aws/v1beta1',
+   *     kind: 'EC2NodeClass',
+   *     name: 'default'
+   *   },
+   *   consolidationPolicy: 'WhenEmptyOrUnderutilized',
+   *   consolidateAfter: '30s',
+   *   expireAfter: '24h',
+   *   disruptionBudgets: [
+   *     { nodes: '20%' },
+   *     { nodes: '0', schedule: '0 9 * * 1-5', duration: '8h' }
+   *   ]
+   * });
+   * ```
+   *
+   * @since 2.7.1
+   */
+  addKarpenterNodePoolWithDisruption(spec: {
+    name: string;
+    nodeClassRef: { apiVersion: string; kind: string; name: string };
+    requirements?: Array<{
+      key: string;
+      operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist' | 'Gt' | 'Lt';
+      values?: string[];
+    }>;
+    consolidationPolicy?: 'WhenEmpty' | 'WhenEmptyOrUnderutilized';
+    consolidateAfter?: string;
+    expireAfter?: string;
+    disruptionBudgets?: Array<{ nodes: string; schedule?: string; duration?: string }>;
+    limits?: Record<string, string>;
+    weight?: number;
+    labels?: Record<string, string>;
+    annotations?: Record<string, string>;
+  }): ApiObject {
+    return this.karpenterResources.addKarpenterNodePoolWithDisruption(spec);
+  }
+
+  /**
+   * Creates a Karpenter NodePool with scheduling constraints and priorities
+   * @param spec - NodePool specification with scheduling optimization
+   * @returns Created NodePool ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addKarpenterNodePoolWithScheduling({
+   *   name: 'gpu-workloads',
+   *   nodeClassRef: {
+   *     apiVersion: 'karpenter.k8s.aws/v1beta1',
+   *     kind: 'EC2NodeClass',
+   *     name: 'gpu-nodeclass'
+   *   },
+   *   requirements: [
+   *     { key: 'node.kubernetes.io/instance-type', operator: 'In', values: ['g4dn.xlarge', 'g4dn.2xlarge'] }
+   *   ],
+   *   taints: [
+   *     { key: 'nvidia.com/gpu', effect: 'NoSchedule' }
+   *   ],
+   *   terminationGracePeriod: '60s',
+   *   weight: 100
+   * });
+   * ```
+   *
+   * @since 2.7.1
+   */
+  addKarpenterNodePoolWithScheduling(spec: {
+    name: string;
+    nodeClassRef: { apiVersion: string; kind: string; name: string };
+    requirements?: Array<{
+      key: string;
+      operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist' | 'Gt' | 'Lt';
+      values?: string[];
+    }>;
+    taints?: Array<{
+      key: string;
+      value?: string;
+      effect: 'NoSchedule' | 'PreferNoSchedule' | 'NoExecute';
+    }>;
+    startupTaints?: Array<{
+      key: string;
+      value?: string;
+      effect: 'NoSchedule' | 'PreferNoSchedule' | 'NoExecute';
+    }>;
+    terminationGracePeriod?: string;
+    weight?: number;
+    limits?: Record<string, string>;
+    labels?: Record<string, string>;
+    annotations?: Record<string, string>;
+  }): ApiObject {
+    return this.karpenterResources.addKarpenterNodePoolWithScheduling(spec);
+  }
+
   // Network Resources
 
   /**
