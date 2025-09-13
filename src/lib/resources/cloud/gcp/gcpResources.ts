@@ -202,6 +202,47 @@ export class GCPResources extends BaseResourceProvider {
       annotations,
     );
   }
+
+  /**
+   * Creates a ServiceAccount with GCP Artifact Registry access
+   * @param spec - Artifact Registry ServiceAccount specification
+   * @returns Created ServiceAccount ApiObject
+   *
+   * @example
+   * ```typescript
+   * gcpResources.addArtifactRegistryServiceAccount({
+   *   name: 'artifact-registry-sa',
+   *   googleServiceAccount: 'my-gsa@project.iam.gserviceaccount.com'
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addArtifactRegistryServiceAccount(spec: GCPArtifactRegistryServiceAccountSpec): ApiObject {
+    const annotations = {
+      'iam.gke.io/gcp-service-account': spec.googleServiceAccount,
+      ...(spec.annotations || {}),
+    };
+
+    const serviceAccountSpec: Record<string, unknown> = {};
+
+    if (spec.automountServiceAccountToken !== undefined) {
+      serviceAccountSpec['automountServiceAccountToken'] = spec.automountServiceAccountToken;
+    }
+
+    if (spec.imagePullSecrets) {
+      serviceAccountSpec['imagePullSecrets'] = spec.imagePullSecrets;
+    }
+
+    return this.createApiObject(
+      spec.name,
+      GCPResources.CORE_API_VERSION,
+      'ServiceAccount',
+      serviceAccountSpec,
+      spec.labels,
+      annotations,
+    );
+  }
 }
 
 // Type definitions
@@ -248,6 +289,15 @@ export interface GCPWorkloadIdentityServiceAccountSpec {
   name: string;
   googleServiceAccount: string;
   namespace?: string;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface GCPArtifactRegistryServiceAccountSpec {
+  name: string;
+  googleServiceAccount: string;
+  automountServiceAccountToken?: boolean;
+  imagePullSecrets?: Array<{ name: string }>;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
 }

@@ -10,6 +10,9 @@ import { StorageResources } from './resources/core/storageResources.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
 import { AzureResources } from './resources/cloud/azure/azureResources.js';
 import { GCPResources } from './resources/cloud/gcp/gcpResources.js';
+import { AutoscalingResources } from './resources/autoscaling/autoscalingResources.js';
+import { NetworkResources } from './resources/network/networkResources.js';
+import { KarpenterResources } from './resources/cloud/aws/karpenterResources.js';
 // Import type definitions from providers
 import type {
   DeploymentSpec,
@@ -34,6 +37,7 @@ import type {
   AWSEBSStorageClassSpec,
   AWSEFSStorageClassSpec,
   AWSIRSAServiceAccountSpec,
+  AWSECRServiceAccountSpec,
   AWSALBIngressSpec,
 } from './resources/cloud/aws/awsResources.js';
 import type {
@@ -48,7 +52,19 @@ import type {
   GCPFilestoreStorageClassSpec,
   GCPGCEIngressSpec,
   GCPWorkloadIdentityServiceAccountSpec,
+  GCPArtifactRegistryServiceAccountSpec,
 } from './resources/cloud/gcp/gcpResources.js';
+import type {
+  HorizontalPodAutoscalerSpec,
+  VerticalPodAutoscalerSpec,
+  CronJobSpec,
+} from './resources/autoscaling/autoscalingResources.js';
+import type { NetworkPolicySpec, IngressSpec } from './resources/network/networkResources.js';
+import type {
+  KarpenterNodePoolSpec,
+  KarpenterNodeClaimSpec,
+  KarpenterEC2NodeClassSpec,
+} from './resources/cloud/aws/karpenterResources.js';
 // Import HelmChartWriter for write functionality
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { include, helm } from './helm.js';
@@ -78,6 +94,9 @@ export class Rutter {
   private readonly awsResources: AWSResources;
   private readonly azureResources: AzureResources;
   private readonly gcpResources: GCPResources;
+  private readonly autoscalingResources: AutoscalingResources;
+  private readonly networkResources: NetworkResources;
+  private readonly karpenterResources: KarpenterResources;
 
   // Chart metadata and configuration
   private readonly meta: ChartMetadata;
@@ -105,6 +124,9 @@ export class Rutter {
     this.awsResources = new AWSResources(this.chart);
     this.azureResources = new AzureResources(this.chart);
     this.gcpResources = new GCPResources(this.chart);
+    this.autoscalingResources = new AutoscalingResources(this.chart);
+    this.networkResources = new NetworkResources(this.chart);
+    this.karpenterResources = new KarpenterResources(this.chart);
   }
 
   // Core Kubernetes Resources
@@ -644,6 +666,366 @@ export class Rutter {
    */
   addGCPWorkloadIdentityServiceAccount(spec: GCPWorkloadIdentityServiceAccountSpec): ApiObject {
     return this.gcpResources.addWorkloadIdentityServiceAccount(spec);
+  }
+
+  /**
+   * Creates a ServiceAccount with GCP Artifact Registry access
+   * @param spec - Artifact Registry ServiceAccount specification
+   * @returns Created ServiceAccount ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addGCPArtifactRegistryServiceAccount({
+   *   name: 'artifact-registry-sa',
+   *   googleServiceAccount: 'my-gsa@project.iam.gserviceaccount.com'
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addGCPArtifactRegistryServiceAccount(spec: GCPArtifactRegistryServiceAccountSpec): ApiObject {
+    return this.gcpResources.addArtifactRegistryServiceAccount(spec);
+  }
+
+  // AWS Karpenter Resources
+
+  /**
+   * Creates a Karpenter NodePool resource
+   * @param spec - NodePool specification
+   * @returns Created NodePool ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addKarpenterNodePool({
+   *   name: 'default-nodepool',
+   *   template: {
+   *     spec: {
+   *       nodeClassRef: {
+   *         apiVersion: 'karpenter.k8s.aws/v1beta1',
+   *         kind: 'EC2NodeClass',
+   *         name: 'default'
+   *       }
+   *     }
+   *   }
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addKarpenterNodePool(spec: KarpenterNodePoolSpec): ApiObject {
+    return this.karpenterResources.addKarpenterNodePool(spec);
+  }
+
+  /**
+   * Creates a Karpenter NodeClaim resource
+   * @param spec - NodeClaim specification
+   * @returns Created NodeClaim ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addKarpenterNodeClaim({
+   *   name: 'my-node-claim',
+   *   nodeClassRef: {
+   *     apiVersion: 'karpenter.k8s.aws/v1beta1',
+   *     kind: 'EC2NodeClass',
+   *     name: 'default'
+   *   }
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addKarpenterNodeClaim(spec: KarpenterNodeClaimSpec): ApiObject {
+    return this.karpenterResources.addKarpenterNodeClaim(spec);
+  }
+
+  /**
+   * Creates a Karpenter EC2NodeClass resource
+   * @param spec - EC2NodeClass specification
+   * @returns Created EC2NodeClass ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addKarpenterEC2NodeClass({
+   *   name: 'default',
+   *   amiFamily: 'AL2',
+   *   subnetSelectorTerms: [{ tags: { 'karpenter.sh/discovery': 'my-cluster' } }],
+   *   securityGroupSelectorTerms: [{ tags: { 'karpenter.sh/discovery': 'my-cluster' } }]
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addKarpenterEC2NodeClass(spec: KarpenterEC2NodeClassSpec): ApiObject {
+    return this.karpenterResources.addKarpenterEC2NodeClass(spec);
+  }
+
+  // Network Resources
+
+  /**
+   * Creates a NetworkPolicy resource
+   * @param spec - NetworkPolicy specification
+   * @returns Created NetworkPolicy ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addNetworkPolicy({
+   *   name: 'deny-all',
+   *   podSelector: {},
+   *   policyTypes: ['Ingress', 'Egress']
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addNetworkPolicy(spec: NetworkPolicySpec): ApiObject {
+    return this.networkResources.addNetworkPolicy(spec);
+  }
+
+  /**
+   * Creates a deny-all NetworkPolicy that blocks all traffic
+   * @param name - Policy name
+   * @param podSelector - Pod selector to apply policy to
+   * @param labels - Optional labels
+   * @param annotations - Optional annotations
+   * @returns Created NetworkPolicy ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addDenyAllNetworkPolicy('deny-all', { matchLabels: { app: 'web' } });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addDenyAllNetworkPolicy(
+    name: string,
+    podSelector: NetworkPolicySpec['podSelector'] = {},
+    labels?: Record<string, string>,
+    annotations?: Record<string, string>,
+  ): ApiObject {
+    return this.networkResources.addDenyAllNetworkPolicy(name, podSelector, labels, annotations);
+  }
+
+  /**
+   * Creates a NetworkPolicy that allows traffic from specific pods
+   * @param name - Policy name
+   * @param podSelector - Pod selector to apply policy to
+   * @param fromPodSelector - Pod selector for allowed source pods
+   * @param ports - Optional ports to allow
+   * @param labels - Optional labels
+   * @param annotations - Optional annotations
+   * @returns Created NetworkPolicy ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addAllowFromPodsNetworkPolicy(
+   *   'allow-from-frontend',
+   *   { matchLabels: { app: 'backend' } },
+   *   { matchLabels: { app: 'frontend' } },
+   *   [{ port: 8080, protocol: 'TCP' }]
+   * );
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addAllowFromPodsNetworkPolicy(
+    name: string,
+    podSelector: NetworkPolicySpec['podSelector'],
+    fromPodSelector: NetworkPolicySpec['podSelector'],
+    ports?: Array<{ port?: number | string; protocol?: 'TCP' | 'UDP' | 'SCTP' }>,
+    labels?: Record<string, string>,
+    annotations?: Record<string, string>,
+  ): ApiObject {
+    return this.networkResources.addAllowFromPodsNetworkPolicy(
+      name,
+      podSelector,
+      fromPodSelector,
+      ports,
+      labels,
+      annotations,
+    );
+  }
+
+  /**
+   * Creates a NetworkPolicy that allows traffic from specific namespaces
+   * @param name - Policy name
+   * @param podSelector - Pod selector to apply policy to
+   * @param fromNamespaceSelector - Namespace selector for allowed source namespaces
+   * @param ports - Optional ports to allow
+   * @param labels - Optional labels
+   * @param annotations - Optional annotations
+   * @returns Created NetworkPolicy ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addAllowFromNamespaceNetworkPolicy(
+   *   'allow-from-monitoring',
+   *   { matchLabels: { app: 'web' } },
+   *   { matchLabels: { name: 'monitoring' } },
+   *   [{ port: 9090, protocol: 'TCP' }]
+   * );
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addAllowFromNamespaceNetworkPolicy(
+    name: string,
+    podSelector: NetworkPolicySpec['podSelector'],
+    fromNamespaceSelector: NetworkPolicySpec['podSelector'],
+    ports?: Array<{ port?: number | string; protocol?: 'TCP' | 'UDP' | 'SCTP' }>,
+    labels?: Record<string, string>,
+    annotations?: Record<string, string>,
+  ): ApiObject {
+    return this.networkResources.addAllowFromNamespaceNetworkPolicy(
+      name,
+      podSelector,
+      fromNamespaceSelector,
+      ports,
+      labels,
+      annotations,
+    );
+  }
+
+  /**
+   * Creates an Ingress resource
+   * @param spec - Ingress specification
+   * @returns Created Ingress ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addIngress({
+   *   name: 'web-ingress',
+   *   rules: [{
+   *     host: 'example.com',
+   *     http: {
+   *       paths: [{
+   *         path: '/',
+   *         pathType: 'Prefix',
+   *         backend: {
+   *           service: { name: 'web-service', port: { number: 80 } }
+   *         }
+   *       }]
+   *     }
+   *   }]
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addIngress(spec: IngressSpec): ApiObject {
+    return this.networkResources.addIngress(spec);
+  }
+
+  // AWS ECR ServiceAccount
+
+  /**
+   * Creates a ServiceAccount with ECR access annotations
+   * @param spec - ECR ServiceAccount specification
+   * @returns Created ServiceAccount ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addAWSECRServiceAccount({
+   *   name: 'ecr-service-account',
+   *   roleArn: 'arn:aws:iam::123456789012:role/ECRAccessRole'
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addAWSECRServiceAccount(spec: AWSECRServiceAccountSpec): ApiObject {
+    return this.awsResources.addECRServiceAccount(spec);
+  }
+
+  // Autoscaling Resources
+
+  /**
+   * Creates a Horizontal Pod Autoscaler (HPA) resource
+   * @param spec - HPA specification
+   * @returns Created HPA ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addHorizontalPodAutoscaler({
+   *   name: 'web-hpa',
+   *   scaleTargetRef: {
+   *     apiVersion: 'apps/v1',
+   *     kind: 'Deployment',
+   *     name: 'web-app'
+   *   },
+   *   minReplicas: 2,
+   *   maxReplicas: 10,
+   *   metrics: [{
+   *     type: 'Resource',
+   *     resource: {
+   *       name: 'cpu',
+   *       target: { type: 'Utilization', averageUtilization: 70 }
+   *     }
+   *   }]
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addHorizontalPodAutoscaler(spec: HorizontalPodAutoscalerSpec): ApiObject {
+    return this.autoscalingResources.addHorizontalPodAutoscaler(spec);
+  }
+
+  /**
+   * Creates a Vertical Pod Autoscaler (VPA) resource
+   * @param spec - VPA specification
+   * @returns Created VPA ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addVerticalPodAutoscaler({
+   *   name: 'web-vpa',
+   *   targetRef: {
+   *     apiVersion: 'apps/v1',
+   *     kind: 'Deployment',
+   *     name: 'web-app'
+   *   },
+   *   updatePolicy: { updateMode: 'Auto' }
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addVerticalPodAutoscaler(spec: VerticalPodAutoscalerSpec): ApiObject {
+    return this.autoscalingResources.addVerticalPodAutoscaler(spec);
+  }
+
+  /**
+   * Creates a CronJob resource
+   * @param spec - CronJob specification
+   * @returns Created CronJob ApiObject
+   *
+   * @example
+   * ```typescript
+   * rutter.addCronJob({
+   *   name: 'backup-job',
+   *   schedule: '0 2 * * *',
+   *   jobTemplate: {
+   *     spec: {
+   *       template: {
+   *         spec: {
+   *           containers: [{
+   *             name: 'backup',
+   *             image: 'backup:latest',
+   *             command: ['backup.sh']
+   *           }],
+   *           restartPolicy: 'OnFailure'
+   *         }
+   *       }
+   *     }
+   *   }
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addCronJob(spec: CronJobSpec): ApiObject {
+    return this.autoscalingResources.addCronJob(spec);
   }
 
   // Utility methods

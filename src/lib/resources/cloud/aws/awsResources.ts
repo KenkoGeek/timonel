@@ -409,6 +409,47 @@ export class AWSResources extends BaseResourceProvider {
 
     return annotations;
   }
+
+  /**
+   * Creates a ServiceAccount with ECR access annotations
+   * @param spec - ECR ServiceAccount specification
+   * @returns Created ServiceAccount ApiObject
+   *
+   * @example
+   * ```typescript
+   * awsResources.addECRServiceAccount({
+   *   name: 'ecr-service-account',
+   *   roleArn: 'arn:aws:iam::123456789012:role/ECRAccessRole'
+   * });
+   * ```
+   *
+   * @since 2.7.0
+   */
+  addECRServiceAccount(spec: AWSECRServiceAccountSpec): ApiObject {
+    const annotations = {
+      'eks.amazonaws.com/role-arn': spec.roleArn,
+      ...(spec.annotations || {}),
+    };
+
+    const serviceAccountSpec: Record<string, unknown> = {};
+
+    if (spec.automountServiceAccountToken !== undefined) {
+      serviceAccountSpec['automountServiceAccountToken'] = spec.automountServiceAccountToken;
+    }
+
+    if (spec.imagePullSecrets) {
+      serviceAccountSpec['imagePullSecrets'] = spec.imagePullSecrets;
+    }
+
+    return this.createApiObject(
+      spec.name,
+      AWSResources.CORE_API_VERSION,
+      'ServiceAccount',
+      serviceAccountSpec,
+      spec.labels,
+      annotations,
+    );
+  }
 }
 
 // Type definitions
@@ -440,6 +481,15 @@ export interface AWSEFSStorageClassSpec {
 }
 
 export interface AWSIRSAServiceAccountSpec {
+  name: string;
+  roleArn: string;
+  automountServiceAccountToken?: boolean;
+  imagePullSecrets?: Array<{ name: string }>;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export interface AWSECRServiceAccountSpec {
   name: string;
   roleArn: string;
   automountServiceAccountToken?: boolean;
