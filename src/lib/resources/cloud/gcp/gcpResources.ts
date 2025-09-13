@@ -219,8 +219,15 @@ export class GCPResources extends BaseResourceProvider {
    * @since 2.7.0
    */
   addArtifactRegistryServiceAccount(spec: GCPArtifactRegistryServiceAccountSpec): ApiObject {
+    // Support both googleServiceAccount and gcpServiceAccount for backward compatibility
+    const googleServiceAccount = spec.googleServiceAccount || spec.gcpServiceAccount;
+
+    if (!googleServiceAccount) {
+      throw new Error('Either googleServiceAccount or gcpServiceAccount must be provided');
+    }
+
     const annotations = {
-      'iam.gke.io/gcp-service-account': spec.googleServiceAccount,
+      'iam.gke.io/gcp-service-account': googleServiceAccount,
       ...(spec.annotations || {}),
     };
 
@@ -295,7 +302,8 @@ export interface GCPWorkloadIdentityServiceAccountSpec {
 
 export interface GCPArtifactRegistryServiceAccountSpec {
   name: string;
-  googleServiceAccount: string;
+  googleServiceAccount?: string;
+  gcpServiceAccount?: string;
   automountServiceAccountToken?: boolean;
   imagePullSecrets?: Array<{ name: string }>;
   labels?: Record<string, string>;
