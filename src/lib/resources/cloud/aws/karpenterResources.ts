@@ -195,7 +195,7 @@ export class KarpenterResources extends BaseResourceProvider {
 
     return this.createApiObject(
       spec.name,
-      'karpenter.sh/v1beta1',
+      'karpenter.sh/v1',
       'NodePool',
       nodePoolSpec,
       spec.labels,
@@ -228,7 +228,7 @@ export class KarpenterResources extends BaseResourceProvider {
 
     return this.createApiObject(
       spec.name,
-      'karpenter.sh/v1beta1',
+      'karpenter.sh/v1',
       'NodeClaim',
       nodeClaimSpec,
       spec.labels,
