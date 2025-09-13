@@ -1,3 +1,9 @@
+# [2.8.0-beta.3](https://github.com/KenkoGeek/timonel/compare/v2.8.0-beta.2...v2.8.0-beta.3) (2025-09-13)
+
+### Bug Fixes
+
+- **core:** ensure Timonel header appears in all YAML files ([ebee72e](https://github.com/KenkoGeek/timonel/commit/ebee72e9bc5b54eb56f871786e08bef36caad45a))
+
 # [2.8.0-beta.2](https://github.com/KenkoGeek/timonel/compare/v2.8.0-beta.1...v2.8.0-beta.2) (2025-09-13)
 
 ### Bug Fixes
