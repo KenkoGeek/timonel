@@ -303,6 +303,9 @@ export type GCPArtifactRegistryServiceAccountSpec = {
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
 } & (
-  | { googleServiceAccount: string; gcpServiceAccount?: never }
+  | {
+      /** @deprecated Use gcpServiceAccount instead */ googleServiceAccount: string;
+      gcpServiceAccount?: never;
+    }
   | { gcpServiceAccount: string; googleServiceAccount?: never }
 );
