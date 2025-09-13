@@ -37,7 +37,7 @@ export class AzureResources extends BaseResourceProvider {
       ...(spec.kind ? { kind: spec.kind } : {}),
     };
 
-    const storageClassSpec = {
+    const fields = {
       provisioner: 'disk.csi.azure.com',
       parameters,
       reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
@@ -45,11 +45,11 @@ export class AzureResources extends BaseResourceProvider {
       volumeBindingMode: spec.volumeBindingMode ?? 'WaitForFirstConsumer',
     };
 
-    return this.createApiObject(
+    return this.createRootLevelApiObject(
       spec.name,
       AzureResources.STORAGE_API_VERSION,
       'StorageClass',
-      storageClassSpec,
+      fields,
       spec.labels,
       spec.annotations,
     );
@@ -81,7 +81,7 @@ export class AzureResources extends BaseResourceProvider {
         : {}),
     };
 
-    const storageClassSpec = {
+    const fields = {
       provisioner: 'file.csi.azure.com',
       parameters,
       reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
@@ -89,11 +89,11 @@ export class AzureResources extends BaseResourceProvider {
       volumeBindingMode: spec.volumeBindingMode ?? 'Immediate',
     };
 
-    return this.createApiObject(
+    return this.createRootLevelApiObject(
       spec.name,
       AzureResources.STORAGE_API_VERSION,
       'StorageClass',
-      storageClassSpec,
+      fields,
       spec.labels,
       spec.annotations,
     );

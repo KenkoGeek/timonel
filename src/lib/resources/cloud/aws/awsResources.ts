@@ -40,7 +40,7 @@ export class AWSResources extends BaseResourceProvider {
     };
 
     const provisioner = 'ebs.csi.aws.com';
-    const storageClassSpec = {
+    const fields = {
       provisioner,
       parameters,
       reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
@@ -49,13 +49,13 @@ export class AWSResources extends BaseResourceProvider {
     };
 
     // Validate EBS-specific provisioner
-    this.validateStorageClassProvisioner(storageClassSpec.provisioner, 'EBS');
+    this.validateStorageClassProvisioner(provisioner, 'EBS');
 
-    return this.createApiObject(
+    return this.createRootLevelApiObject(
       spec.name,
       AWSResources.STORAGE_API_VERSION,
       'StorageClass',
-      storageClassSpec,
+      fields,
       spec.labels,
       spec.annotations,
     );
@@ -87,7 +87,7 @@ export class AWSResources extends BaseResourceProvider {
     };
 
     const provisioner = 'efs.csi.aws.com';
-    const storageClassSpec = {
+    const fields = {
       provisioner,
       parameters,
       reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
@@ -95,13 +95,13 @@ export class AWSResources extends BaseResourceProvider {
     };
 
     // Validate EFS-specific provisioner
-    this.validateStorageClassProvisioner(storageClassSpec.provisioner, 'EFS');
+    this.validateStorageClassProvisioner(provisioner, 'EFS');
 
-    return this.createApiObject(
+    return this.createRootLevelApiObject(
       spec.name,
       AWSResources.STORAGE_API_VERSION,
       'StorageClass',
-      storageClassSpec,
+      fields,
       spec.labels,
       spec.annotations,
     );
