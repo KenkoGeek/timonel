@@ -649,13 +649,65 @@ export class Rutter {
   // Utility methods
 
   /**
-   * Adds a custom resource definition (CRD) YAML
-   * @param yaml - CRD YAML content
+   * Adds a custom resource definition (CRD) YAML or object
+   * @param yamlOrObject - CRD YAML content string or object
    * @param id - Unique identifier for the CRD
+   *
+   * @example
+   * ```typescript
+   * // Using YAML string
+   * rutter.addCrd(`
+   * apiVersion: apiextensions.k8s.io/v1
+   * kind: CustomResourceDefinition
+   * metadata:
+   *   name: example.com
+   * spec:
+   *   group: example.com
+   *   versions: []
+   * `);
+   *
+   * // Using object
+   * rutter.addCrd({
+   *   apiVersion: 'apiextensions.k8s.io/v1',
+   *   kind: 'CustomResourceDefinition',
+   *   metadata: { name: 'example.com' },
+   *   spec: { group: 'example.com', versions: [] }
+   * });
+   * ```
    *
    * @since 1.0.0
    */
-  addCrd(yaml: string, id = 'crd'): void {
+  addCrd(yamlOrObject: string | Record<string, unknown>, id = 'crd'): void {
+    let yaml: string;
+
+    if (typeof yamlOrObject === 'string') {
+      // Validate YAML string
+      try {
+        YAML.parse(yamlOrObject);
+        yaml = yamlOrObject.trim();
+      } catch (error) {
+        throw new Error(
+          `Invalid YAML provided to addCrd(): ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
+      }
+    } else if (typeof yamlOrObject === 'object' && yamlOrObject !== null) {
+      // Convert object to YAML
+      try {
+        yaml = YAML.stringify(yamlOrObject).trim();
+      } catch (error) {
+        throw new Error(
+          `Failed to convert object to YAML in addCrd(): ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
+      }
+    } else {
+      throw new Error('addCrd() requires either a YAML string or an object');
+    }
+
+    // Ensure we have valid content
+    if (!yaml) {
+      throw new Error('addCrd() received empty or invalid content');
+    }
+
     this.assets.push({ id, yaml, target: 'crds' });
   }
 

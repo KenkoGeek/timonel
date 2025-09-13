@@ -56,7 +56,7 @@ export class CoreResources extends BaseResourceProvider {
     ];
 
     const deploymentSpec = {
-      replicas: spec.replicas ?? 1,
+      replicas: this.normalizeReplicas(spec.replicas),
       selector: { matchLabels },
       template: {
         metadata: { labels },
@@ -191,6 +191,9 @@ export class CoreResources extends BaseResourceProvider {
    * @since 2.4.0
    */
   addSecret(spec: SecretSpec): ApiObject {
+    // Validate and encode base64 data if needed
+    const processedData = spec.data ? this.validateAndEncodeSecretData(spec.data) : undefined;
+
     return new ApiObject(this.chart, spec.name, {
       apiVersion: CoreResources.CORE_API_VERSION,
       kind: 'Secret',
@@ -200,9 +203,59 @@ export class CoreResources extends BaseResourceProvider {
         ...(spec.annotations ? { annotations: spec.annotations } : {}),
       },
       type: spec.type ?? 'Opaque',
-      ...(spec.data ? { data: spec.data } : {}),
+      ...(processedData ? { data: processedData } : {}),
       ...(spec.stringData ? { stringData: spec.stringData } : {}),
     });
+  }
+
+  /**
+   * Validates and encodes Secret data as base64
+   * @param data - Raw secret data
+   * @returns Base64 encoded data
+   * @private
+   * @since 2.5.0
+   */
+  private validateAndEncodeSecretData(data: Record<string, string>): Record<string, string> {
+    const encodedData: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(data)) {
+      // Check if value is already base64 encoded (basic validation)
+      if (this.isBase64Encoded(value)) {
+        // eslint-disable-next-line security/detect-object-injection -- Safe: key is from Object.entries iteration
+        encodedData[key] = value;
+      } else {
+        // Encode as base64
+        // eslint-disable-next-line security/detect-object-injection -- Safe: key is from Object.entries iteration
+        encodedData[key] = Buffer.from(value, 'utf8').toString('base64');
+      }
+    }
+
+    return encodedData;
+  }
+
+  /**
+   * Checks if a string is base64 encoded
+   * @param str - String to check
+   * @returns True if string appears to be base64 encoded
+   * @private
+   * @since 2.5.0
+   */
+  private isBase64Encoded(str: string): boolean {
+    // Basic base64 validation - checks for valid base64 characters and padding
+    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+
+    if (!base64Regex.test(str)) {
+      return false;
+    }
+
+    try {
+      // Try to decode and re-encode to verify it's valid base64
+      const decoded = Buffer.from(str, 'base64').toString('utf8');
+      const reencoded = Buffer.from(decoded, 'utf8').toString('base64');
+      return reencoded === str;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -432,7 +485,7 @@ export class CoreResources extends BaseResourceProvider {
     const podSpec = this.buildStatefulSetPodSpec(spec, containers);
 
     const statefulSetSpec: Record<string, unknown> = {
-      replicas: spec.replicas ?? 1,
+      replicas: this.normalizeReplicas(spec.replicas),
       selector: { matchLabels },
       serviceName: spec.serviceName,
       template: {
@@ -893,7 +946,7 @@ export class CoreResources extends BaseResourceProvider {
     ];
 
     const replicaSetSpec = {
-      replicas: spec.replicas ?? 1,
+      replicas: this.normalizeReplicas(spec.replicas),
       selector: { matchLabels },
       template: {
         metadata: { labels: { ...matchLabels, ...spec.labels } },
@@ -1131,6 +1184,35 @@ export class CoreResources extends BaseResourceProvider {
     }
 
     return podSpec;
+  }
+
+  /**
+   * Normalizes replicas value to ensure it's always a number
+   * @param replicas - Replicas value (number, string, or undefined)
+   * @returns Normalized number value or Helm template string
+   * @private
+   * @since 2.5.0
+   */
+  private normalizeReplicas(replicas?: number | string): number | string {
+    if (replicas === undefined || replicas === null) {
+      return 1;
+    }
+
+    // If it's a Helm template value, return as-is
+    if (typeof replicas === 'string' && (replicas.includes('{{') || replicas.includes('}}'))) {
+      return replicas;
+    }
+
+    if (typeof replicas === 'number') {
+      return Math.max(0, Math.floor(replicas));
+    }
+
+    if (typeof replicas === 'string') {
+      const parsed = parseInt(replicas, 10);
+      return isNaN(parsed) ? 1 : Math.max(0, parsed);
+    }
+
+    return 1;
   }
 }
 
