@@ -1,5 +1,0 @@
-apiVersion: v2
-name: security-demo
-version: 1.0.0
-description: Demo chart showcasing security helper functions
-type: application

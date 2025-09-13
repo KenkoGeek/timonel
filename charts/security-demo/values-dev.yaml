@@ -1,6 +1,0 @@
-replicas: 1
-app:
-  environment: development
-  logLevel: debug
-database:
-  enabled: false
