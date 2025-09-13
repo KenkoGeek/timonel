@@ -1,108 +1,89 @@
-# Do not modify - Generated with WorkflowForge
-name: Automated Release
+name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to release from'
-        required: true
-        default: 'main'
-        type: string
+  push:
+    branches: [main, release]
 
 permissions:
   contents: write
-  packages: write
+  issues: write
+  pull-requests: write
   id-token: write
 
 jobs:
-  check-status:
+  quality-gates:
+    name: Quality Gates
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - name: Check CI Status
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const branchRef = '${{ inputs.branch }}'.replace(/[^a-zA-Z0-9\/_.-]/g, '');
-            console.log(`Checking status for branch: ${branchRef}`);
-
-            const { data: checks } = await github.rest.checks.listForRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: branchRef
-            });
-
-            console.log(`Found ${checks.check_runs.length} check runs`);
-
-            const requiredChecks = [
-              // Unit tests with Node.js matrix
-              'Unit Tests (20)',
-              'Unit Tests (22)',
-              // Integration tests
-              'Integration Tests',
-              // Lint and format checks
-              'Lint and Format',
-              // Security audit
-              'Security Audit'
-            ];
-            const failedChecks = [];
-
-            for (const checkName of requiredChecks) {
-              const check = checks.check_runs.find(c => c.name === checkName);
-              if (!check) {
-                console.log(`❌ Missing check: ${checkName}`);
-                failedChecks.push(checkName);
-              } else if (check.conclusion !== 'success') {
-                console.log(`❌ Failed check: ${checkName} (${check.conclusion})`);
-                failedChecks.push(checkName);
-              } else {
-                console.log(`✅ Passed check: ${checkName}`);
-              }
-            }
-
-            if (failedChecks.length > 0) {
-              core.setFailed(`Required checks failed: ${failedChecks.join(', ')}`);
-            } else {
-              console.log('✅ All required checks passed - proceeding with release');
-            }
-
-  release:
-    runs-on: ubuntu-latest
-    environment: npm-prd
-    needs: check-status
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.branch }}
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: 20
+          cache: 'pnpm'
 
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
-      - name: Setup Git
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+      - name: TypeScript Check
+        run: npm run typecheck
 
-      - name: Build for release
-        run: pnpm run build
+      - name: Lint Check
+        run: npm run lint
 
-      - name: Semantic Release
-        run: npx semantic-release
+      - name: Security Lint
+        run: npm run security:lint
+
+      - name: Format Check
+        run: npm run format:check
+
+      - name: Security Audit
+        run: npm run security:audit
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  release:
+    name: Release
+    needs: quality-gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Verify the integrity of provenance attestations and registry signatures for installed dependencies
+        run: npm audit signatures
+
+      - name: Release
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npx semantic-release
