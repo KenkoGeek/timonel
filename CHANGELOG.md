@@ -1,3 +1,9 @@
+## [2.6.2](https://github.com/KenkoGeek/timonel/compare/v2.6.1...v2.6.2) (2025-09-13)
+
+### Bug Fixes
+
+- **core:** correct StorageClass API structure for Kubernetes 1.32+ compatibility ([2acb406](https://github.com/KenkoGeek/timonel/commit/2acb406c29b201e71dffc1263f5f2099c71376d4)), closes [#58](https://github.com/KenkoGeek/timonel/issues/58) [#58](https://github.com/KenkoGeek/timonel/issues/58)
+
 ## [2.6.1](https://github.com/KenkoGeek/timonel/compare/v2.6.0...v2.6.1) (2025-09-13)
 
 ### Bug Fixes
