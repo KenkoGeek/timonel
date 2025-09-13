@@ -132,7 +132,6 @@ jobs:
     name: Beta Release
     needs: [quality-gates, check-ci-status]
     runs-on: ubuntu-latest
-    environment: npm-prd
     steps:
       - name: Checkout
         uses: actions/checkout@v4
