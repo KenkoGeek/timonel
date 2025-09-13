@@ -106,12 +106,64 @@ export function generateManifestName(
  * @since 2.5.0
  */
 export function sanitizeKubernetesName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 63);
+  // Input validation to prevent processing extremely large strings
+  if (!name || typeof name !== 'string') {
+    return '';
+  }
+  
+  // Prevent processing of maliciously large inputs
+  if (name.length > 1000) {
+    name = name.substring(0, 1000);
+  }
+  
+  const lowerName = name.toLowerCase();
+  let sanitized = '';
+  let lastWasHyphen = false;
+  
+  // Character-by-character processing to avoid ReDoS vulnerability
+  for (const char of lowerName) {
+    if (isValidKubernetesChar(char)) {
+      if (char === '-') {
+        // Only add hyphen if the last character wasn't a hyphen
+        if (!lastWasHyphen) {
+          sanitized += char;
+          lastWasHyphen = true;
+        }
+      } else {
+        sanitized += char;
+        lastWasHyphen = false;
+      }
+    } else {
+      // Replace invalid character with hyphen, but avoid consecutive hyphens
+      if (!lastWasHyphen) {
+        sanitized += '-';
+        lastWasHyphen = true;
+      }
+    }
+  }
+  
+  // Remove leading and trailing hyphens using string operations
+  while (sanitized.length > 0 && sanitized[0] === '-') {
+    sanitized = sanitized.substring(1);
+  }
+  while (sanitized.length > 0 && sanitized[sanitized.length - 1] === '-') {
+    sanitized = sanitized.substring(0, sanitized.length - 1);
+  }
+  
+  // Truncate to Kubernetes name length limit
+  return sanitized.substring(0, 63);
+}
+
+/**
+ * Checks if a character is valid for Kubernetes names
+ * @param char - Character to check
+ * @returns True if character is valid (a-z, 0-9, or hyphen)
+ * @private
+ */
+function isValidKubernetesChar(char: string): boolean {
+  return (char >= 'a' && char <= 'z') || 
+         (char >= '0' && char <= '9') || 
+         char === '-';
 }
 
 /**
