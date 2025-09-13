@@ -190,21 +190,32 @@ export class SecurityUtils {
       throw new Error(`Invalid environment variable name: ${this.sanitizeLogMessage(name)}`);
     }
 
-    // Check for dangerous patterns in value
-    const dangerousPatterns = [
-      /\$\([^)]*\)/, // Command substitution
-      /`[^`]*`/, // Backtick command execution
-      /\${[^}]*}/, // Variable expansion that could be dangerous
-      // eslint-disable-next-line no-control-regex -- Intentionally checking for control characters for security
-      /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/, // Control characters
-    ];
-
-    for (const pattern of dangerousPatterns) {
-      if (pattern.test(value)) {
-        throw new Error(
-          `Environment variable value contains dangerous pattern: ${this.sanitizeLogMessage(value)}`,
-        );
+    // Check for dangerous patterns in value using safer string methods
+    const hasDangerousPattern = (val: string): string | null => {
+      if (val.includes('$(') && val.includes(')')) return 'command substitution';
+      if (val.includes('`')) return 'backtick execution';
+      if (val.includes('${') && val.includes('}')) return 'variable expansion';
+      // Check for control characters
+      for (let i = 0; i < val.length; i++) {
+        const code = val.charCodeAt(i);
+        if (
+          (code >= 0x00 && code <= 0x08) ||
+          code === 0x0b ||
+          code === 0x0c ||
+          (code >= 0x0e && code <= 0x1f) ||
+          code === 0x7f
+        ) {
+          return 'control characters';
+        }
       }
+      return null;
+    };
+
+    const dangerousPattern = hasDangerousPattern(value);
+    if (dangerousPattern) {
+      throw new Error(
+        `Environment variable value contains dangerous pattern (${dangerousPattern}): ${this.sanitizeLogMessage(value)}`,
+      );
     }
 
     // Limit value length to prevent DoS
@@ -311,7 +322,7 @@ export class SecurityUtils {
   }
 
   /**
-   * Sanitizes the base name for secret generation
+   * Sanitizes the base name for secret generation using safe string methods
    * @param baseName - Base name to sanitize
    * @returns Sanitized base name
    * @throws Error if no valid characters remain
@@ -319,14 +330,19 @@ export class SecurityUtils {
    * @since 2.6.0
    */
   private static sanitizeBaseName(baseName: string): string {
-    // Initial sanitization
-    let sanitized = baseName
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '-') // Replace invalid chars with hyphens
-      .replace(/-+/g, '-'); // Collapse multiple hyphens
+    // Use character-by-character processing instead of regex
+    let sanitized = '';
+    for (const char of baseName.toLowerCase()) {
+      if ((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char === '-') {
+        sanitized += char;
+      } else {
+        sanitized += '-';
+      }
+    }
 
-    // Remove leading/trailing hyphens
-    sanitized = sanitized.replace(/^-+|-+$/g, '');
+    // Collapse multiple hyphens using split/filter/join
+    const parts = sanitized.split('-').filter((part) => part.length > 0);
+    sanitized = parts.join('-');
 
     if (!sanitized) {
       throw new Error('Base name contains no valid characters');
@@ -336,7 +352,7 @@ export class SecurityUtils {
   }
 
   /**
-   * Appends suffix to sanitized base name
+   * Appends suffix to sanitized base name using safe string methods
    * @param baseName - Sanitized base name
    * @param suffix - Suffix to append
    * @returns Base name with suffix
@@ -349,11 +365,19 @@ export class SecurityUtils {
       throw new Error('Suffix must be a string');
     }
 
-    const sanitizedSuffix = suffix
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .replace(/-+/g, '-');
+    // Use character-by-character processing instead of regex
+    let sanitizedSuffix = '';
+    for (const char of suffix.toLowerCase()) {
+      if ((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char === '-') {
+        sanitizedSuffix += char;
+      } else {
+        sanitizedSuffix += '-';
+      }
+    }
+
+    // Collapse multiple hyphens using split/filter/join
+    const parts = sanitizedSuffix.split('-').filter((part) => part.length > 0);
+    sanitizedSuffix = parts.join('-');
 
     if (sanitizedSuffix) {
       return `${baseName}-${sanitizedSuffix}`;
@@ -379,7 +403,16 @@ export class SecurityUtils {
 
     // Truncate but preserve suffix if possible
     if (suffix) {
-      const suffixPart = `-${suffix.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
+      // Use safe character processing instead of regex
+      let safeSuffix = '';
+      for (const char of suffix.toLowerCase()) {
+        if ((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char === '-') {
+          safeSuffix += char;
+        } else {
+          safeSuffix += '-';
+        }
+      }
+      const suffixPart = `-${safeSuffix}`;
       const maxBaseLength = maxLength - suffixPart.length;
 
       if (maxBaseLength > 0) {
