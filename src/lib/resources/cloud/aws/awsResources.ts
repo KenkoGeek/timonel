@@ -39,13 +39,17 @@ export class AWSResources extends BaseResourceProvider {
       ...(spec.fsType ? { fsType: spec.fsType } : {}),
     };
 
+    const provisioner = 'ebs.csi.aws.com';
     const storageClassSpec = {
-      provisioner: 'ebs.csi.aws.com',
+      provisioner,
       parameters,
       reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
       allowVolumeExpansion: spec.allowVolumeExpansion ?? true,
       volumeBindingMode: spec.volumeBindingMode ?? 'WaitForFirstConsumer',
     };
+
+    // Validate EBS-specific provisioner
+    this.validateStorageClassProvisioner(storageClassSpec.provisioner, 'EBS');
 
     return this.createApiObject(
       spec.name,
@@ -82,12 +86,16 @@ export class AWSResources extends BaseResourceProvider {
       ...(spec.basePath ? { basePath: spec.basePath } : {}),
     };
 
+    const provisioner = 'efs.csi.aws.com';
     const storageClassSpec = {
-      provisioner: 'efs.csi.aws.com',
+      provisioner,
       parameters,
       reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
       volumeBindingMode: spec.volumeBindingMode ?? 'Immediate',
     };
+
+    // Validate EFS-specific provisioner
+    this.validateStorageClassProvisioner(storageClassSpec.provisioner, 'EFS');
 
     return this.createApiObject(
       spec.name,
@@ -160,11 +168,23 @@ export class AWSResources extends BaseResourceProvider {
    * @since 2.4.0
    */
   addALBIngress(spec: AWSALBIngressSpec): ApiObject {
+    // Validate ingress paths format
+    this.validateIngressPaths(spec.rules);
+
     const annotations = this.buildALBAnnotations(spec);
 
+    // Transform rules to correct networking.k8s.io/v1 format with http wrapper
+    const transformedRules = spec.rules.map((rule) => ({
+      ...(rule.host ? { host: rule.host } : {}),
+      http: {
+        paths: rule.paths,
+      },
+    }));
+
     const ingressSpec = {
-      ...(spec.ingressClassName ? { ingressClassName: spec.ingressClassName } : {}),
-      rules: spec.rules,
+      // Use ingressClassName instead of deprecated annotation
+      ingressClassName: spec.ingressClassName ?? 'alb',
+      rules: transformedRules,
       ...(spec.tls ? { tls: spec.tls } : {}),
     };
 
@@ -176,6 +196,167 @@ export class AWSResources extends BaseResourceProvider {
       spec.labels,
       annotations,
     );
+  }
+
+  /**
+   * Validates Ingress paths format according to Kubernetes specification
+   * @param rules - Ingress rules to validate
+   * @private
+   * @since 2.5.0
+   */
+  private validateIngressPaths(
+    rules: Array<{
+      host?: string;
+      paths: Array<{
+        path: string;
+        pathType: 'Exact' | 'Prefix' | 'ImplementationSpecific';
+        backend: {
+          service: { name: string; port: { number?: number; name?: string } };
+        };
+      }>;
+    }>,
+  ): void {
+    for (const rule of rules) {
+      this.validateIngressRule(rule);
+    }
+  }
+
+  /**
+   * Validates a single Ingress rule
+   * @param rule - Ingress rule to validate
+   * @private
+   * @since 2.5.0
+   */
+  private validateIngressRule(rule: {
+    host?: string;
+    paths: Array<{
+      path: string;
+      pathType: 'Exact' | 'Prefix' | 'ImplementationSpecific';
+      backend: {
+        service: { name: string; port: { number?: number; name?: string } };
+      };
+    }>;
+  }): void {
+    if (!rule.paths || !Array.isArray(rule.paths)) {
+      throw new Error('Ingress rule must have a paths array');
+    }
+
+    for (const pathRule of rule.paths) {
+      this.validateIngressPath(pathRule);
+    }
+  }
+
+  /**
+   * Validates a single Ingress path
+   * @param pathRule - Path rule to validate
+   * @private
+   * @since 2.5.0
+   */
+  private validateIngressPath(pathRule: {
+    path: string;
+    pathType: 'Exact' | 'Prefix' | 'ImplementationSpecific';
+    backend: {
+      service: { name: string; port: { number?: number; name?: string } };
+    };
+  }): void {
+    this.validatePathFormat(pathRule.path);
+    this.validatePathType(pathRule.pathType);
+    this.validateBackend(pathRule.backend);
+  }
+
+  /**
+   * Validates path format
+   * @param path - Path to validate
+   * @private
+   * @since 2.5.0
+   */
+  private validatePathFormat(path: string): void {
+    if (!path || typeof path !== 'string') {
+      throw new Error('Ingress path must be a non-empty string');
+    }
+
+    // Normalize path and check for traversal attempts
+    const normalizedPath = path.replace(/\/+/g, '/');
+    if (!normalizedPath.startsWith('/')) {
+      throw new Error(`Ingress path "${path}" must start with /`);
+    }
+
+    // For Kubernetes Ingress paths, we allow URL patterns but warn about suspicious ones
+    if (normalizedPath.includes('../') || normalizedPath.includes('./')) {
+      // Note: These could be valid URL patterns in some cases, but are suspicious
+      console.warn(`Warning: Ingress path "${path}" contains path traversal-like sequences`);
+    }
+  }
+
+  /**
+   * Validates path type
+   * @param pathType - Path type to validate
+   * @private
+   * @since 2.5.0
+   */
+  private validatePathType(pathType: string): void {
+    const validPathTypes = ['Exact', 'Prefix', 'ImplementationSpecific'];
+    if (!validPathTypes.includes(pathType)) {
+      throw new Error(
+        `Invalid pathType "${pathType}". Must be one of: ${validPathTypes.join(', ')}`,
+      );
+    }
+  }
+
+  /**
+   * Validates backend configuration
+   * @param backend - Backend to validate
+   * @private
+   * @since 2.5.0
+   */
+  private validateBackend(backend: {
+    service: { name: string; port: { number?: number; name?: string } };
+  }): void {
+    if (!backend?.service?.name) {
+      throw new Error('Ingress path backend must specify service name');
+    }
+
+    const port = backend.service.port;
+    if (!port || (!port.number && !port.name)) {
+      throw new Error('Ingress path backend service must specify either port number or name');
+    }
+
+    if (
+      port.number &&
+      (typeof port.number !== 'number' || port.number < 1 || port.number > 65535)
+    ) {
+      throw new Error(`Invalid port number ${port.number}. Must be between 1 and 65535`);
+    }
+  }
+
+  /**
+   * Validates StorageClass provisioner is present and valid
+   * @param provisioner - Provisioner string to validate
+   * @param storageType - Type of storage (for error messages)
+   * @private
+   * @since 2.5.0
+   */
+  private validateStorageClassProvisioner(provisioner: string, storageType: string): void {
+    if (!provisioner || typeof provisioner !== 'string' || provisioner.trim() === '') {
+      throw new Error(`${storageType} StorageClass must have a valid provisioner`);
+    }
+
+    const validProvisioners = {
+      EBS: 'ebs.csi.aws.com',
+      EFS: 'efs.csi.aws.com',
+    };
+
+    // Validate provisioner matches storage type
+    const expectedProvisioner = validProvisioners[storageType as keyof typeof validProvisioners];
+    if (!expectedProvisioner) {
+      throw new Error(`Invalid storage type: ${storageType}`);
+    }
+
+    if (provisioner !== expectedProvisioner) {
+      throw new Error(
+        `Invalid AWS ${storageType} provisioner "${provisioner}". Must be: ${expectedProvisioner}`,
+      );
+    }
   }
 
   /**
@@ -201,7 +382,8 @@ export class AWSResources extends BaseResourceProvider {
    */
   private buildALBAnnotations(spec: AWSALBIngressSpec): Record<string, string> {
     const annotations: Record<string, string> = {
-      'kubernetes.io/ingress.class': 'alb',
+      // Remove deprecated kubernetes.io/ingress.class annotation
+      // Use spec.ingressClassName instead
       ...(spec.annotations ?? {}),
     };
 
