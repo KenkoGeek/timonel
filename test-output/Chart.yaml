@@ -1,5 +1,0 @@
-apiVersion: v2
-name: nginx-letsencrypt-app
-version: 1.0.0
-description: Web application with NGINX Ingress and Let's Encrypt certificates
-type: application

@@ -1,9 +1,0 @@
-app:
-  replicas: 1
-ingress:
-  host: dev.example.com
-  additionalHosts: []
-  tls:
-    clusterIssuer: letsencrypt-staging
-certManager:
-  staging: true
