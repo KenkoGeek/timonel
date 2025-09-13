@@ -1,3 +1,9 @@
+# [2.8.0-beta.4](https://github.com/KenkoGeek/timonel/compare/v2.8.0-beta.3...v2.8.0-beta.4) (2025-09-13)
+
+### Bug Fixes
+
+- **core:** resolve splitDocs removing Timonel headers from YAML ([951db75](https://github.com/KenkoGeek/timonel/commit/951db7553da57b48880b964551975411517e4218))
+
 # [2.8.0-beta.3](https://github.com/KenkoGeek/timonel/compare/v2.8.0-beta.2...v2.8.0-beta.3) (2025-09-13)
 
 ### Bug Fixes
