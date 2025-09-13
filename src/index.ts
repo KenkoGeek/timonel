@@ -67,6 +67,15 @@ export type {
   KarpenterNodePoolSpec,
   KarpenterNodeClaimSpec,
   KarpenterEC2NodeClassSpec,
+  KarpenterDisruption,
+  KarpenterDisruptionBudget,
+} from './lib/resources/cloud/aws/karpenterResources.js';
+
+export {
+  KarpenterVersionUtils,
+  isValidDisruptionBudget,
+  isValidKubernetesDuration,
+  DEFAULT_TERMINATION_GRACE_PERIOD,
 } from './lib/resources/cloud/aws/karpenterResources.js';
 
 // Re-export specific items from new modules to avoid conflicts
