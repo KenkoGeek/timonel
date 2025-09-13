@@ -31,7 +31,8 @@ describe('EncryptionResources', () => {
       expect(issuer.kind).toBe('ClusterIssuer');
       expect(issuer.metadata.name).toBe('letsencrypt-prod');
 
-      const spec = issuer.spec as Record<string, unknown>;
+      const issuerJson = issuer.toJson();
+      const spec = issuerJson.spec as Record<string, unknown>;
       expect((spec.acme as Record<string, unknown>).server).toBe(
         'https://acme-v02.api.letsencrypt.org/directory',
       );
@@ -59,7 +60,8 @@ describe('EncryptionResources', () => {
         true,
       );
 
-      const spec = issuer.spec as Record<string, unknown>;
+      const issuerJson = issuer.toJson();
+      const spec = issuerJson.spec as Record<string, unknown>;
       expect((spec.acme as Record<string, unknown>).server).toBe(
         'https://acme-staging-v02.api.letsencrypt.org/directory',
       );
@@ -82,7 +84,8 @@ describe('EncryptionResources', () => {
       expect(certificate.kind).toBe('Certificate');
       expect(certificate.metadata.name).toBe('example-tls');
 
-      const spec = certificate.spec as Record<string, unknown>;
+      const certificateJson = certificate.toJson();
+      const spec = certificateJson.spec as Record<string, unknown>;
       expect(spec.secretName).toBe('example-tls-secret');
       expect((spec.issuerRef as Record<string, unknown>).name).toBe('letsencrypt-prod');
       expect((spec.issuerRef as Record<string, unknown>).kind).toBe('ClusterIssuer');

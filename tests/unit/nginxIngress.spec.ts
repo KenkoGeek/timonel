@@ -55,7 +55,8 @@ describe('NetworkResources - NGINX Ingress Enhancement', () => {
       expect(ingress.kind).toBe('Ingress');
       expect(ingress.metadata.name).toBe('secure-ingress');
 
-      const spec = ingress.spec as Record<string, unknown>;
+      const ingressJson = ingress.toJson();
+      const spec = ingressJson.spec as Record<string, unknown>;
       expect(spec.tls).toHaveLength(1);
       expect(((spec.tls as unknown[])[0] as Record<string, unknown>).hosts).toEqual([
         'example.com',
