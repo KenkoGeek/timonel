@@ -25,55 +25,53 @@ export interface ACMEHTTP01Config {
 }
 
 /**
+ * Route53 DNS provider configuration
+ * @since 2.9.0
+ */
+export interface Route53Config {
+  /** AWS region for Route53 */
+  region: string;
+  /** Hosted zone ID (must start with 'Z') */
+  hostedZoneID?: string;
+  /** IAM role ARN (must be a valid ARN format) */
+  role?: string;
+  /** Access key ID secret reference */
+  accessKeyID?: {
+    name: string;
+    key: string;
+  };
+  /** Secret access key secret reference */
+  secretAccessKey?: {
+    name: string;
+    key: string;
+  };
+}
+
+/**
+ * Validates Route53 configuration
+ * @param config - Route53 configuration to validate
+ * @throws Error if validation fails
+ * @since 2.9.0
+ */
+export function validateRoute53Config(config: Route53Config): void {
+  if (config.region && !/^[a-z]{2}-[a-z]+-\d{1}$/.test(config.region)) {
+    throw new Error('Invalid AWS region format');
+  }
+  if (config.hostedZoneID && !/^Z[A-Z0-9]+$/.test(config.hostedZoneID)) {
+    throw new Error('Invalid hosted zone ID format');
+  }
+  if (config.role && !/^arn:aws:iam::\d{12}:role\/[\w+=,.@-]+$/.test(config.role)) {
+    throw new Error('Invalid IAM role ARN format');
+  }
+}
+
+/**
  * ACME DNS01 challenge configuration
  * @since 2.9.0
  */
 export interface ACMEDNS01Config {
   /** DNS provider configuration */
-  route53?: {
-    /** AWS region for Route53 */
-  /** DNS provider configuration */
-  route53?: {
-    /** AWS region for Route53 */
-    region: string;
-    /** Hosted zone ID (must start with 'Z') */
-    hostedZoneID?: string;
-    /** IAM role ARN (must be a valid ARN format) */
-    role?: string;
-    /** Access key ID secret reference */
-    accessKeyID?: {
-      name: string;
-      key: string;
-    };
-    /** Secret access key secret reference */
-    secretAccessKey?: {
-      name: string;
-      key: string;
-    };
-    /** Validate inputs */
-    validate(): boolean {
-      if (this.region && !/^[a-z]{2}-[a-z]+-\d{1}$/.test(this.region)) {
-        throw new Error('Invalid AWS region format');
-      }
-      if (this.hostedZoneID && !/^Z[A-Z0-9]+$/.test(this.hostedZoneID)) {
-        throw new Error('Invalid hosted zone ID format');
-      }
-      if (this.role && !/^arn:aws:iam::\d{12}:role\/[\w+=,.@-]+$/.test(this.role)) {
-        throw new Error('Invalid IAM role ARN format');
-      }
-      return true;
-    }
-  };
-    accessKeyID?: {
-      name: string;
-      key: string;
-    };
-    /** Secret access key secret reference */
-    secretAccessKey?: {
-      name: string;
-      key: string;
-    };
-  };
+  route53?: Route53Config;
   /** CloudFlare DNS provider */
   cloudflare?: {
     /** API token secret reference */
@@ -289,11 +287,14 @@ export class EncryptionResources extends BaseResourceProvider {
       ? EncryptionResources.LETSENCRYPT_STAGING_SERVER
       : EncryptionResources.LETSENCRYPT_PRODUCTION_SERVER;
 
-    const route53Config: ACMEDNS01Config['route53'] = {
+    const route53Config: Route53Config = {
       region,
       ...(hostedZoneID && { hostedZoneID }),
       ...(role && { role }),
     };
+
+    // Validate configuration
+    validateRoute53Config(route53Config);
 
     return this.addClusterIssuer({
       name,
