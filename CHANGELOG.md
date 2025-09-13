@@ -1,3 +1,9 @@
+## [2.7.3](https://github.com/KenkoGeek/timonel/compare/v2.7.2...v2.7.3) (2025-09-13)
+
+### Bug Fixes
+
+- **cli:** resolve ES modules \_\_dirname and scaffold import paths ([#80](https://github.com/KenkoGeek/timonel/issues/80)) ([117c064](https://github.com/KenkoGeek/timonel/commit/117c064c3bae705a50de6d237b1bd7bf9340c7dd))
+
 ## [2.7.2](https://github.com/KenkoGeek/timonel/compare/v2.7.1...v2.7.2) (2025-09-13)
 
 ### Bug Fixes
