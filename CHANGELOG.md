@@ -1,3 +1,9 @@
+# [2.6.0](https://github.com/KenkoGeek/timonel/compare/v2.5.1...v2.6.0) (2025-09-13)
+
+### Features
+
+- **core:** add security helpers - sanitizeEnvVar, validateImageTag, generateSecretName ([#43](https://github.com/KenkoGeek/timonel/issues/43)) ([323c9ae](https://github.com/KenkoGeek/timonel/commit/323c9ae3243dead04dacc6daf4e98e8af1a8d98b))
+
 ## [2.5.1](https://github.com/KenkoGeek/timonel/compare/v2.5.0...v2.5.1) (2025-09-12)
 
 ### Bug Fixes
