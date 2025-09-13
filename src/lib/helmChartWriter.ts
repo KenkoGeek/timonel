@@ -385,7 +385,7 @@ export class HelmChartWriter {
 function splitDocs(yamlStr: string): string[] {
   return yamlStr
     .split(/^---\s*$/m)
-    .map((p) => p.trim())
+    .map((p) => p.replace(/^\s*\n/, '').replace(/\s*$/, '')) // Remove leading newlines and trailing whitespace but preserve content
     .filter((p) => p.length);
 }
 
