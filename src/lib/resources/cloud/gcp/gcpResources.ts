@@ -37,7 +37,7 @@ export class GCPResources extends BaseResourceProvider {
       ...(spec.fsType ? { fstype: spec.fsType } : {}),
     };
 
-    const storageClassSpec = {
+    const fields = {
       provisioner: 'pd.csi.storage.gke.io',
       parameters,
       reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
@@ -45,11 +45,11 @@ export class GCPResources extends BaseResourceProvider {
       volumeBindingMode: spec.volumeBindingMode ?? 'WaitForFirstConsumer',
     };
 
-    return this.createApiObject(
+    return this.createRootLevelApiObject(
       spec.name,
       GCPResources.STORAGE_API_VERSION,
       'StorageClass',
-      storageClassSpec,
+      fields,
       spec.labels,
       spec.annotations,
     );
@@ -79,7 +79,7 @@ export class GCPResources extends BaseResourceProvider {
       ...(spec.location ? { location: spec.location } : {}),
     };
 
-    const storageClassSpec = {
+    const fields = {
       provisioner: 'filestore.csi.storage.gke.io',
       parameters,
       reclaimPolicy: spec.reclaimPolicy ?? 'Delete',
@@ -87,11 +87,11 @@ export class GCPResources extends BaseResourceProvider {
       volumeBindingMode: spec.volumeBindingMode ?? 'Immediate',
     };
 
-    return this.createApiObject(
+    return this.createRootLevelApiObject(
       spec.name,
       GCPResources.STORAGE_API_VERSION,
       'StorageClass',
-      storageClassSpec,
+      fields,
       spec.labels,
       spec.annotations,
     );

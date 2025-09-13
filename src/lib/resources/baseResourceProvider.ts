@@ -107,4 +107,38 @@ export abstract class BaseResourceProvider implements IResourceProvider {
       spec,
     });
   }
+
+  /**
+   * Creates an ApiObject for resources that don't use spec wrapper (like StorageClass)
+   * @param name - Resource name
+   * @param apiVersion - API version
+   * @param kind - Resource kind
+   * @param fields - Root-level fields for the resource
+   * @param labels - Optional labels
+   * @param annotations - Optional annotations
+   * @returns Created ApiObject
+   * @since 2.5.0
+   */
+  protected createRootLevelApiObject(
+    name: string,
+    apiVersion: string,
+    kind: string,
+    fields: Record<string, unknown>,
+    labels?: Record<string, string>,
+    annotations?: Record<string, string>,
+  ): ApiObject {
+    this.validateKubernetesName(name, kind);
+    this.validateLabels(labels, kind);
+
+    return new ApiObject(this.chart, name, {
+      apiVersion,
+      kind,
+      metadata: {
+        name,
+        ...(labels && Object.keys(labels).length > 0 ? { labels } : {}),
+        ...(annotations && Object.keys(annotations).length > 0 ? { annotations } : {}),
+      },
+      ...fields, // Fields go at root level, not under spec
+    });
+  }
 }

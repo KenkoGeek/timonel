@@ -115,7 +115,7 @@ export class StorageResources extends BaseResourceProvider {
    * @since 2.4.0
    */
   addStorageClass(spec: StorageClassSpec): ApiObject {
-    const storageClassSpec = {
+    const fields = {
       provisioner: spec.provisioner,
       ...(spec.parameters ? { parameters: spec.parameters } : {}),
       ...(spec.reclaimPolicy ? { reclaimPolicy: spec.reclaimPolicy } : {}),
@@ -126,11 +126,11 @@ export class StorageResources extends BaseResourceProvider {
       ...(spec.allowedTopologies ? { allowedTopologies: spec.allowedTopologies } : {}),
     };
 
-    return this.createApiObject(
+    return this.createRootLevelApiObject(
       spec.name,
       StorageResources.STORAGE_API_VERSION,
       'StorageClass',
-      storageClassSpec,
+      fields,
       spec.labels,
       spec.annotations,
     );
