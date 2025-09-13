@@ -1,3 +1,22 @@
+# [2.8.0-beta.1](https://github.com/KenkoGeek/timonel/compare/v2.7.3...v2.8.0-beta.1) (2025-09-13)
+
+### Bug Fixes
+
+- **ci:** add mandatory CI status verification to beta release ([02af416](https://github.com/KenkoGeek/timonel/commit/02af41689a4efbee2f215bcce1c9c6a5e59878cd))
+- **ci:** remove npm-prd environment from beta release ([50076de](https://github.com/KenkoGeek/timonel/commit/50076de8734066b181c5fc5f28b03fcde0959efc))
+- **ci:** restore release.yml workflow from v2.7.3 ([cabb8bf](https://github.com/KenkoGeek/timonel/commit/cabb8bff765cad790b1c27a2d6749c0ddac6e24d))
+- **ci:** restore working release workflow from v2.7.3 ([bed9146](https://github.com/KenkoGeek/timonel/commit/bed9146fd772a3d1f45e9cef5a316375351b1912))
+- **ci:** specify explicit semantic-release config file ([ac95d51](https://github.com/KenkoGeek/timonel/commit/ac95d51469a20df289e63665e5e8572fbcf86e35))
+- **ci:** use working semantic-release config from v2.7.3 ([5261eda](https://github.com/KenkoGeek/timonel/commit/5261edab43d05670f3803fca222d1e01f29d2f57))
+- **network:** Ingress API with TLS validation and security defaults ([#88](https://github.com/KenkoGeek/timonel/issues/88)) ([b1397b1](https://github.com/KenkoGeek/timonel/commit/b1397b1fa51a01f84f8cf4bbe41efa27f5636ac7))
+
+### Features
+
+- **ci:** add automatic beta release workflow for main branch ([72b553b](https://github.com/KenkoGeek/timonel/commit/72b553b8c530368478e430abdeeaef3aa1e6b310))
+- **ci:** add beta releases on main with quality gates [skip ci] ([81c4dd0](https://github.com/KenkoGeek/timonel/commit/81c4dd062015a1bc2e62730c7f94f23fcfdfe2ed))
+- **ci:** configure dual release strategy ([b11aeae](https://github.com/KenkoGeek/timonel/commit/b11aeaef175603787cd27a0af83d6ab6f8acb8f7))
+- **ci:** simplify to beta releases only ([4f9704d](https://github.com/KenkoGeek/timonel/commit/4f9704dfe9fa63b7bd3cc2bb458256f47514d1ed))
+
 ## [2.7.3](https://github.com/KenkoGeek/timonel/compare/v2.7.2...v2.7.3) (2025-09-13)
 
 ### Bug Fixes
