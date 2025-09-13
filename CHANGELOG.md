@@ -1,3 +1,9 @@
+## [2.7.2](https://github.com/KenkoGeek/timonel/compare/v2.7.1...v2.7.2) (2025-09-13)
+
+### Bug Fixes
+
+- **aws:** update Karpenter API versions and add disruption/scheduling helpers ([#77](https://github.com/KenkoGeek/timonel/issues/77)) ([59fabbd](https://github.com/KenkoGeek/timonel/commit/59fabbd19481e694f4ff4e26e50ef57bb724717a))
+
 ## [2.7.1](https://github.com/KenkoGeek/timonel/compare/v2.7.0...v2.7.1) (2025-09-13)
 
 ### Bug Fixes
