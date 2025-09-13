@@ -1,0 +1,6 @@
+replicas: 1
+database:
+  enabled: false
+features:
+  monitoring:
+    enabled: true

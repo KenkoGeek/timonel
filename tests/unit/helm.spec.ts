@@ -10,6 +10,10 @@ import {
   quote,
   indent,
   helm,
+  conditionalRef,
+  defaultRef,
+  base64Ref,
+  jsonRef,
 } from '../../dist/lib/helm.js';
 
 describe('Helm Template Helpers', () => {
@@ -263,6 +267,131 @@ describe('Helm Template Helpers', () => {
       const indentedLabels = indent(4, labels);
 
       expect(indentedLabels).toBe('    {{ include "myapp.labels" . }}');
+    });
+  });
+
+  describe('conditionalRef', () => {
+    it('should create conditional values reference', () => {
+      const result = conditionalRef('database.secretName', 'database.enabled');
+      expect(result).toBe(
+        '{{ if .Values.database.enabled }}{{ .Values.database.secretName }}{{ end }}',
+      );
+    });
+
+    it('should handle nested paths for both value and condition', () => {
+      const result = conditionalRef('app.config.url', 'features.external.enabled');
+      expect(result).toBe(
+        '{{ if .Values.features.external.enabled }}{{ .Values.app.config.url }}{{ end }}',
+      );
+    });
+
+    it('should throw error for invalid value path', () => {
+      expect(() => conditionalRef('', 'enabled')).toThrow('Invalid Helm template path');
+      expect(() => conditionalRef('invalid path', 'enabled')).toThrow('Invalid Helm template path');
+    });
+
+    it('should throw error for invalid condition path', () => {
+      expect(() => conditionalRef('value', '')).toThrow('Invalid Helm template condition path');
+      expect(() => conditionalRef('value', 'invalid@condition')).toThrow(
+        'Invalid Helm template condition path',
+      );
+    });
+  });
+
+  describe('defaultRef', () => {
+    it('should create values reference with default fallback', () => {
+      const result = defaultRef('image.tag', 'latest');
+      expect(result).toBe('{{ .Values.image.tag | default "latest" }}');
+    });
+
+    it('should handle numeric default values', () => {
+      const result = defaultRef('replicas', '3');
+      expect(result).toBe('{{ .Values.replicas | default "3" }}');
+    });
+
+    it('should escape quotes in default value', () => {
+      const result = defaultRef('message', 'Hello "World"');
+      expect(result).toBe('{{ .Values.message | default "Hello \\"World\\"" }}');
+    });
+
+    it('should escape backslashes in default value', () => {
+      const result = defaultRef('path', 'C:\\Program Files');
+      expect(result).toBe('{{ .Values.path | default "C:\\\\Program Files" }}');
+    });
+
+    it('should throw error for invalid paths', () => {
+      expect(() => defaultRef('', 'default')).toThrow('Invalid Helm template path');
+      expect(() => defaultRef('invalid path', 'default')).toThrow('Invalid Helm template path');
+    });
+  });
+
+  describe('base64Ref', () => {
+    it('should create base64-encoded values reference', () => {
+      const result = base64Ref('secrets.apiKey');
+      expect(result).toBe('{{ .Values.secrets.apiKey | b64enc }}');
+    });
+
+    it('should handle nested paths', () => {
+      const result = base64Ref('app.credentials.token');
+      expect(result).toBe('{{ .Values.app.credentials.token | b64enc }}');
+    });
+
+    it('should throw error for invalid paths', () => {
+      expect(() => base64Ref('')).toThrow('Invalid Helm template path');
+      expect(() => base64Ref('invalid@path')).toThrow('Invalid Helm template path');
+    });
+  });
+
+  describe('jsonRef', () => {
+    it('should create JSON-serialized values reference', () => {
+      const result = jsonRef('app.config');
+      expect(result).toBe('{{ .Values.app.config | toJson }}');
+    });
+
+    it('should handle nested configuration paths', () => {
+      const result = jsonRef('database.connection.options');
+      expect(result).toBe('{{ .Values.database.connection.options | toJson }}');
+    });
+
+    it('should throw error for invalid paths', () => {
+      expect(() => jsonRef('')).toThrow('Invalid Helm template path');
+      expect(() => jsonRef('invalid path')).toThrow('Invalid Helm template path');
+    });
+  });
+
+  describe('integration scenarios', () => {
+    it('should work together for complex template generation', () => {
+      const imageRepo = valuesRef('image.repository');
+      const imageTag = valuesRef('image.tag');
+      const replicas = numberRef('replicas');
+      const enabled = boolRef('feature.enabled');
+
+      expect(imageRepo).toBe('{{ .Values.image.repository }}');
+      expect(imageTag).toBe('{{ .Values.image.tag }}');
+      expect(replicas).toBe('{{ .Values.replicas | int }}');
+      expect(enabled).toBe('{{ .Values.feature.enabled | toBool }}');
+    });
+
+    it('should handle quoted template expressions in YAML context', () => {
+      const templateExpr = valuesRef('image.tag');
+      const quoted = quote(templateExpr);
+
+      expect(templateExpr).toBe('{{ .Values.image.tag }}');
+      expect(quoted).toBe("'{{ .Values.image.tag }}'");
+    });
+
+    it('should combine new helper functions effectively', () => {
+      const conditionalSecret = conditionalRef('database.password', 'database.enabled');
+      const defaultImage = defaultRef('image.tag', 'latest');
+      const encodedToken = base64Ref('auth.token');
+      const configJson = jsonRef('app.settings');
+
+      expect(conditionalSecret).toBe(
+        '{{ if .Values.database.enabled }}{{ .Values.database.password }}{{ end }}',
+      );
+      expect(defaultImage).toBe('{{ .Values.image.tag | default "latest" }}');
+      expect(encodedToken).toBe('{{ .Values.auth.token | b64enc }}');
+      expect(configJson).toBe('{{ .Values.app.settings | toJson }}');
     });
   });
 });

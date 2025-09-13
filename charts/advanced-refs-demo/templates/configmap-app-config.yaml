@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  labels:
+    helm.sh/chart: '{{ .Chart.Name }}-{{ .Chart.Version }}'
+    app.kubernetes.io/name: '{{ include "chart.name" . }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/version: '{{ .Chart.Version }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    app.kubernetes.io/part-of: '{{ .Chart.Name }}'
+data:
+  app.version: '{{ .Values.image.tag | default "unknown" }}'
+  cache.settings: '{{ .Values.features.cache.config | toJson }}'
+  database.enabled: '{{ if .Values.database.enabled }}{{ .Values.database.enabled }}{{ end }}'
+  monitoring.config: '{{ if .Values.features.monitoring.enabled }}{{
+    .Values.features.monitoring.endpoint }}{{ end }}'
