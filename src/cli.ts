@@ -2,7 +2,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cp from 'child_process';
-import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
+
+// ES modules equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 import { SecurityUtils } from './lib/security.js';
 
@@ -136,6 +140,66 @@ async function cmdValidate(projectDir?: string, silent = false) {
   }
 }
 
+/**
+ * Execute TypeScript chart using tsx with proper error handling.
+ * @param resolvedPath - Resolved path to the TypeScript file
+ * @param outDir - Output directory for the chart
+ * @param flags - CLI flags
+ * @since 2.7.3
+ */
+async function executeTypeScriptChart(resolvedPath: string, outDir: string, flags?: CliFlags) {
+  const wrapperScript = `
+import { pathToFileURL } from 'url';
+
+const mod = await import(pathToFileURL('${resolvedPath}').href);
+const runner = mod.default || mod.run || mod.synth;
+if (typeof runner !== 'function') {
+  console.error('chart.ts must export a default/run/synth function');
+  process.exit(1);
+}
+
+${
+  flags?.set && Object.keys(flags.set).length > 0
+    ? `
+// Apply --set overrides if provided
+if (mod.rutter && typeof mod.rutter.setValues === 'function') {
+  mod.rutter.setValues(${JSON.stringify(flags.set)});
+}
+`
+    : ''
+}
+
+const outDir = '${outDir}';
+const fs = await import('fs');
+fs.mkdirSync(outDir, { recursive: true });
+await Promise.resolve(runner(outDir));
+console.log('Chart written to ' + outDir);
+`;
+
+  const wrapperFile = path.join(process.cwd(), '.timonel-wrapper.mjs');
+
+  try {
+    fs.writeFileSync(wrapperFile, wrapperScript);
+
+    const result = cp.spawnSync('npx', ['tsx', wrapperFile], {
+      stdio: flags?.silent ? 'pipe' : 'inherit',
+      encoding: 'utf8',
+    });
+
+    if (result.status !== 0) {
+      if (flags?.silent && result.stderr) {
+        console.error(SecurityUtils.sanitizeLogMessage(result.stderr));
+      }
+      process.exit(result.status ?? 1);
+    }
+  } finally {
+    // Cleanup wrapper file
+    if (fs.existsSync(wrapperFile)) {
+      fs.unlinkSync(wrapperFile);
+    }
+  }
+}
+
 async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
   if (!projectDir) usageAndExit('Missing <projectDir>');
   const proj = projectDir as string;
@@ -150,19 +214,6 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
     console.error(SecurityUtils.sanitizeLogMessage(`chart.ts not found at ${chartTs}`));
     process.exit(1);
   }
-  // Enable TS runtime with inline config
-  const { register } = await import('ts-node');
-  register({
-    transpileOnly: true,
-    compilerOptions: {
-      module: 'CommonJS',
-      moduleResolution: 'node',
-      esModuleInterop: true,
-      allowSyntheticDefaultImports: true,
-      strict: true,
-      target: 'ES2020',
-    },
-  });
 
   // Validate TypeScript file extension
   if (!SecurityUtils.isValidTypeScriptFile(chartTs)) {
@@ -172,41 +223,18 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
 
   // Additional path validation is already done by SecurityUtils.validatePath above
   const resolvedPath = path.resolve(chartTs);
+  const outDir = out || path.join(path.dirname(chartTs), 'dist');
+
+  if (flags?.dryRun) {
+    log(`[DRY RUN] Would write chart to ${outDir}`, flags.silent);
+    return;
+  }
 
   try {
-    // Use createRequire for CommonJS compatibility in ES modules
-    const require = createRequire(import.meta.url);
-    // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
-    const mod = require(resolvedPath);
-    const runner = mod.default || mod.run || mod.synth;
-    if (typeof runner !== 'function') {
-      console.error('chart.ts must export a default/run/synth function');
-      process.exit(1);
-    }
-
-    // Apply --set overrides if provided
-    if (
-      flags?.set &&
-      Object.keys(flags.set).length > 0 &&
-      mod.rutter &&
-      typeof mod.rutter.setValues === 'function'
-    ) {
-      mod.rutter.setValues(flags.set);
-    }
-    const outDir = out || path.join(path.dirname(chartTs), 'dist');
-
-    if (flags?.dryRun) {
-      log(`[DRY RUN] Would write chart to ${outDir}`, flags.silent);
-      return;
-    }
-
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    fs.mkdirSync(outDir, { recursive: true });
-    await Promise.resolve(runner(outDir));
-    log(SecurityUtils.sanitizeLogMessage(`Chart written to ${outDir}`), flags?.silent);
+    await executeTypeScriptChart(resolvedPath, outDir, flags);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(SecurityUtils.sanitizeLogMessage(`Failed to import module: ${errorMsg}`));
+    console.error(SecurityUtils.sanitizeLogMessage(`Failed to execute chart: ${errorMsg}`));
     process.exit(1);
   }
 }
@@ -385,6 +413,55 @@ async function cmdUmbrellaAdd(subchartName?: string, silent = false) {
   log(`Subchart ${subchartName} added to umbrella`, silent);
 }
 
+/**
+ * Execute TypeScript umbrella chart using tsx with proper error handling.
+ * @param resolvedPath - Resolved path to the TypeScript file
+ * @param outDir - Output directory for the chart
+ * @param flags - CLI flags
+ * @since 2.7.3
+ */
+async function executeTypeScriptUmbrella(resolvedPath: string, outDir: string, flags?: CliFlags) {
+  const wrapperScript = `
+import { pathToFileURL } from 'url';
+
+const mod = await import(pathToFileURL('${resolvedPath}').href);
+const runner = mod.default || mod.run || mod.synth;
+if (typeof runner !== 'function') {
+  console.error('umbrella.ts must export a default/run/synth function');
+  process.exit(1);
+}
+
+const output = '${outDir}';
+const fs = await import('fs');
+fs.mkdirSync(output, { recursive: true });
+await Promise.resolve(runner(output));
+console.log('Umbrella chart written to ' + output);
+`;
+
+  const wrapperFile = path.join(process.cwd(), '.timonel-umbrella-wrapper.mjs');
+
+  try {
+    fs.writeFileSync(wrapperFile, wrapperScript);
+
+    const result = cp.spawnSync('npx', ['tsx', wrapperFile], {
+      stdio: flags?.silent ? 'pipe' : 'inherit',
+      encoding: 'utf8',
+    });
+
+    if (result.status !== 0) {
+      if (flags?.silent && result.stderr) {
+        console.error(SecurityUtils.sanitizeLogMessage(result.stderr));
+      }
+      process.exit(result.status ?? 1);
+    }
+  } finally {
+    // Cleanup wrapper file
+    if (fs.existsSync(wrapperFile)) {
+      fs.unlinkSync(wrapperFile);
+    }
+  }
+}
+
 async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
   const configFile = path.join(process.cwd(), UMBRELLA_CONFIG_FILE);
 
@@ -400,20 +477,6 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
     process.exit(1);
   }
 
-  // Enable TS runtime with inline config
-  const { register } = await import('ts-node');
-  register({
-    transpileOnly: true,
-    compilerOptions: {
-      module: 'CommonJS',
-      moduleResolution: 'node',
-      esModuleInterop: true,
-      allowSyntheticDefaultImports: true,
-      strict: true,
-      target: 'ES2020',
-    },
-  });
-
   // Validate TypeScript file extension
   if (!SecurityUtils.isValidTypeScriptFile(umbrellaFile)) {
     console.error('Security: Only TypeScript files (.ts) are allowed');
@@ -423,32 +486,18 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
   // Validate path to prevent traversal attacks
   const validatedPath = SecurityUtils.validatePath(umbrellaFile, process.cwd());
   const resolvedPath = path.resolve(validatedPath);
+  const output = outDir || path.join(process.cwd(), 'dist');
+
+  if (flags?.dryRun) {
+    log(`[DRY RUN] Would write umbrella chart to ${output}`, flags.silent);
+    return;
+  }
 
   try {
-    // Use createRequire for CommonJS compatibility in ES modules
-    const require = createRequire(import.meta.url);
-    // eslint-disable-next-line security/detect-non-literal-require -- CLI tool needs dynamic module loading
-    const mod = require(resolvedPath);
-    const runner = mod.default || mod.run || mod.synth;
-    if (typeof runner !== 'function') {
-      console.error('umbrella.ts must export a default/run/synth function');
-      process.exit(1);
-    }
-
-    const output = outDir || path.join(process.cwd(), 'dist');
-
-    if (flags?.dryRun) {
-      log(`[DRY RUN] Would write umbrella chart to ${output}`, flags.silent);
-      return;
-    }
-
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    fs.mkdirSync(output, { recursive: true });
-    await Promise.resolve(runner(output));
-    log(`Umbrella chart written to ${output}`, flags?.silent);
+    await executeTypeScriptUmbrella(resolvedPath, output, flags);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(SecurityUtils.sanitizeLogMessage(`Failed to import module: ${errorMsg}`));
+    console.error(SecurityUtils.sanitizeLogMessage(`Failed to execute umbrella: ${errorMsg}`));
     process.exit(1);
   }
 }
@@ -522,9 +571,16 @@ export default function run(outDir: string) {
 `;
 }
 
+/**
+ * Generate TypeScript code for a subchart with correct package imports.
+ * Uses published package imports instead of relative development paths.
+ * @param name - The name of the subchart
+ * @returns TypeScript code string for the subchart
+ * @since 2.7.3
+ */
 function exampleSubchartTs(name: string): string {
-  return `import { Rutter } from '../../../src';
-import { valuesRef } from '../../../src/lib/helm';
+  return `import { Rutter } from 'timonel';
+import { valuesRef } from 'timonel/lib/helm';
 
 // Define subchart
 const rutter = new Rutter({
@@ -543,14 +599,14 @@ const rutter = new Rutter({
 
 // Add resources
 rutter.addDeployment({
-  name: '${name}',
+  name: '${name}-deployment',
   image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
   replicas: 1,
   containerPort: 80,
 });
 
 rutter.addService({
-  name: '${name}',
+  name: '${name}-service',
   ports: [{ port: 80, targetPort: 80 }],
   selector: { app: '${name}' },
 });
@@ -564,9 +620,16 @@ export { rutter };
 `;
 }
 
+/**
+ * Generate TypeScript code for a main chart with correct package imports.
+ * Uses published package imports instead of relative development paths.
+ * @param name - The name of the chart
+ * @returns TypeScript code string for the chart
+ * @since 2.7.3
+ */
 function exampleChartTs(name: string): string {
-  return `import { Rutter } from '../../src';
-import { valuesRef, helm } from '../../src/lib/helm';
+  return `import { Rutter } from 'timonel';
+import { valuesRef, helm } from 'timonel/lib/helm';
 
 // Define chart metadata and default/env values
 const rutter = new Rutter({
@@ -590,9 +653,9 @@ const rutter = new Rutter({
 
 // Use Helm placeholders in strings passed to cdk8s constructs
 rutter.addDeployment({
-  name: '${name}',
+  name: '${name}-deployment',
   image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
-  replicas: Number(valuesRef('replicas') as unknown as string) as any,
+  replicas: valuesRef('replicas'),
   containerPort: 80,
   env: {
     APP_NAME: '${name}',
@@ -601,8 +664,8 @@ rutter.addDeployment({
 });
 
 rutter.addService({
-  name: '${name}',
-  ports: [{ port: Number(valuesRef('service.port') as unknown as string) as any, targetPort: 80 }],
+  name: '${name}-service',
+  ports: [{ port: valuesRef('service.port'), targetPort: 80 }],
   type: 'ClusterIP',
   selector: { app: '${name}' },
 });
@@ -611,7 +674,7 @@ rutter.addService({
 // Helm conditionals can be embedded as comments; template users can wrap templates with if blocks
 // Here we just generate an ingress; for real conditional generation you could split assets yourself.
 rutter.addIngress({
-  name: '${name}',
+  name: '${name}-ingress',
   ingressClassName: String(valuesRef('ingress.className')),
   rules: [{
     host: String(valuesRef('ingress.host')),
@@ -621,7 +684,7 @@ rutter.addIngress({
       backend: {
         service: {
           name: '${name}',
-          port: { number: Number(valuesRef('service.port') as unknown as string) as any },
+          port: { number: valuesRef('service.port') },
         },
       },
     }],
@@ -689,6 +752,11 @@ function parseArgs(): { cmd: string; args: string[]; flags: CliFlags } {
   return { cmd, args, flags };
 }
 
+/**
+ * Display the current version of Timonel CLI.
+ * Reads version from package.json using ES modules compatible path resolution.
+ * @since 2.7.3
+ */
 function showVersion() {
   const packagePath = path.join(__dirname, '..', 'package.json');
   try {
