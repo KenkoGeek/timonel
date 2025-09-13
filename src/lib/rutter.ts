@@ -1013,8 +1013,221 @@ export class Rutter {
    * @deprecated Use addSecureIngress for enhanced security validation
    * @since 2.7.0
    */
-  addIngress(spec: IngressSpec): ApiObject {
+  /**
+   * Creates an Ingress resource for external access to services
+   * @param spec - Ingress specification
+   * @returns Created Ingress ApiObject
+   * @deprecated Use addSecureIngress for enhanced security validation
+   * @since 2.7.0
+   */
+  addIngress(spec: IngressSpec): ApiObject;
+  /**
+   * Creates a simple Ingress resource with optional TLS
+   * @param name - Resource name
+   * @param host - Domain host
+   * @param serviceName - Backend service name
+   * @param servicePort - Backend service port
+   * @param options - Optional configuration
+   * @returns Created Ingress ApiObject
+   * @since 2.8.1
+   */
+  addIngress(
+    name: string,
+    host: string,
+    serviceName: string,
+    servicePort: number,
+    options?: {
+      tls?: boolean | string;
+      className?: string;
+      annotations?: Record<string, string>;
+      path?: string;
+      pathType?: 'Exact' | 'Prefix' | 'ImplementationSpecific';
+      sslRedirect?: boolean;
+      certManager?: string;
+    },
+  ): ApiObject;
+  addIngress(
+    specOrName: IngressSpec | string,
+    host?: string,
+    serviceName?: string,
+    servicePort?: number,
+    options?: {
+      tls?: boolean | string;
+      className?: string;
+      annotations?: Record<string, string>;
+      path?: string;
+      pathType?: 'Exact' | 'Prefix' | 'ImplementationSpecific';
+      sslRedirect?: boolean;
+      certManager?: string;
+      cors?: boolean;
+      bodySize?: string;
+      timeout?: number;
+      backendProtocol?: 'HTTP' | 'HTTPS' | 'GRPC';
+      rewriteTarget?: string;
+    },
+  ): ApiObject {
+    if (typeof specOrName === 'string') {
+      return this.createSimpleIngress(specOrName, host!, serviceName!, servicePort!, options);
+    }
+
+    // Original spec-based overload
+    return this.networkResources.addIngress(specOrName);
+  }
+
+  /**
+   * Creates a simple Ingress with enhanced options
+   * @private
+   */
+  private createSimpleIngress(
+    name: string,
+    host: string,
+    serviceName: string,
+    servicePort: number,
+    options?: {
+      tls?: boolean | string;
+      className?: string;
+      annotations?: Record<string, string>;
+      path?: string;
+      pathType?: 'Exact' | 'Prefix' | 'ImplementationSpecific';
+      sslRedirect?: boolean;
+      certManager?: string;
+      cors?: boolean;
+      bodySize?: string;
+      timeout?: number;
+      backendProtocol?: 'HTTP' | 'HTTPS' | 'GRPC';
+      rewriteTarget?: string;
+    },
+  ): ApiObject {
+    const tlsSecretName = typeof options?.tls === 'string' ? options.tls : `${name}-tls`;
+    const annotations = this.buildIngressAnnotations(options);
+
+    const spec: IngressSpec = {
+      name,
+      rules: [
+        {
+          host,
+          http: {
+            paths: [
+              {
+                path: options?.path || '/',
+                pathType: options?.pathType || 'Prefix',
+                backend: {
+                  service: {
+                    name: serviceName,
+                    port: { number: servicePort },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      ],
+      ...(options?.className && { ingressClassName: options.className }),
+      ...(Object.keys(annotations).length > 0 && { annotations }),
+      ...(options?.tls && {
+        tls: [
+          {
+            hosts: [host],
+            secretName: tlsSecretName,
+          },
+        ],
+      }),
+    };
+
     return this.networkResources.addIngress(spec);
+  }
+
+  /**
+   * Builds annotations for Ingress based on options
+   * @private
+   */
+  private buildIngressAnnotations(options?: {
+    className?: string;
+    annotations?: Record<string, string>;
+    tls?: boolean | string;
+    sslRedirect?: boolean;
+    certManager?: string;
+    cors?: boolean;
+    bodySize?: string;
+    timeout?: number;
+    backendProtocol?: 'HTTP' | 'HTTPS' | 'GRPC';
+    rewriteTarget?: string;
+  }): Record<string, string> {
+    const annotations: Record<string, string> = { ...options?.annotations };
+
+    this.addSSLRedirectAnnotation(annotations, options);
+    this.addCertManagerAnnotation(annotations, options);
+    this.addNginxAnnotations(annotations, options);
+
+    return annotations;
+  }
+
+  /**
+   * Adds SSL redirect annotation based on class and options
+   * @private
+   */
+  private addSSLRedirectAnnotation(
+    annotations: Record<string, string>,
+    options?: { className?: string; tls?: boolean | string; sslRedirect?: boolean },
+  ): void {
+    if (!options?.tls || options.sslRedirect === false) return;
+
+    if (options.className === 'nginx' || !options.className) {
+      annotations['nginx.ingress.kubernetes.io/ssl-redirect'] = 'true';
+    } else if (options.className === 'alb') {
+      annotations['alb.ingress.kubernetes.io/ssl-redirect'] = '443';
+    }
+  }
+
+  /**
+   * Adds cert-manager annotation if specified
+   * @private
+   */
+  private addCertManagerAnnotation(
+    annotations: Record<string, string>,
+    options?: { certManager?: string },
+  ): void {
+    if (options?.certManager) {
+      annotations['cert-manager.io/cluster-issuer'] = options.certManager;
+    }
+  }
+
+  /**
+   * Adds NGINX-specific annotations
+   * @private
+   */
+  private addNginxAnnotations(
+    annotations: Record<string, string>,
+    options?: {
+      className?: string;
+      cors?: boolean;
+      bodySize?: string;
+      timeout?: number;
+      backendProtocol?: 'HTTP' | 'HTTPS' | 'GRPC';
+      rewriteTarget?: string;
+    },
+  ): void {
+    if (options?.className !== 'nginx' && options?.className) return;
+
+    if (options?.cors) {
+      annotations['nginx.ingress.kubernetes.io/enable-cors'] = 'true';
+    }
+
+    if (options?.bodySize) {
+      annotations['nginx.ingress.kubernetes.io/proxy-body-size'] = options.bodySize;
+    }
+
+    if (options?.timeout) {
+      annotations['nginx.ingress.kubernetes.io/proxy-read-timeout'] = options.timeout.toString();
+    }
+
+    if (options?.backendProtocol && options.backendProtocol !== 'HTTP') {
+      annotations['nginx.ingress.kubernetes.io/backend-protocol'] = options.backendProtocol;
+    }
+
+    if (options?.rewriteTarget) {
+      annotations['nginx.ingress.kubernetes.io/rewrite-target'] = options.rewriteTarget;
+    }
   }
 
   /**
