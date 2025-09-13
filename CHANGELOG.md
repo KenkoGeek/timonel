@@ -1,3 +1,9 @@
+# [2.7.0](https://github.com/KenkoGeek/timonel/compare/v2.6.2...v2.7.0) (2025-09-13)
+
+### Features
+
+- **core:** Add NetworkPolicy, ServiceAccount, CronJob, HPA, VPA, Ingress, and Karpenter resources ([0bda471](https://github.com/KenkoGeek/timonel/commit/0bda47158eab41878a956105fb311b83411a2846))
+
 ## [2.6.2](https://github.com/KenkoGeek/timonel/compare/v2.6.1...v2.6.2) (2025-09-13)
 
 ### Bug Fixes
