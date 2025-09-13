@@ -219,8 +219,11 @@ export class GCPResources extends BaseResourceProvider {
    * @since 2.7.0
    */
   addArtifactRegistryServiceAccount(spec: GCPArtifactRegistryServiceAccountSpec): ApiObject {
+    const googleServiceAccount =
+      'googleServiceAccount' in spec ? spec.googleServiceAccount : spec.gcpServiceAccount;
+
     const annotations = {
-      'iam.gke.io/gcp-service-account': spec.googleServiceAccount,
+      'iam.gke.io/gcp-service-account': googleServiceAccount,
       ...(spec.annotations || {}),
     };
 
@@ -293,11 +296,13 @@ export interface GCPWorkloadIdentityServiceAccountSpec {
   annotations?: Record<string, string>;
 }
 
-export interface GCPArtifactRegistryServiceAccountSpec {
+export type GCPArtifactRegistryServiceAccountSpec = {
   name: string;
-  googleServiceAccount: string;
   automountServiceAccountToken?: boolean;
   imagePullSecrets?: Array<{ name: string }>;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
-}
+} & (
+  | { googleServiceAccount: string; gcpServiceAccount?: never }
+  | { gcpServiceAccount: string; googleServiceAccount?: never }
+);
