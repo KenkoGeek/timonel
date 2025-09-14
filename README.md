@@ -16,17 +16,14 @@ using cdk8s. Define Kubernetes resources with classes and synthesize a full Helm
 
 ## ✨ Key Features
 
-- **Type-safe API** with strict TypeScript and cdk8s-plus-33 constructs
-- **Flexible resource creation** with built-in methods and `addManifest()` for custom resources
-- **Multi-environment support** with automatic values files generation
-- **Umbrella Charts** for managing multiple subcharts as a single unit
-- **Complete multi-cloud integrations** for AWS, Azure, and GCP
-  - **Azure**: Disk/Files StorageClass, AGIC Ingress, Key Vault, ACR ServiceAccount
-  - **GCP**: Filestore StorageClass, GCE Ingress, Artifact Registry ServiceAccount
-  - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount
-- **Security-first approach** with NetworkPolicies and best practices
-- **Minimal CLI** (`tl`) for scaffolding and chart generation
-- **100% backward compatibility** with all existing methods
+- **Type-safe API** with strict TypeScript and cdk8s constructs.
+- **Flexible resource creation** with built-in methods and `addManifest()` for custom resources.
+- **Multi-environment support** with automatic values files generation.
+- **Umbrella Charts** for managing multiple subcharts as a single unit.
+- **AWS integrations**:
+  - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount.
+- **Security-first approach** with NetworkPolicies and best practices.
+- **Minimal CLI** (`tl`) for scaffolding and chart generation.
 
 ## 🚀 Quick Start
 
@@ -45,71 +42,6 @@ helm install my-app charts/my-app-dist
 ```
 
 ## 📚 Documentation
-
-For comprehensive documentation, examples, and guides, visit our **[Wiki](https://github.com/KenkoGeek/timonel/wiki)**:
-
-- **[Installation](https://github.com/KenkoGeek/timonel/wiki/Installation)** - Setup and requirements
-- **[Quick Start](https://github.com/KenkoGeek/timonel/wiki/Quick-Start)** - Your first chart in 5 minutes
-- **[Examples](https://github.com/KenkoGeek/timonel/wiki/Examples)** - Real-world deployment patterns
-- **[Multi-Cloud Support](https://github.com/KenkoGeek/timonel/wiki/Multi-Cloud-Support)** - AWS,
-  Azure, GCP integrations
-- **[CLI Reference](https://github.com/KenkoGeek/timonel/wiki/CLI-Commands)** - Complete command guide
-
-## 💡 Basic Example
-
-```typescript
-import { Rutter } from 'timonel';
-import { valuesRef } from 'timonel';
-
-const rutter = new Rutter({
-  meta: { name: 'my-app', version: '0.1.0' },
-  defaultValues: {
-    image: { repository: 'nginx', tag: '1.27' },
-    replicas: 2,
-  },
-  envValues: {
-    dev: { replicas: 1 },
-    prod: { replicas: 5 },
-  },
-});
-
-// Use built-in methods for common resources
-rutter.addDeployment({
-  name: 'my-app',
-  image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-  replicas: Number(valuesRef('replicas')),
-  containerPort: 80,
-});
-
-rutter.addService({ name: 'my-app', port: 80 });
-
-// Use addManifest() for custom resources
-rutter.addManifest({
-  apiVersion: 'autoscaling/v2',
-  kind: 'HorizontalPodAutoscaler',
-  metadata: { name: 'my-app-hpa' },
-  spec: {
-    scaleTargetRef: {
-      apiVersion: 'apps/v1',
-      kind: 'Deployment',
-      name: 'my-app'
-    },
-    minReplicas: Number(valuesRef('replicas')),
-    maxReplicas: 10,
-    metrics: [{
-      type: 'Resource',
-      resource: {
-        name: 'cpu',
-        target: { type: 'Utilization', averageUtilization: 70 }
-      }
-    }]
-  }
-});
-
-export default function run(outDir: string) {
-  rutter.write(outDir);
-}
-```
 
 ## 🤝 Contributing
 

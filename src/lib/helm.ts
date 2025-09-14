@@ -393,6 +393,44 @@ export function conditionalRef(path: string, condition: string): string {
 }
 
 /**
+ * Wraps a complete YAML manifest in a Helm conditional
+ *
+ * Generates a Helm template that conditionally renders an entire
+ * Kubernetes manifest based on a values condition.
+ *
+ * @param {string} yamlContent - Complete YAML manifest content
+ * @param {string} condition - Path to the condition value
+ * @returns {string} YAML content wrapped in Helm conditional
+ * @throws {Error} If the condition path is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const namespaceYaml = `
+ * apiVersion: v1
+ * kind: Namespace
+ * metadata:
+ *   name: my-namespace
+ * `;
+ * const conditionalNamespace = conditionalManifest(namespaceYaml, 'createNamespace');
+ * // Returns: '{{ if .Values.createNamespace }}\napiVersion: v1\nkind: Namespace...{{ end }}'
+ * ```
+ *
+ * @since 2.7.4
+ */
+export function conditionalManifest(yamlContent: string, condition: string): string {
+  if (!isValidHelmPath(condition)) {
+    throw new Error(`Invalid Helm template condition path: ${condition}`);
+  }
+
+  // Remove leading/trailing whitespace and ensure proper formatting
+  const cleanYaml = yamlContent.trim();
+
+  return `{{ if .Values.${condition} }}
+${cleanYaml}
+{{ end }}`;
+}
+
+/**
  * Creates a reference to a value in .Values with a default fallback
  *
  * Generates a Helm template expression that uses the default filter

@@ -410,7 +410,79 @@ export class Rutter {
       kind: manifestObject['kind'] as string,
       metadata: manifestObject['metadata'] as Record<string, unknown>,
       spec: manifestObject['spec'] as Record<string, unknown>,
-      data: manifestObject['data'] as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Adds a Kubernetes manifest wrapped in a Helm conditional
+   *
+   * This method creates a manifest that will only be rendered if the specified
+   * condition evaluates to true. The condition is checked against .Values in Helm.
+   *
+   * @param manifestObject - JavaScript object representing the Kubernetes manifest
+   * @param condition - Path to the condition value in .Values (e.g., 'createNamespace')
+   * @param id - Unique identifier for this manifest within the chart
+   * @returns The created ApiObject instance
+   * @throws {Error} If the manifest structure is incorrect or condition path is invalid
+   *
+   * @example
+   * ```typescript
+   * // Add a namespace that's only created if .Values.createNamespace is true
+   * rutter.addConditionalManifest(
+   *   {
+   *     apiVersion: 'v1',
+   *     kind: 'Namespace',
+   *     metadata: {
+   *       name: valuesRef('namespace'),
+   *       labels: {
+   *         environment: conditionalRef('environment', 'environment')
+   *       }
+   *     }
+   *   },
+   *   'createNamespace',
+   *   'namespace'
+   * );
+   * ```
+   *
+   * @since 2.7.4
+   */
+  addConditionalManifest(
+    manifestObject: Record<string, unknown>,
+    condition: string,
+    id: string,
+  ): ApiObject {
+    // Validate condition path
+    if (!condition || typeof condition !== 'string') {
+      throw new Error('Condition must be a non-empty string');
+    }
+
+    // Validate basic Kubernetes manifest structure
+    this.validateManifestStructure(manifestObject);
+
+    // Store the manifest as a conditional asset that will be processed during write
+    const conditionalAsset = {
+      id,
+      yaml: `{{- if .Values.${condition} }}\n${YAML.stringify(manifestObject)}{{- end }}`,
+      target: 'templates',
+    };
+
+    this.assets.push(conditionalAsset);
+
+    // Create a placeholder CDK8S ApiObject for consistency
+    return new ApiObject(this.chart, id, {
+      apiVersion: manifestObject['apiVersion'] as string,
+      kind: manifestObject['kind'] as string,
+      metadata: {
+        ...((manifestObject['metadata'] as Record<string, unknown>) || {}),
+        annotations: {
+          ...(((manifestObject['metadata'] as Record<string, unknown>)?.['annotations'] as Record<
+            string,
+            unknown
+          >) || {}),
+          'timonel.sh/conditional': condition,
+        },
+      },
+      spec: manifestObject['spec'] as Record<string, unknown>,
     });
   }
 
