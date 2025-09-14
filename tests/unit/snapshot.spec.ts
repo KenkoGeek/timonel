@@ -17,9 +17,22 @@ const mockFs = vi.mocked(fs);
  * - Sort object keys alphabetically
  * - Remove dynamic fields like timestamps
  * - Ensure consistent formatting
+ * - Preserve Helm template expressions
  */
 function normalizeYaml(yamlContent: string): string {
   try {
+    // Don't parse YAML that contains Helm expressions to avoid converting them to objects
+    if (yamlContent.includes('{{') && yamlContent.includes('}}')) {
+      // Just normalize whitespace and line endings for Helm templates
+      return (
+        yamlContent
+          .split('\n')
+          .map((line) => line.trimEnd())
+          .join('\n')
+          .trim() + '\n'
+      );
+    }
+
     const parsed = YAML.parse(yamlContent);
 
     // Remove dynamic fields that might change between runs
