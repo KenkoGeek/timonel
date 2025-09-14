@@ -1,12 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import YAML from 'yaml';
 
-import { HelmChartWriter } from '../../dist/lib/helmChartWriter.js';
-import { Rutter } from '../../dist/lib/rutter.js';
-import { valuesRef } from '../../dist/lib/helm.js';
+import { HelmChartWriter } from '../../src/lib/helmChartWriter.js';
+import { Rutter } from '../../src/lib/rutter.js';
+import { valuesRef } from '../../src/lib/helm.js';
 
 // Mock filesystem
 vi.mock('fs');

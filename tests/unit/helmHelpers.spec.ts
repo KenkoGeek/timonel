@@ -8,8 +8,8 @@ import {
   AWS_HELPERS,
   AZURE_HELPERS,
   GCP_HELPERS,
-} from '../../dist/lib/utils/helmHelpers.js';
-import type { HelperDefinition } from '../../dist/lib/utils/helmHelpers.js';
+} from '../../src/lib/utils/helmHelpers.js';
+import type { HelperDefinition } from '../../src/lib/utils/helmHelpers.js';
 
 describe('Helm Helpers', () => {
   describe('STANDARD_HELPERS', () => {

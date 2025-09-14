@@ -38,6 +38,23 @@ export interface NetworkPolicyRule {
 }
 
 /**
+ * Predefined NetworkPolicy templates for common security patterns
+ * @since 2.9.0
+ */
+export interface NetworkPolicyTemplate {
+  /** Template name */
+  name: string;
+  /** Template description */
+  description: string;
+  /** Policy types */
+  policyTypes: Array<'Ingress' | 'Egress'>;
+  /** Ingress rules */
+  ingress?: NetworkPolicyRule[];
+  /** Egress rules */
+  egress?: NetworkPolicyRule[];
+}
+
+/**
  * Network policy specification
  * @since 2.7.0
  */
@@ -218,12 +235,35 @@ export interface IngressSpec {
  * @since 2.7.0
  */
 export class NetworkResources extends BaseResourceProvider {
+  /**
+   * Error message for missing TLS configuration in production environments
+   * @since 2.9.0
+   */
   private static readonly TLS_REQUIRED_ERROR_MESSAGE =
     'TLS configuration is required for production Ingress resources. Please configure the "tls" field with valid certificate references.';
+
+  /**
+   * Warning message for NetworkPolicy with default policy types
+   * @since 2.9.0
+   */
+  private static readonly NETWORK_POLICY_DEFAULT_WARNING =
+    "⚠️  WARNING: NetworkPolicy '{name}' has no explicit policyTypes or rules. Defaulting to ['Ingress', 'Egress'] for security. Consider specifying explicit rules.";
+
+  /**
+   * Info message for NetworkPolicy template usage
+   * @since 2.9.0
+   */
+  private static readonly NETWORK_POLICY_TEMPLATE_INFO =
+    "⚠️  INFO: Using NetworkPolicy template '{templateName}': {description}";
+
+  /**
+   * Kubernetes networking API version
+   * @since 2.9.0
+   */
   private static readonly NETWORKING_API_VERSION = 'networking.k8s.io/v1';
 
   /**
-   * Creates a NetworkPolicy resource
+   * Creates a NetworkPolicy resource with enhanced defaults
    * @param spec - NetworkPolicy specification
    * @returns Created NetworkPolicy ApiObject
    * @since 2.7.0
@@ -233,9 +273,27 @@ export class NetworkResources extends BaseResourceProvider {
       podSelector: spec.podSelector,
     };
 
-    if (spec.policyTypes) {
-      policySpec['policyTypes'] = spec.policyTypes;
+    // Provide default policy types if not specified
+    let policyTypes = spec.policyTypes;
+    if (!policyTypes) {
+      // Determine policy types based on rules provided
+      const hasIngress = spec.ingress && spec.ingress.length > 0;
+      const hasEgress = spec.egress && spec.egress.length > 0;
+
+      if (hasIngress && hasEgress) {
+        policyTypes = ['Ingress', 'Egress'];
+      } else if (hasIngress) {
+        policyTypes = ['Ingress'];
+      } else if (hasEgress) {
+        policyTypes = ['Egress'];
+      } else {
+        // Default to both for explicit security posture
+        policyTypes = ['Ingress', 'Egress'];
+        console.warn(NetworkResources.NETWORK_POLICY_DEFAULT_WARNING.replace('{name}', spec.name));
+      }
     }
+
+    policySpec['policyTypes'] = policyTypes;
 
     if (spec.ingress) {
       policySpec['ingress'] = spec.ingress;
@@ -1032,6 +1090,112 @@ export class NetworkResources extends BaseResourceProvider {
       certManager: {
         clusterIssuer,
       },
+      ...(labels && { labels }),
+      ...(annotations && { annotations }),
+    });
+  }
+
+  /**
+   * Gets predefined NetworkPolicy templates for common security patterns
+   * @returns Array of predefined NetworkPolicy templates
+   * @since 2.9.0
+   */
+  static getNetworkPolicyTemplates(): NetworkPolicyTemplate[] {
+    return [
+      {
+        name: 'deny-all',
+        description: 'Deny all ingress and egress traffic (Zero Trust baseline)',
+        policyTypes: ['Ingress', 'Egress'],
+        ingress: [],
+        egress: [],
+      },
+      {
+        name: 'allow-dns-only',
+        description: 'Allow only DNS queries (port 53) for egress',
+        policyTypes: ['Ingress', 'Egress'],
+        ingress: [],
+        egress: [
+          {
+            ports: [
+              { protocol: 'UDP', port: 53 },
+              { protocol: 'TCP', port: 53 },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'web-frontend',
+        description: 'Allow ingress on port 80/443, egress to backend services',
+        policyTypes: ['Ingress', 'Egress'],
+        ingress: [
+          {
+            ports: [
+              { protocol: 'TCP', port: 80 },
+              { protocol: 'TCP', port: 443 },
+            ],
+          },
+        ],
+        egress: [
+          {
+            ports: [
+              { protocol: 'UDP', port: 53 },
+              { protocol: 'TCP', port: 53 },
+            ],
+          },
+        ],
+      },
+    ];
+  }
+
+  /**
+   * Creates a NetworkPolicy from a predefined template
+   * @param templateName - Name of the predefined template
+   * @param name - Policy name
+   * @param podSelector - Pod selector to apply policy to
+   * @param labels - Optional labels
+   * @param annotations - Optional annotations
+   * @returns Created NetworkPolicy ApiObject
+   * @example
+   * ```typescript
+   * // Create a deny-all policy
+   * networkResources.addNetworkPolicyFromTemplate(
+   *   'deny-all',
+   *   'default-deny',
+   *   { matchLabels: { app: 'web' } }
+   * );
+   * ```
+   * @since 2.9.0
+   */
+  addNetworkPolicyFromTemplate(
+    templateName: string,
+    name: string,
+    podSelector: NetworkPolicySpec['podSelector'],
+    labels?: Record<string, string>,
+    annotations?: Record<string, string>,
+  ): ApiObject {
+    const templates = NetworkResources.getNetworkPolicyTemplates();
+    const template = templates.find((t) => t.name === templateName);
+
+    if (!template) {
+      const availableTemplates = templates.map((t) => t.name).join(', ');
+      throw new Error(
+        `NetworkPolicy template '${templateName}' not found. Available templates: ${availableTemplates}`,
+      );
+    }
+
+    console.warn(
+      NetworkResources.NETWORK_POLICY_TEMPLATE_INFO.replace('{templateName}', templateName).replace(
+        '{description}',
+        template.description,
+      ),
+    );
+
+    return this.addNetworkPolicy({
+      name,
+      podSelector,
+      policyTypes: template.policyTypes,
+      ...(template.ingress && { ingress: template.ingress }),
+      ...(template.egress && { egress: template.egress }),
       ...(labels && { labels }),
       ...(annotations && { annotations }),
     });

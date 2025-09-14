@@ -3,8 +3,8 @@ import * as path from 'path';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { HelmChartWriter } from '../../dist/lib/helmChartWriter.js';
-import type { HelmChartMeta, HelmChartWriteOptions } from '../../dist/lib/helmChartWriter.js';
+import { HelmChartWriter } from '../../src/lib/helmChartWriter.js';
+import type { HelmChartMeta, HelmChartWriteOptions } from '../../src/lib/helmChartWriter.js';
 
 // Mock filesystem
 vi.mock('fs');
