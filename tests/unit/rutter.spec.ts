@@ -61,131 +61,140 @@ describe('Rutter', () => {
 
   describe('addManifest for Deployments', () => {
     it('should create deployment with basic configuration', () => {
-      const deployment = rutter.addManifest({
-        apiVersion: 'apps/v1',
-        kind: 'Deployment',
-        metadata: {
-          name: 'web-app',
-        },
-        spec: {
-          replicas: Number(valuesRef('replicas')),
-          selector: {
-            matchLabels: {
-              app: 'web-app',
-            },
+      const deployment = rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'web-app',
           },
-          template: {
-            metadata: {
-              labels: {
+          spec: {
+            replicas: Number(valuesRef('replicas')),
+            selector: {
+              matchLabels: {
                 app: 'web-app',
               },
             },
-            spec: {
-              containers: [
-                {
-                  name: 'web-app',
-                  image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-                  ports: [
-                    {
-                      containerPort: 80,
-                    },
-                  ],
+            template: {
+              metadata: {
+                labels: {
+                  app: 'web-app',
                 },
-              ],
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'web-app',
+                    image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
+                    ports: [
+                      {
+                        containerPort: 80,
+                      },
+                    ],
+                  },
+                ],
+              },
             },
           },
         },
-      });
+        'web-app-deployment',
+      );
 
       expect(deployment).toBeDefined();
       expect(deployment.kind).toBe('Deployment');
     });
 
     it('should create deployment with environment variables', () => {
-      const deployment = rutter.addManifest({
-        apiVersion: 'apps/v1',
-        kind: 'Deployment',
-        metadata: {
-          name: 'api-app',
-        },
-        spec: {
-          replicas: 1,
-          selector: {
-            matchLabels: {
-              app: 'api-app',
-            },
+      const deployment = rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'api-app',
           },
-          template: {
-            metadata: {
-              labels: {
+          spec: {
+            replicas: 1,
+            selector: {
+              matchLabels: {
                 app: 'api-app',
               },
             },
-            spec: {
-              containers: [
-                {
-                  name: 'api-app',
-                  image: 'api:latest',
-                  ports: [
-                    {
-                      containerPort: 3000,
-                    },
-                  ],
-                  env: [
-                    { name: 'NODE_ENV', value: 'production' },
-                    { name: 'DB_HOST', value: valuesRef('database.host') },
-                  ],
+            template: {
+              metadata: {
+                labels: {
+                  app: 'api-app',
                 },
-              ],
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'api-app',
+                    image: 'api:latest',
+                    ports: [
+                      {
+                        containerPort: 3000,
+                      },
+                    ],
+                    env: [
+                      { name: 'NODE_ENV', value: 'production' },
+                      { name: 'DB_HOST', value: valuesRef('database.host') },
+                    ],
+                  },
+                ],
+              },
             },
           },
         },
-      });
+        'api-app-deployment',
+      );
 
       expect(deployment).toBeDefined();
       expect(deployment.kind).toBe('Deployment');
     });
 
     it('should create deployment with resource limits', () => {
-      const deployment = rutter.addManifest({
-        apiVersion: 'apps/v1',
-        kind: 'Deployment',
-        metadata: {
-          name: 'resource-app',
-        },
-        spec: {
-          replicas: 2,
-          selector: {
-            matchLabels: {
-              app: 'resource-app',
-            },
+      const deployment = rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'resource-app',
           },
-          template: {
-            metadata: {
-              labels: {
+          spec: {
+            replicas: 2,
+            selector: {
+              matchLabels: {
                 app: 'resource-app',
               },
             },
-            spec: {
-              containers: [
-                {
-                  name: 'resource-app',
-                  image: 'app:v1',
-                  ports: [
-                    {
-                      containerPort: 8080,
-                    },
-                  ],
-                  resources: {
-                    limits: { cpu: '500m', memory: '512Mi' },
-                    requests: { cpu: '100m', memory: '128Mi' },
-                  },
+            template: {
+              metadata: {
+                labels: {
+                  app: 'resource-app',
                 },
-              ],
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'resource-app',
+                    image: 'app:v1',
+                    ports: [
+                      {
+                        containerPort: 8080,
+                      },
+                    ],
+                    resources: {
+                      limits: { cpu: '500m', memory: '512Mi' },
+                      requests: { cpu: '100m', memory: '128Mi' },
+                    },
+                  },
+                ],
+              },
             },
           },
         },
-      });
+        'resource-app-deployment',
+      );
 
       expect(deployment).toBeDefined();
       expect(deployment.kind).toBe('Deployment');
@@ -194,76 +203,85 @@ describe('Rutter', () => {
 
   describe('addManifest for Services', () => {
     it('should create ClusterIP service', () => {
-      const service = rutter.addManifest({
-        apiVersion: 'v1',
-        kind: 'Service',
-        metadata: {
-          name: 'web-service',
-        },
-        spec: {
-          selector: {
-            app: 'web-app',
+      const service = rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'Service',
+          metadata: {
+            name: 'web-service',
           },
-          ports: [
-            {
-              port: 80,
-              targetPort: 8080,
+          spec: {
+            selector: {
+              app: 'web-app',
             },
-          ],
-          type: 'ClusterIP',
+            ports: [
+              {
+                port: 80,
+                targetPort: 8080,
+              },
+            ],
+            type: 'ClusterIP',
+          },
         },
-      });
+        'web-service',
+      );
 
       expect(service).toBeDefined();
       expect(service.kind).toBe('Service');
     });
 
     it('should create NodePort service with edge case port 0', () => {
-      const service = rutter.addManifest({
-        apiVersion: 'v1',
-        kind: 'Service',
-        metadata: {
-          name: 'nodeport-service',
-        },
-        spec: {
-          selector: {
-            app: 'nodeport-app',
+      const service = rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'Service',
+          metadata: {
+            name: 'nodeport-service',
           },
-          ports: [
-            {
-              port: 0,
-              targetPort: 8080,
-              nodePort: 30080,
+          spec: {
+            selector: {
+              app: 'nodeport-app',
             },
-          ],
-          type: 'NodePort',
+            ports: [
+              {
+                port: 0,
+                targetPort: 8080,
+                nodePort: 30080,
+              },
+            ],
+            type: 'NodePort',
+          },
         },
-      });
+        'nodeport-service',
+      );
 
       expect(service).toBeDefined();
       expect(service.kind).toBe('Service');
     });
 
     it('should create LoadBalancer service', () => {
-      const service = rutter.addManifest({
-        apiVersion: 'v1',
-        kind: 'Service',
-        metadata: {
-          name: 'lb-service',
-        },
-        spec: {
-          selector: {
-            app: 'lb-app',
+      const service = rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'Service',
+          metadata: {
+            name: 'lb-service',
           },
-          ports: [
-            {
-              port: 443,
-              targetPort: 8443,
+          spec: {
+            selector: {
+              app: 'lb-app',
             },
-          ],
-          type: 'LoadBalancer',
+            ports: [
+              {
+                port: 443,
+                targetPort: 8443,
+              },
+            ],
+            type: 'LoadBalancer',
+          },
         },
-      });
+        'lb-service',
+      );
 
       expect(service).toBeDefined();
       expect(service.kind).toBe('Service');
@@ -272,31 +290,37 @@ describe('Rutter', () => {
 
   describe('addManifest for ConfigMaps', () => {
     it('should create ConfigMap with data', () => {
-      const configMap = rutter.addManifest({
-        apiVersion: 'v1',
-        kind: 'ConfigMap',
-        metadata: {
-          name: 'app-config',
+      const configMap = rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'ConfigMap',
+          metadata: {
+            name: 'app-config',
+          },
+          data: {
+            'app.properties': 'key=value\nenv=production',
+            'config.json': '{"debug": false}',
+          },
         },
-        data: {
-          'app.properties': 'key=value\nenv=production',
-          'config.json': '{"debug": false}',
-        },
-      });
+        'app-config',
+      );
 
       expect(configMap).toBeDefined();
       expect(configMap.kind).toBe('ConfigMap');
     });
 
     it('should create ConfigMap with empty data', () => {
-      const configMap = rutter.addManifest({
-        apiVersion: 'v1',
-        kind: 'ConfigMap',
-        metadata: {
-          name: 'empty-config',
+      const configMap = rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'ConfigMap',
+          metadata: {
+            name: 'empty-config',
+          },
+          data: {},
         },
-        data: {},
-      });
+        'empty-config',
+      );
 
       expect(configMap).toBeDefined();
       expect(configMap.kind).toBe('ConfigMap');
@@ -305,35 +329,41 @@ describe('Rutter', () => {
 
   describe('addManifest for Secrets', () => {
     it('should create Secret with string data', () => {
-      const secret = rutter.addManifest({
-        apiVersion: 'v1',
-        kind: 'Secret',
-        metadata: {
-          name: 'app-secret',
+      const secret = rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'Secret',
+          metadata: {
+            name: 'app-secret',
+          },
+          stringData: {
+            username: 'admin',
+            password: valuesRef('secret.password'),
+          },
         },
-        stringData: {
-          username: 'admin',
-          password: valuesRef('secret.password'),
-        },
-      });
+        'app-secret',
+      );
 
       expect(secret).toBeDefined();
       expect(secret.kind).toBe('Secret');
     });
 
     it('should create Secret with binary data', () => {
-      const secret = rutter.addManifest({
-        apiVersion: 'v1',
-        kind: 'Secret',
-        metadata: {
-          name: 'tls-secret',
+      const secret = rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'Secret',
+          metadata: {
+            name: 'tls-secret',
+          },
+          type: 'kubernetes.io/tls',
+          data: {
+            'tls.crt': 'LS0tLS1CRUdJTi...',
+            'tls.key': 'LS0tLS1CRUdJTi...',
+          },
         },
-        type: 'kubernetes.io/tls',
-        data: {
-          'tls.crt': 'LS0tLS1CRUdJTi...',
-          'tls.key': 'LS0tLS1CRUdJTi...',
-        },
-      });
+        'tls-secret',
+      );
 
       expect(secret).toBeDefined();
       expect(secret.kind).toBe('Secret');
@@ -481,41 +511,44 @@ describe('Rutter', () => {
 
   describe('edge cases', () => {
     it('should handle zero replicas', () => {
-      const deployment = rutter.addManifest({
-        apiVersion: 'apps/v1',
-        kind: 'Deployment',
-        metadata: {
-          name: 'zero-replica-app',
-        },
-        spec: {
-          replicas: 0, // Edge case
-          selector: {
-            matchLabels: {
-              app: 'zero-replica-app',
-            },
+      const deployment = rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'zero-replica-app',
           },
-          template: {
-            metadata: {
-              labels: {
+          spec: {
+            replicas: 0, // Edge case
+            selector: {
+              matchLabels: {
                 app: 'zero-replica-app',
               },
             },
-            spec: {
-              containers: [
-                {
-                  name: 'zero-replica-app',
-                  image: 'nginx:latest',
-                  ports: [
-                    {
-                      containerPort: 80,
-                    },
-                  ],
+            template: {
+              metadata: {
+                labels: {
+                  app: 'zero-replica-app',
                 },
-              ],
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'zero-replica-app',
+                    image: 'nginx:latest',
+                    ports: [
+                      {
+                        containerPort: 80,
+                      },
+                    ],
+                  },
+                ],
+              },
             },
           },
         },
-      });
+        'zero-replica-deployment',
+      );
 
       expect(deployment).toBeDefined();
       expect(deployment.kind).toBe('Deployment');
@@ -594,41 +627,44 @@ describe('Rutter', () => {
         meta: { name: 'test-app', version: '1.0.0' },
       });
 
-      rutter.addManifest({
-        apiVersion: 'apps/v1',
-        kind: 'Deployment',
-        metadata: {
-          name: 'test-deployment',
-        },
-        spec: {
-          replicas: 1,
-          selector: {
-            matchLabels: {
-              app: 'test-deployment',
-            },
+      rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'test-deployment',
           },
-          template: {
-            metadata: {
-              labels: {
+          spec: {
+            replicas: 1,
+            selector: {
+              matchLabels: {
                 app: 'test-deployment',
               },
             },
-            spec: {
-              containers: [
-                {
-                  name: 'test-deployment',
-                  image: 'nginx:1.27',
-                  ports: [
-                    {
-                      containerPort: 80,
-                    },
-                  ],
+            template: {
+              metadata: {
+                labels: {
+                  app: 'test-deployment',
                 },
-              ],
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'test-deployment',
+                    image: 'nginx:1.27',
+                    ports: [
+                      {
+                        containerPort: 80,
+                      },
+                    ],
+                  },
+                ],
+              },
             },
           },
         },
-      });
+        'test-deployment-id',
+      );
 
       // Mock writeFileSync to throw an error
       mockFs.writeFileSync.mockImplementation(() => {

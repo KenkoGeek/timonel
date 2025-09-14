@@ -1,5 +1,0 @@
-apiVersion: v2
-name: basic-test-app
-version: 1.0.0
-description: Basic integration test application
-type: application
