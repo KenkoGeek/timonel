@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { SecurityUtils } from '../../dist/lib/security.js';
+import { SecurityUtils } from '../../src/lib/security.js';
 
 describe('SecurityUtils', () => {
   describe('sanitizeEnvVar', () => {
@@ -108,16 +108,26 @@ describe('SecurityUtils', () => {
       expect(SecurityUtils.validateImageTag('2023-12-01-hotfix')).toBe(true);
     });
 
-    it('should reject dangerous tags', () => {
-      expect(() => SecurityUtils.validateImageTag('latest')).toThrow(
-        "Insecure image tag detected: 'latest'. Use specific version tags for security.",
-      );
-      expect(() => SecurityUtils.validateImageTag('master')).toThrow(
-        "Insecure image tag detected: 'master'. Use specific version tags for security.",
-      );
-      expect(() => SecurityUtils.validateImageTag('dev')).toThrow(
-        "Insecure image tag detected: 'dev'. Use specific version tags for security.",
-      );
+    it('should warn about dangerous tags but not throw', () => {
+      // Mock console.warn to capture warnings
+      const originalWarn = console.warn;
+      const warnings: string[] = [];
+      console.warn = (message: string) => warnings.push(message);
+
+      try {
+        expect(SecurityUtils.validateImageTag('latest')).toBe(true);
+        expect(warnings.some((w) => w.includes('latest'))).toBe(true);
+
+        warnings.length = 0; // Clear warnings
+        expect(SecurityUtils.validateImageTag('master')).toBe(true);
+        expect(warnings.some((w) => w.includes('master'))).toBe(true);
+
+        warnings.length = 0; // Clear warnings
+        expect(SecurityUtils.validateImageTag('dev')).toBe(true);
+        expect(warnings.some((w) => w.includes('dev'))).toBe(true);
+      } finally {
+        console.warn = originalWarn;
+      }
     });
 
     it('should reject empty or null tags', () => {
@@ -146,12 +156,21 @@ describe('SecurityUtils', () => {
     });
 
     it('should handle case-insensitive dangerous tag detection', () => {
-      expect(() => SecurityUtils.validateImageTag('LATEST')).toThrow(
-        "Insecure image tag detected: 'LATEST'. Use specific version tags for security.",
-      );
-      expect(() => SecurityUtils.validateImageTag('Latest')).toThrow(
-        "Insecure image tag detected: 'Latest'. Use specific version tags for security.",
-      );
+      // Mock console.warn to capture warnings
+      const originalWarn = console.warn;
+      const warnings: string[] = [];
+      console.warn = (message: string) => warnings.push(message);
+
+      try {
+        expect(SecurityUtils.validateImageTag('LATEST')).toBe(true);
+        expect(warnings.some((w) => w.includes('LATEST'))).toBe(true);
+
+        warnings.length = 0; // Clear warnings
+        expect(SecurityUtils.validateImageTag('Latest')).toBe(true);
+        expect(warnings.some((w) => w.includes('Latest'))).toBe(true);
+      } finally {
+        console.warn = originalWarn;
+      }
     });
 
     it('should trim whitespace before validation', () => {

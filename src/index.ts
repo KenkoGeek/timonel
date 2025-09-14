@@ -66,7 +66,18 @@ export type {
   IngressSpec,
   IngressTLSConfig,
   IngressEnvironment,
+  NginxIngressConfig,
+  CertManagerConfig,
 } from './lib/resources/network/networkResources.js';
+
+export type {
+  CertificateSpec,
+  ClusterIssuerSpec,
+  ACMEIssuerConfig,
+  ACMEHTTP01Config,
+  ACMEDNS01Config,
+  ACMEChallengeType,
+} from './lib/resources/security/encryption.js';
 
 export type {
   KarpenterNodePoolSpec,

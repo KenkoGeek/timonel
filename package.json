@@ -87,7 +87,8 @@
     "cdk8s": "^2.70.11",
     "constructs": "^10.4.2",
     "ts-node": "^10.9.2",
-    "yaml": "^2.8.1"
+    "yaml": "^2.8.1",
+    "zod": "^4.1.8"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",

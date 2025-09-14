@@ -5,8 +5,8 @@ import {
   generateManifestName,
   sanitizeKubernetesName,
   isValidKubernetesName,
-} from '../../dist/lib/utils/resourceNaming.js';
-import type { KubernetesResource } from '../../dist/lib/utils/resourceNaming.js';
+} from '../../src/lib/utils/resourceNaming.js';
+import type { KubernetesResource } from '../../src/lib/utils/resourceNaming.js';
 
 describe('Resource Naming', () => {
   describe('getResourceName', () => {

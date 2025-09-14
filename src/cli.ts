@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import * as cp from 'child_process';
+import * as crypto from 'crypto'; // Importar el módulo crypto
 import { fileURLToPath } from 'url';
 
 // ES modules equivalent of __dirname
@@ -141,6 +143,40 @@ async function cmdValidate(projectDir?: string, silent = false) {
 }
 
 /**
+ * Creates a secure temporary file in the system's temporary directory
+ * @param prefix - File prefix
+ * @param suffix - File suffix
+ * @returns Path to the created temporary file
+ * @since 2.9.0
+ */
+function createSecureTempFile(prefix: string, suffix: string): string {
+  const tempDir = os.tmpdir();
+  const randomId = crypto.randomBytes(8).toString('hex'); // Usar crypto.randomBytes para mayor seguridad
+  const timestamp = Date.now().toString(36);
+  const tempFile = path.join(tempDir, `${prefix}-${timestamp}-${randomId}${suffix}`);
+
+  // Ensure the temp directory exists and is secure
+  if (!fs.existsSync(tempDir)) {
+    throw new Error(`System temporary directory does not exist: ${tempDir}`);
+  }
+
+  // Check temp directory permissions (Unix-like systems)
+  try {
+    const stats = fs.statSync(tempDir);
+    if (process.platform !== 'win32' && stats.mode & 0o002) {
+      console.warn(
+        `⚠️  WARNING: Temporary directory ${tempDir} is world-writable. ` +
+          `This may pose a security risk.`,
+      );
+    }
+  } catch (error) {
+    console.warn(`⚠️  WARNING: Could not check temporary directory permissions: ${error}`);
+  }
+
+  return tempFile;
+}
+
+/**
  * Execute TypeScript chart using tsx with proper error handling.
  * @param resolvedPath - Resolved path to the TypeScript file
  * @param outDir - Output directory for the chart
@@ -176,7 +212,7 @@ await Promise.resolve(runner(outDir));
 console.log('Chart written to ' + outDir);
 `;
 
-  const wrapperFile = path.join(process.cwd(), '.timonel-wrapper.mjs');
+  const wrapperFile = createSecureTempFile('timonel-wrapper', '.mjs');
 
   try {
     fs.writeFileSync(wrapperFile, wrapperScript);
@@ -438,7 +474,7 @@ await Promise.resolve(runner(output));
 console.log('Umbrella chart written to ' + output);
 `;
 
-  const wrapperFile = path.join(process.cwd(), '.timonel-umbrella-wrapper.mjs');
+  const wrapperFile = createSecureTempFile('timonel-umbrella-wrapper', '.mjs');
 
   try {
     fs.writeFileSync(wrapperFile, wrapperScript);

@@ -3,8 +3,8 @@ import * as path from 'path';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { Rutter } from '../../dist/lib/rutter.js';
-import { valuesRef } from '../../dist/lib/helm.js';
+import { Rutter } from '../../src/lib/rutter.js';
+import { valuesRef } from '../../src/lib/helm.js';
 
 // Mock filesystem
 vi.mock('fs');
@@ -25,7 +25,6 @@ describe('Rutter', () => {
         name: 'test-app',
         version: '0.1.0',
         description: 'Test application',
-        appVersion: '1.0.0',
       },
       defaultValues: {
         image: { repository: 'nginx', tag: '1.27' },
@@ -125,7 +124,6 @@ describe('Rutter', () => {
         port: 0, // Edge case
         targetPort: 8080,
         type: 'NodePort',
-        nodePort: 30080,
       });
 
       expect(service).toBeDefined();
@@ -527,8 +525,8 @@ describe('Rutter', () => {
       });
 
       // Mock specific file write to fail
-      mockFs.writeFileSync.mockImplementation((filePath: string) => {
-        if (filePath.includes('deployment')) {
+      mockFs.writeFileSync.mockImplementation((filePath: fs.PathOrFileDescriptor) => {
+        if (typeof filePath === 'string' && filePath.includes('deployment')) {
           throw new Error('Disk full');
         }
       });

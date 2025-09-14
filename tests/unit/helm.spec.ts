@@ -14,7 +14,7 @@ import {
   defaultRef,
   base64Ref,
   jsonRef,
-} from '../../dist/lib/helm.js';
+} from '../../src/lib/helm.js';
 
 describe('Helm Template Helpers', () => {
   describe('valuesRef', () => {
