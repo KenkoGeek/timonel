@@ -1,3 +1,9 @@
+# [2.8.0-beta.5](https://github.com/KenkoGeek/timonel/compare/v2.8.0-beta.4...v2.8.0-beta.5) (2025-09-14)
+
+### Features
+
+- **network:** enhance NGINX Ingress support with cert-manager integration and security enhanced ([#91](https://github.com/KenkoGeek/timonel/issues/91)) ([be223dd](https://github.com/KenkoGeek/timonel/commit/be223ddfd2a387c2ff60cb7c8411ef893c45b7d3))
+
 # [2.8.0-beta.4](https://github.com/KenkoGeek/timonel/compare/v2.8.0-beta.3...v2.8.0-beta.4) (2025-09-13)
 
 ### Bug Fixes
