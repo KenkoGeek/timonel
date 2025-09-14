@@ -507,3 +507,265 @@ export function jsonRef(path: string): string {
   }
   return `{{ .Values.${path} | toJson }}`;
 }
+
+/**
+ * Flow Control Functions for Helm Templates
+ *
+ * These functions provide programmatic access to Helm's flow control structures:
+ * if/else, with, and range for conditional logic and iteration.
+ *
+ * @since 1.4.0
+ */
+
+/**
+ * Creates a conditional if block in Helm templates
+ *
+ * Generates Helm template expressions for conditional logic using if/else/end.
+ * Supports complex conditions with comparison operators and pipeline expressions.
+ *
+ * @param {string} condition - The condition to evaluate (e.g., 'eq .Values.env "production"')
+ * @param {string} content - Content to include when condition is true
+ * @param {string} [elseContent] - Optional content for else block
+ * @returns {string} Complete Helm if/else template block
+ * @throws {Error} If condition contains potentially unsafe template expressions
+ *
+ * @example
+ * ```typescript
+ * const conditionalConfig = helmIf(
+ *   'eq .Values.environment "production"',
+ *   'replicas: 3\nresources:\n  limits:\n    memory: "1Gi"',
+ *   'replicas: 1\nresources:\n  limits:\n    memory: "512Mi"'
+ * );
+ * // Returns:
+ * // {{- if eq .Values.environment "production" }}
+ * // replicas: 3
+ * // resources:
+ * //   limits:
+ * //     memory: "1Gi"
+ * // {{- else }}
+ * // replicas: 1
+ * // resources:
+ * //   limits:
+ * //     memory: "512Mi"
+ * // {{- end }}
+ * ```
+ *
+ * @since 2.8.0
+ */
+export function helmIf(condition: string, content: string, elseContent?: string): string {
+  // Validate condition for basic security
+  if (!condition || condition.trim().length === 0) {
+    throw new Error('Condition cannot be empty');
+  }
+
+  // Basic validation to prevent template injection
+  if (condition.includes('{{') || condition.includes('}}')) {
+    throw new Error('Condition should not contain template delimiters');
+  }
+
+  let result = `{{- if ${condition} }}\n${content}`;
+
+  if (elseContent) {
+    result += `\n{{- else }}\n${elseContent}`;
+  }
+
+  result += `\n{{- end }}`;
+
+  return result;
+}
+
+/**
+ * Creates a with block for scoped template context
+ *
+ * Generates Helm template expressions using 'with' to change the template context.
+ * Useful for accessing nested values without repeating the full path.
+ *
+ * @param {string} path - Path to set as new context (e.g., '.Values.database')
+ * @param {string} content - Content to render within the new context
+ * @param {string} [elseContent] - Optional content when path is empty/nil
+ * @returns {string} Complete Helm with/else/end template block
+ * @throws {Error} If path is not valid for Helm templates
+ *
+ * @example
+ * ```typescript
+ * const dbConfig = helmWith(
+ *   '.Values.database',
+ *   'host: {{ .host }}\nport: {{ .port }}\nname: {{ .name }}',
+ *   'host: "localhost"\nport: 5432\nname: "defaultdb"'
+ * );
+ * // Returns:
+ * // {{- with .Values.database }}
+ * // host: {{ .host }}
+ * // port: {{ .port }}
+ * // name: {{ .name }}
+ * // {{- else }}
+ * // host: "localhost"
+ * // port: 5432
+ * // name: "defaultdb"
+ * // {{- end }}
+ * ```
+ *
+ * @since 2.8.0
+ */
+export function helmWith(path: string, content: string, elseContent?: string): string {
+  if (!path || path.trim().length === 0) {
+    throw new Error('Path cannot be empty');
+  }
+
+  // Validate path format
+  if (!path.startsWith('.')) {
+    throw new Error('Path must start with "." (e.g., ".Values.config")');
+  }
+
+  let result = `{{- with ${path} }}\n${content}`;
+
+  if (elseContent) {
+    result += `\n{{- else }}\n${elseContent}`;
+  }
+
+  result += `\n{{- end }}`;
+
+  return result;
+}
+
+/**
+ * Creates a range loop for iterating over collections
+ *
+ * Generates Helm template expressions using 'range' to iterate over lists, maps, or other collections.
+ * Supports both simple iteration and key-value iteration for maps.
+ *
+ * @param {string} collection - Collection to iterate over (e.g., '.Values.items')
+ * @param {string} content - Content template for each iteration
+ * @param {object} [options] - Configuration options for the range loop
+ * @param {boolean} [options.keyValue=false] - Whether to iterate with key-value pairs
+ * @param {string} [options.keyVar='$key'] - Variable name for keys in key-value iteration
+ * @param {string} [options.valueVar='$value'] - Variable name for values in key-value iteration
+ * @param {string} [options.indexVar='$index'] - Variable name for index in indexed iteration
+ * @param {string} [options.itemVar='$item'] - Variable name for items in simple iteration
+ * @returns {string} Complete Helm range/end template block
+ * @throws {Error} If collection path is not valid
+ *
+ * @example
+ * ```typescript
+ * // Simple list iteration
+ * const serviceList = helmRange(
+ *   '.Values.services',
+ *   '- name: {{ .name }}\n  port: {{ .port }}'
+ * );
+ *
+ * // Key-value map iteration
+ * const envVars = helmRange(
+ *   '.Values.env',
+ *   '- name: {{ $key }}\n  value: {{ $value | quote }}',
+ *   { keyValue: true }
+ * );
+ *
+ * // Indexed iteration
+ * const indexedItems = helmRange(
+ *   '.Values.items',
+ *   '{{ $index }}: {{ $item }}',
+ *   { indexVar: '$i', itemVar: '$val' }
+ * );
+ * ```
+ *
+ * @since 2.8.0
+ */
+export function helmRange(
+  collection: string,
+  content: string,
+  options: {
+    keyValue?: boolean;
+    keyVar?: string;
+    valueVar?: string;
+    indexVar?: string;
+    itemVar?: string;
+  } = {},
+): string {
+  if (!collection || collection.trim().length === 0) {
+    throw new Error('Collection cannot be empty');
+  }
+
+  if (!collection.startsWith('.')) {
+    throw new Error('Collection path must start with "." (e.g., ".Values.items")');
+  }
+
+  const {
+    keyValue = false,
+    keyVar = '$key',
+    valueVar = '$value',
+    indexVar = '$index',
+    itemVar = '$item',
+  } = options;
+
+  let rangeExpression: string;
+
+  if (keyValue) {
+    rangeExpression = `{{- range ${keyVar}, ${valueVar} := ${collection} }}`;
+  } else if (options.indexVar && options.itemVar) {
+    rangeExpression = `{{- range ${indexVar}, ${itemVar} := ${collection} }}`;
+  } else {
+    rangeExpression = `{{- range ${collection} }}`;
+  }
+
+  return `${rangeExpression}\n${content}\n{{- end }}`;
+}
+
+/**
+ * Creates a complex conditional with multiple else-if branches
+ *
+ * Generates Helm template expressions for complex conditional logic with multiple branches.
+ * Useful for handling multiple environment configurations or feature flags.
+ *
+ * @param {Array<{condition: string, content: string}>} branches - Array of condition-content pairs
+ * @param {string} [defaultContent] - Default content when no conditions match
+ * @returns {string} Complete Helm if/else-if/else/end template block
+ * @throws {Error} If branches array is empty or contains invalid conditions
+ *
+ * @example
+ * ```typescript
+ * const envConfig = helmIfElseIf([
+ *   {
+ *     condition: 'eq .Values.environment "production"',
+ *     content: 'replicas: 5\nresources.limits.memory: "2Gi"'
+ *   },
+ *   {
+ *     condition: 'eq .Values.environment "staging"',
+ *     content: 'replicas: 2\nresources.limits.memory: "1Gi"'
+ *   }
+ * ], 'replicas: 1\nresources.limits.memory: "512Mi"');
+ * ```
+ *
+ * @since 2.8.0
+ */
+export function helmIfElseIf(
+  branches: Array<{ condition: string; content: string }>,
+  defaultContent?: string,
+): string {
+  if (!branches || branches.length === 0) {
+    throw new Error('At least one branch is required');
+  }
+
+  let result = '';
+
+  branches.forEach((branch, index) => {
+    if (!branch.condition || branch.condition.trim().length === 0) {
+      throw new Error(`Branch ${index} condition cannot be empty`);
+    }
+
+    // Basic validation to prevent template injection
+    if (branch.condition.includes('{{') || branch.condition.includes('}}')) {
+      throw new Error(`Branch ${index} condition should not contain template delimiters`);
+    }
+
+    const keyword = index === 0 ? 'if' : 'else if';
+    result += `{{- ${keyword} ${branch.condition} }}\n${branch.content}\n`;
+  });
+
+  if (defaultContent) {
+    result += `{{- else }}\n${defaultContent}\n`;
+  }
+
+  result += '{{- end }}';
+
+  return result;
+}
