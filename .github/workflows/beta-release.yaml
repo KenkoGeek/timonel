@@ -15,7 +15,6 @@ jobs:
   check-ci-status:
     name: Verify All CI Checks
     runs-on: ubuntu-latest
-    needs: quality-gates
     permissions:
       id-token: write
       contents: read
@@ -90,7 +89,7 @@ jobs:
 
   beta-release:
     name: Beta Release
-    needs: [quality-gates, check-ci-status]
+    needs: [check-ci-status]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
