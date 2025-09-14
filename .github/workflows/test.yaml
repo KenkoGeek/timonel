@@ -86,11 +86,15 @@ jobs:
           curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
           sudo mv kubeconform /usr/local/bin
 
+      - name: Install helm kubeconform plugin
+        run: helm plugin install https://github.com/jtyr/kubeconform-helm
+
       - name: Verify tools installation
         run: |
           helm version
           kubectl version --client
           kubeconform -v
+          helm plugin list
 
       - name: Build project
         run: pnpm build

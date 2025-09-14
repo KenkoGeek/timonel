@@ -354,7 +354,7 @@ export class Rutter {
    * for better type safety and validation.
    *
    * @param yamlOrObject - Kubernetes manifest as YAML string or object
-   * @param id - Unique identifier for the manifest (default: 'manifest')
+   * @param id - Unique identifier for the manifest (required for multiple manifests)
    *
    * @example
    * ```typescript
@@ -367,7 +367,7 @@ export class Rutter {
    * spec:
    *   group: example.com
    *   versions: []
-   * `);
+   * `, 'my-crd');
    *
    * // Using object for any Kubernetes resource
    * rutter.addManifest({
@@ -375,12 +375,12 @@ export class Rutter {
    *   kind: 'ConfigMap',
    *   metadata: { name: 'my-config' },
    *   data: { key: 'value' }
-   * });
+   * }, 'my-configmap');
    * ```
    *
    * @since 3.0.0
    */
-  addManifest(yamlOrObject: string | Record<string, unknown>, id = 'manifest'): ApiObject {
+  addManifest(yamlOrObject: string | Record<string, unknown>, id: string): ApiObject {
     let manifestObject: Record<string, unknown>;
 
     if (typeof yamlOrObject === 'string') {
