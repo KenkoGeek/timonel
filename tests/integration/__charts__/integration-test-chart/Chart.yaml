@@ -1,0 +1,5 @@
+apiVersion: v2
+name: integration-test-app
+version: 1.0.0
+description: Integration test application
+type: application

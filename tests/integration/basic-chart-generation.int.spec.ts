@@ -6,7 +6,7 @@ import * as YAML from 'yaml';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { Rutter } from '../../dist/lib/rutter.js';
-import { valuesRef } from '../../dist/lib/helm.js';
+import { valuesRef, numberRef } from '../../dist/lib/helm.js';
 
 describe('Basic Chart Generation Integration', () => {
   const testChartsDir = path.join(__dirname, '__charts__');
@@ -142,7 +142,7 @@ describe('Basic Chart Generation Integration', () => {
             },
             ports: [
               {
-                port: valuesRef('service.port'),
+                port: numberRef('service.port'),
                 targetPort: 8080,
               },
             ],
@@ -361,13 +361,13 @@ describe('Basic Chart Generation Integration', () => {
             },
             ports: [
               {
-                port: Number(valuesRef('service.port')),
+                port: numberRef('service.port'),
                 targetPort: 80,
               },
             ],
             type: valuesRef('service.type'),
           },
-          nodePort: Number(valuesRef('service.nodePort')),
+          nodePort: numberRef('service.nodePort'),
         },
         'basic-nodeport-service',
       );

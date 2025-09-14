@@ -1,0 +1,23 @@
+image:
+  repository: nginx
+  tag: '1.27'
+  pullPolicy: IfNotPresent
+replicas: 3
+service:
+  type: ClusterIP
+  port: 80
+ingress:
+  enabled: false
+  className: nginx
+  hosts:
+    - host: example.local
+      paths:
+        - path: /
+          pathType: Prefix
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi

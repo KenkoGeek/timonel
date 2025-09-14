@@ -19,10 +19,10 @@ describe('Chart Generation Integration', () => {
   });
 
   afterAll(() => {
-    // Clean up test charts
-    if (fs.existsSync(testChartPath)) {
-      fs.rmSync(testChartPath, { recursive: true, force: true });
-    }
+    // Clean up test charts - TEMPORARILY DISABLED FOR DEBUGGING
+    // if (fs.existsSync(testChartPath)) {
+    //   fs.rmSync(testChartPath, { recursive: true, force: true });
+    // }
   });
 
   describe('Complete Chart Generation', () => {

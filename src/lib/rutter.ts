@@ -658,7 +658,12 @@ export class Rutter {
   private processHelmTemplates(yaml: string): string {
     // Remove quotes from Helm template expressions
     // Match patterns like "{{ .Values.replicas | int }}", "{{ .Release.Name }}", etc.
-    return yaml.replace(/": "\{\{([^}]+)\}\}"/g, ': {{ $1 }}').replace(/": "\.nan"/g, ': .nan');
+    // Handle both key-value pairs and standalone values
+    return yaml
+      .replace(/": "\{\{([^}]+)\}\}"/g, ': {{ $1 }}')
+      .replace(/: "\{\{([^}]+)\}\}"/g, ': {{ $1 }}')
+      .replace(/"\{\{([^}]+)\}\}"/g, '{{ $1 }}')
+      .replace(/": "\.nan"/g, ': .nan');
   }
 
   /**
