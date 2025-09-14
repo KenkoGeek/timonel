@@ -1,0 +1,33 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+max_line_length = 100
+
+[*.{js,ts,tsx,jsx}]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+[*.{json,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+[{package.json,*.lock}]
+indent_style = space
+indent_size = 2
+
+[*.{sh,bash}]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+
