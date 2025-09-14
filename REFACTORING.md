@@ -42,18 +42,6 @@ src/lib/resources/
 - Label validation
 - Standardized ApiObject creation
 
-#### CoreResources
-
-- Fundamental Kubernetes resources
-- Deployment, Service, ConfigMap, Secret, ServiceAccount
-- No cloud-specific dependencies
-
-#### StorageResources
-
-- Storage-related resources
-- PersistentVolume, PersistentVolumeClaim, StorageClass
-- Generic storage patterns
-
 #### Cloud Providers
 
 - **AWSResources**: EBS, EFS, ALB, IRSA integrations

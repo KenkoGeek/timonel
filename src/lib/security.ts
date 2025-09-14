@@ -113,7 +113,8 @@ export class SecurityUtils {
   }
 
   /**
-   * Validates Helm template path syntax
+   * Validates if a path is safe for use in Helm templates
+   * Enhanced validation with better security checks and Helm best practices
    * @param templatePath - The template path to validate
    * @returns True if the path is valid for Helm templates
    *
@@ -124,9 +125,44 @@ export class SecurityUtils {
       return false;
     }
 
-    // Basic validation for dot notation and no special characters that could break Helm
-    const helmPathRegex = /^[a-zA-Z][a-zA-Z0-9._-]*$/;
-    return helmPathRegex.test(templatePath);
+    // Check length limits (reasonable for Helm paths)
+    if (templatePath.length > 253) {
+      return false;
+    }
+
+    // Enhanced validation following Kubernetes naming conventions
+    // Check if starts and ends with alphanumeric
+    if (!/^[a-zA-Z0-9]/.test(templatePath) || !/[a-zA-Z0-9]$/.test(templatePath)) {
+      return false;
+    }
+
+    // Check for valid characters only (safe regex)
+    if (!/^[a-zA-Z0-9._-]+$/.test(templatePath)) {
+      return false;
+    }
+
+    // Additional security checks
+    // Prevent path traversal attempts
+    if (templatePath.includes('..') || templatePath.includes('//')) {
+      return false;
+    }
+
+    // Prevent reserved words that could cause issues
+    const reservedWords = ['nil', 'null', 'undefined', 'true', 'false'];
+    const pathSegments = templatePath.split('.');
+
+    for (const segment of pathSegments) {
+      if (reservedWords.includes(segment.toLowerCase())) {
+        return false;
+      }
+
+      // Each segment should not be empty
+      if (segment.length === 0) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   /**

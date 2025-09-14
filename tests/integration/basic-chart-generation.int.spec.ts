@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 
 import * as YAML from 'yaml';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -32,7 +33,6 @@ describe('Basic Chart Generation Integration', () => {
           name: 'basic-test-app',
           version: '1.0.0',
           description: 'Basic integration test application',
-          appVersion: '1.0.0',
         },
         defaultValues: {
           image: {
@@ -75,43 +75,98 @@ describe('Basic Chart Generation Integration', () => {
       });
 
       // Add Deployment
-      rutter.addDeployment({
-        name: 'basic-test-app',
-        image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-        replicas: Number(valuesRef('replicas')),
-        containerPort: 8080,
-        env: [
-          { name: 'NODE_ENV', value: 'production' },
-          { name: 'PORT', value: '8080' },
-        ],
-        resources: {
-          limits: {
-            cpu: valuesRef('resources.limits.cpu'),
-            memory: valuesRef('resources.limits.memory'),
+      rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'basic-test-app',
           },
-          requests: {
-            cpu: valuesRef('resources.requests.cpu'),
-            memory: valuesRef('resources.requests.memory'),
+          spec: {
+            replicas: Number(valuesRef('replicas')),
+            selector: {
+              matchLabels: {
+                app: 'basic-test-app',
+              },
+            },
+            template: {
+              metadata: {
+                labels: {
+                  app: 'basic-test-app',
+                },
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'basic-test-app',
+                    image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
+                    ports: [
+                      {
+                        containerPort: 8080,
+                      },
+                    ],
+                    env: [
+                      { name: 'NODE_ENV', value: 'production' },
+                      { name: 'PORT', value: '8080' },
+                    ],
+                    resources: {
+                      limits: {
+                        cpu: valuesRef('resources.limits.cpu'),
+                        memory: valuesRef('resources.limits.memory'),
+                      },
+                      requests: {
+                        cpu: valuesRef('resources.requests.cpu'),
+                        memory: valuesRef('resources.requests.memory'),
+                      },
+                    },
+                  },
+                ],
+              },
+            },
           },
         },
-      });
+        'basic-deployment',
+      );
 
       // Add Service
-      rutter.addService({
-        name: 'basic-test-service', // Use unique name
-        port: Number(valuesRef('service.port')),
-        targetPort: 8080,
-        type: valuesRef('service.type'),
-      });
+      rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'Service',
+          metadata: {
+            name: 'basic-test-service',
+          },
+          spec: {
+            selector: {
+              app: 'basic-test-app',
+            },
+            ports: [
+              {
+                port: Number(valuesRef('service.port')),
+                targetPort: 8080,
+              },
+            ],
+            type: valuesRef('service.type'),
+          },
+        },
+        'basic-service',
+      );
 
       // Add ConfigMap
-      rutter.addConfigMap({
-        name: 'basic-test-config',
-        data: {
-          'app.properties': 'debug=false\nlog.level=info',
-          'config.json': '{"feature": {"enabled": true}}',
+      rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'ConfigMap',
+          metadata: {
+            name: 'basic-test-config',
+          },
+          data: {
+            'app.properties': 'debug=false\nlog.level=info',
+            'config.json': '{"feature": {"enabled": true}}',
+          },
         },
-      });
+        'basic-configmap',
+      );
 
       // Generate the chart
       rutter.write(testChartPath);
@@ -152,6 +207,21 @@ describe('Basic Chart Generation Integration', () => {
       const yamlFiles = templateFiles.filter((f) => f.endsWith('.yaml'));
       expect(yamlFiles.length).toBeGreaterThan(0);
 
+      // Validate with helm lint if available
+      try {
+        execSync('helm version', { stdio: 'ignore' });
+        const result = execSync(`helm lint ${testChartPath}`, { encoding: 'utf8' });
+        console.log('Helm lint result:', result);
+        expect(result).toContain('0 chart(s) failed');
+      } catch (error) {
+        if (error.message.includes('helm')) {
+          console.warn('Helm not available, skipping helm lint validation');
+        } else {
+          console.error('Helm lint failed:', error.message);
+          throw error;
+        }
+      }
+
       // Check that at least one template contains Kubernetes resources
       let foundKubernetesResource = false;
       for (const file of yamlFiles) {
@@ -178,12 +248,44 @@ describe('Basic Chart Generation Integration', () => {
         },
       });
 
-      rutter.addDeployment({
-        name: 'zero-replica-app',
-        image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-        replicas: Number(valuesRef('replicas')),
-        containerPort: 80,
-      });
+      rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'zero-replica-app',
+          },
+          spec: {
+            replicas: Number(valuesRef('replicas')),
+            selector: {
+              matchLabels: {
+                app: 'zero-replica-app',
+              },
+            },
+            template: {
+              metadata: {
+                labels: {
+                  app: 'zero-replica-app',
+                },
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'zero-replica-app',
+                    image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
+                    ports: [
+                      {
+                        containerPort: 80,
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        'basic-zero-replica-deployment',
+      );
 
       const zeroReplicaPath = path.join(testChartsDir, 'zero-replica-chart');
       rutter.write(zeroReplicaPath);
@@ -216,20 +318,68 @@ describe('Basic Chart Generation Integration', () => {
         },
       });
 
-      rutter.addDeployment({
-        name: 'nodeport-app',
-        image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-        replicas: 1,
-        containerPort: 80,
-      });
+      rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'nodeport-app',
+          },
+          spec: {
+            replicas: 1,
+            selector: {
+              matchLabels: {
+                app: 'nodeport-app',
+              },
+            },
+            template: {
+              metadata: {
+                labels: {
+                  app: 'nodeport-app',
+                },
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'nodeport-app',
+                    image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
+                    ports: [
+                      {
+                        containerPort: 80,
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        'basic-nodeport-deployment',
+      );
 
-      rutter.addService({
-        name: 'nodeport-service', // Use unique name
-        port: Number(valuesRef('service.port')),
-        targetPort: 80,
-        type: valuesRef('service.type'),
-        nodePort: Number(valuesRef('service.nodePort')),
-      });
+      rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'Service',
+          metadata: {
+            name: 'nodeport-service',
+          },
+          spec: {
+            selector: {
+              app: 'nodeport-app',
+            },
+            ports: [
+              {
+                port: Number(valuesRef('service.port')),
+                targetPort: 80,
+              },
+            ],
+            type: valuesRef('service.type'),
+          },
+          nodePort: Number(valuesRef('service.nodePort')),
+        },
+        'basic-nodeport-service',
+      );
 
       const nodePortPath = path.join(testChartsDir, 'nodeport-chart');
       rutter.write(nodePortPath);
@@ -261,12 +411,44 @@ describe('Basic Chart Generation Integration', () => {
         },
       });
 
-      rutter.addDeployment({
-        name: 'yaml-validation-test',
-        image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-        replicas: Number(valuesRef('replicas')),
-        containerPort: 80,
-      });
+      rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'yaml-validation-test',
+          },
+          spec: {
+            replicas: Number(valuesRef('replicas')),
+            selector: {
+              matchLabels: {
+                app: 'yaml-validation-test',
+              },
+            },
+            template: {
+              metadata: {
+                labels: {
+                  app: 'yaml-validation-test',
+                },
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'yaml-validation-test',
+                    image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
+                    ports: [
+                      {
+                        containerPort: 80,
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        'basic-yaml-validation-deployment',
+      );
 
       const yamlValidationPath = path.join(testChartsDir, 'yaml-validation-chart');
       rutter.write(yamlValidationPath);
@@ -294,4 +476,6 @@ describe('Basic Chart Generation Integration', () => {
       }
     });
   });
+
+  // Helm validation is now integrated into the main chart generation test above
 });

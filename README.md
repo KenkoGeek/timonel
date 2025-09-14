@@ -111,7 +111,7 @@ MIT
 [ts-url]: https://www.typescriptlang.org/
 [maintained-badge]: https://img.shields.io/badge/maintained%20by-KenkoGeek-6C78AF?style=flat
 [maintained-url]: https://github.com/kenkogeek/
-[ci-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/ci.yml/badge.svg?branch=main
-[ci-url]: https://github.com/KenkoGeek/timonel/actions/workflows/ci.yml
-[codeql-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yml/badge.svg
-[codeql-url]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yml
+[ci-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/test.yaml/badge.svg?branch=main
+[ci-url]: https://github.com/KenkoGeek/timonel/actions/workflows/teast.yaml
+[codeql-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yaml/badge.svg
+[codeql-url]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yaml

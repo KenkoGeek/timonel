@@ -81,44 +81,6 @@ export const AWS_HELPERS: HelperDefinition[] = [
 ];
 
 /**
- * Azure-specific Helm helpers
- * @since 2.5.0
- */
-export const AZURE_HELPERS: HelperDefinition[] = [
-  {
-    name: 'azure.resourceGroup',
-    template: `{{- required "Azure Resource Group is required" .Values.azure.resourceGroup }}`,
-  },
-  {
-    name: 'azure.subscriptionId',
-    template: `{{- required "Azure Subscription ID is required" .Values.azure.subscriptionId }}`,
-  },
-  {
-    name: 'azure.acrLoginServer',
-    template: `{{- printf "%s.azurecr.io" .Values.azure.acrName }}`,
-  },
-];
-
-/**
- * GCP-specific Helm helpers
- * @since 2.5.0
- */
-export const GCP_HELPERS: HelperDefinition[] = [
-  {
-    name: 'gcp.projectId',
-    template: `{{- required "GCP Project ID is required" .Values.gcp.projectId }}`,
-  },
-  {
-    name: 'gcp.region',
-    template: `{{- .Values.gcp.region | default "us-central1" }}`,
-  },
-  {
-    name: 'gcp.garRepository',
-    template: `{{- printf "%s-docker.pkg.dev/%s/%s" (include "gcp.region" .) (include "gcp.projectId" .) .Values.gcp.repositoryName }}`,
-  },
-];
-
-/**
  * Converts helper definitions to Helm template format
  * @param helpers - Array of helper definitions
  * @returns Formatted Helm template string
@@ -143,19 +105,11 @@ ${helper.template}
  * @returns Combined standard and cloud-specific helpers
  * @since 2.5.0
  */
-export function getDefaultHelpers(cloudProvider?: 'aws' | 'azure' | 'gcp'): HelperDefinition[] {
+export function getDefaultHelpers(cloudProvider?: 'aws'): HelperDefinition[] {
   const helpers = [...STANDARD_HELPERS];
 
-  switch (cloudProvider) {
-    case 'aws':
-      helpers.push(...AWS_HELPERS);
-      break;
-    case 'azure':
-      helpers.push(...AZURE_HELPERS);
-      break;
-    case 'gcp':
-      helpers.push(...GCP_HELPERS);
-      break;
+  if (cloudProvider === 'aws') {
+    helpers.push(...AWS_HELPERS);
   }
 
   return helpers;
@@ -169,7 +123,7 @@ export function getDefaultHelpers(cloudProvider?: 'aws' | 'azure' | 'gcp'): Help
  * @since 2.5.0
  */
 export function generateHelpersTemplate(
-  cloudProvider?: 'aws' | 'azure' | 'gcp',
+  cloudProvider?: 'aws',
   customHelpers?: HelperDefinition[],
 ): string {
   const helpers = getDefaultHelpers(cloudProvider);

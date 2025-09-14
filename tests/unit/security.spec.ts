@@ -10,6 +10,122 @@ describe('SecurityUtils', () => {
         name: 'MY_VAR',
         value: 'my-value',
       });
+
+      describe('isValidHelmTemplatePath', () => {
+        it('should validate basic valid paths', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath('app.name')).toBe(true);
+          expect(SecurityUtils.isValidHelmTemplatePath('database.host')).toBe(true);
+          expect(SecurityUtils.isValidHelmTemplatePath('service.port')).toBe(true);
+        });
+
+        it('should validate nested paths', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath('app.database.host')).toBe(true);
+          expect(SecurityUtils.isValidHelmTemplatePath('config.redis.password')).toBe(true);
+          expect(SecurityUtils.isValidHelmTemplatePath('ingress.tls.secretName')).toBe(true);
+        });
+
+        it('should validate paths with numbers', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath('app.version2')).toBe(true);
+          expect(SecurityUtils.isValidHelmTemplatePath('database.port3306')).toBe(true);
+          expect(SecurityUtils.isValidHelmTemplatePath('config.timeout30s')).toBe(true);
+        });
+
+        it('should validate paths with hyphens and underscores', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath('app-name.database_host')).toBe(true);
+          expect(SecurityUtils.isValidHelmTemplatePath('service-account.auto_mount')).toBe(true);
+          expect(SecurityUtils.isValidHelmTemplatePath('ingress-class.nginx_config')).toBe(true);
+        });
+
+        it('should reject empty paths', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath('')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('   ')).toBe(false);
+        });
+
+        it('should reject paths starting with dots', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath('.app.name')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('.hidden')).toBe(false);
+        });
+
+        it('should reject paths ending with dots', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath('app.name.')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('config.')).toBe(false);
+        });
+
+        it('should reject paths with consecutive dots', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath('app..name')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('config...database')).toBe(false);
+        });
+
+        it('should reject paths with invalid characters', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath('app name')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app@domain')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app#config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app$var')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app%config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app&config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app*config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app+config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app=config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app[0]')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app{config}')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app|config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app\\config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app/config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app:config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app;config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app"config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath("app'config")).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app<config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app>config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app,config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app?config')).toBe(false);
+        });
+
+        it('should reject paths exceeding maximum length', () => {
+          const longPath = 'a'.repeat(256);
+          expect(SecurityUtils.isValidHelmTemplatePath(longPath)).toBe(false);
+        });
+
+        it('should reject path traversal attempts', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath('../config')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app/../secret')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('../../etc/passwd')).toBe(false);
+        });
+
+        it('should reject reserved words', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath('constructor')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('prototype')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('__proto__')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('toString')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('valueOf')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('hasOwnProperty')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('app.constructor')).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath('config.prototype.value')).toBe(false);
+        });
+
+        it('should handle edge cases', () => {
+          // Single character paths
+          expect(SecurityUtils.isValidHelmTemplatePath('a')).toBe(true);
+          expect(SecurityUtils.isValidHelmTemplatePath('1')).toBe(true);
+
+          // Paths with maximum valid length
+          const maxValidPath = 'a'.repeat(255);
+          expect(SecurityUtils.isValidHelmTemplatePath(maxValidPath)).toBe(true);
+
+          // Mixed valid characters
+          expect(SecurityUtils.isValidHelmTemplatePath('app1-config_v2.database-host_3306')).toBe(
+            true,
+          );
+        });
+
+        it('should reject non-string inputs', () => {
+          expect(SecurityUtils.isValidHelmTemplatePath(null as unknown as string)).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath(undefined as unknown as string)).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath(123 as unknown as string)).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath({} as unknown as string)).toBe(false);
+          expect(SecurityUtils.isValidHelmTemplatePath([] as unknown as string)).toBe(false);
+        });
+      });
     });
 
     it('should handle uppercase names correctly', () => {

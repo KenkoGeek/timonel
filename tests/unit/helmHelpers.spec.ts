@@ -1,13 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
 import {
+  AWS_HELPERS,
+  formatHelpers,
   generateHelpersTemplate,
   getDefaultHelpers,
-  formatHelpers,
   STANDARD_HELPERS,
-  AWS_HELPERS,
-  AZURE_HELPERS,
-  GCP_HELPERS,
 } from '../../dist/lib/utils/helmHelpers.js';
 import type { HelperDefinition } from '../../dist/lib/utils/helmHelpers.js';
 
@@ -76,48 +74,6 @@ describe('Helm Helpers', () => {
     });
   });
 
-  describe('AZURE_HELPERS', () => {
-    it('should be an array of Azure-specific helpers', () => {
-      expect(Array.isArray(AZURE_HELPERS)).toBe(true);
-      expect(AZURE_HELPERS.length).toBeGreaterThan(0);
-    });
-
-    it('should contain Azure-specific helpers', () => {
-      const helperNames = AZURE_HELPERS.map((h) => h.name);
-      expect(helperNames).toContain('azure.resourceGroup');
-      expect(helperNames).toContain('azure.subscriptionId');
-    });
-
-    it('should have valid Azure helper definitions', () => {
-      AZURE_HELPERS.forEach((helper) => {
-        expect(helper.name).toBeTruthy();
-        expect(helper.template).toBeTruthy();
-        expect(helper.name).toMatch(/^azure\./);
-      });
-    });
-  });
-
-  describe('GCP_HELPERS', () => {
-    it('should be an array of GCP-specific helpers', () => {
-      expect(Array.isArray(GCP_HELPERS)).toBe(true);
-      expect(GCP_HELPERS.length).toBeGreaterThan(0);
-    });
-
-    it('should contain GCP-specific helpers', () => {
-      const helperNames = GCP_HELPERS.map((h) => h.name);
-      expect(helperNames).toContain('gcp.projectId');
-      expect(helperNames).toContain('gcp.region');
-    });
-
-    it('should have valid GCP helper definitions', () => {
-      GCP_HELPERS.forEach((helper) => {
-        expect(helper.name).toBeTruthy();
-        expect(helper.template).toBeTruthy();
-        expect(helper.name).toMatch(/^gcp\./);
-      });
-    });
-  });
-
   describe('getDefaultHelpers', () => {
     it('should return standard helpers by default', () => {
       const helpers = getDefaultHelpers();
@@ -137,26 +93,6 @@ describe('Helm Helpers', () => {
       const helperNames = helpers.map((h) => h.name);
       expect(helperNames).toContain('chart.name'); // Standard
       expect(helperNames).toContain('aws.region'); // AWS
-    });
-
-    it('should return Azure helpers when specified', () => {
-      const helpers = getDefaultHelpers('azure');
-      expect(Array.isArray(helpers)).toBe(true);
-      expect(helpers.length).toBe(STANDARD_HELPERS.length + AZURE_HELPERS.length);
-
-      const helperNames = helpers.map((h) => h.name);
-      expect(helperNames).toContain('chart.name'); // Standard
-      expect(helperNames).toContain('azure.resourceGroup'); // Azure
-    });
-
-    it('should return GCP helpers when specified', () => {
-      const helpers = getDefaultHelpers('gcp');
-      expect(Array.isArray(helpers)).toBe(true);
-      expect(helpers.length).toBe(STANDARD_HELPERS.length + GCP_HELPERS.length);
-
-      const helperNames = helpers.map((h) => h.name);
-      expect(helperNames).toContain('chart.name'); // Standard
-      expect(helperNames).toContain('gcp.projectId'); // GCP
     });
 
     it('should handle invalid cloud provider', () => {
@@ -244,22 +180,6 @@ enabled: false
       expect(result).toContain('{{- define "aws.accountId" -}}');
     });
 
-    it('should generate helpers template with Azure helpers', () => {
-      const result = generateHelpersTemplate('azure');
-
-      expect(result).toContain('{{- define "chart.name" -}}');
-      expect(result).toContain('{{- define "azure.resourceGroup" -}}');
-      expect(result).toContain('{{- define "azure.subscriptionId" -}}');
-    });
-
-    it('should generate helpers template with GCP helpers', () => {
-      const result = generateHelpersTemplate('gcp');
-
-      expect(result).toContain('{{- define "chart.name" -}}');
-      expect(result).toContain('{{- define "gcp.projectId" -}}');
-      expect(result).toContain('{{- define "gcp.region" -}}');
-    });
-
     it('should generate helpers template with custom helpers', () => {
       const customHelpers: HelperDefinition[] = [
         {
@@ -300,7 +220,7 @@ enabled: false
 
   describe('template validation', () => {
     it('should generate valid Helm template syntax', () => {
-      const template = generateHelpersTemplate(STANDARD_HELPERS);
+      const template = generateHelpersTemplate();
 
       // Check for valid Helm template structure
       expect(template).toContain('{{/*');
@@ -318,7 +238,7 @@ enabled: false
 
     it('should generate syntactically correct helper functions', () => {
       const helpers = getDefaultHelpers();
-      const template = generateHelpersTemplate(helpers);
+      const template = generateHelpersTemplate();
 
       // Check each helper has proper structure
       helpers.forEach((helper) => {
@@ -329,7 +249,7 @@ enabled: false
     });
 
     it('should not contain obvious syntax errors', () => {
-      const template = generateHelpersTemplate(STANDARD_HELPERS);
+      const template = generateHelpersTemplate();
 
       // Check for common syntax errors
       expect(template).not.toMatch(/{{[^}]*{{/); // Nested opening braces

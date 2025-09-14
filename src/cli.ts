@@ -1,14 +1,14 @@
 #!/usr/bin/env node
+import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as cp from 'child_process';
 import { fileURLToPath } from 'url';
+
+import { SecurityUtils } from './lib/security.js';
 
 // ES modules equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-import { SecurityUtils } from './lib/security.js';
 
 const HELM_INSTALL_URL = 'https://helm.sh/docs/intro/install/';
 const HELM_ENV_VAR_MSG = 'Or set HELM_BIN environment variable to helm binary path.';

@@ -1,12 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import YAML from 'yaml';
 
+import { valuesRef } from '../../dist/lib/helm.js';
 import { HelmChartWriter } from '../../dist/lib/helmChartWriter.js';
 import { Rutter } from '../../dist/lib/rutter.js';
-import { valuesRef } from '../../dist/lib/helm.js';
 
 // Mock filesystem
 vi.mock('fs');
@@ -144,17 +144,67 @@ describe('YAML Snapshot Tests', () => {
         },
       });
 
-      rutter.addDeployment({
-        name: 'snapshot-app',
-        image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-        replicas: Number(valuesRef('replicas')),
-        containerPort: 80,
-      });
+      rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'snapshot-app',
+          },
+          spec: {
+            replicas: Number(valuesRef('replicas')),
+            selector: {
+              matchLabels: {
+                app: 'snapshot-app',
+              },
+            },
+            template: {
+              metadata: {
+                labels: {
+                  app: 'snapshot-app',
+                },
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'snapshot-app',
+                    image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
+                    ports: [
+                      {
+                        containerPort: 80,
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        'snapshot-deployment',
+      );
 
-      rutter.addService({
-        name: 'snapshot-service',
-        port: 80,
-      });
+      rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'Service',
+          metadata: {
+            name: 'snapshot-service',
+          },
+          spec: {
+            selector: {
+              app: 'snapshot-app',
+            },
+            ports: [
+              {
+                port: 80,
+                targetPort: 80,
+              },
+            ],
+            type: 'ClusterIP',
+          },
+        },
+        'snapshot-service',
+      );
 
       rutter.write(testOutputDir);
 

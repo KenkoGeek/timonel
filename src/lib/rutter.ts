@@ -1,76 +1,26 @@
+import { ApiObject, App, Chart, Testing } from 'cdk8s';
 import type { ChartProps } from 'cdk8s';
-import { Chart, App, Testing, ApiObject } from 'cdk8s';
 import type { Construct } from 'constructs';
 import YAML from 'yaml';
 
-// Import resource providers
-import { CoreResources } from './resources/core/coreResources.js';
-import { StorageResources } from './resources/core/storageResources.js';
+import { helm, include } from './helm.js';
+import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
-import { AzureResources } from './resources/cloud/azure/azureResources.js';
-import { GCPResources } from './resources/cloud/gcp/gcpResources.js';
-import { AutoscalingResources } from './resources/autoscaling/autoscalingResources.js';
-import { NetworkResources } from './resources/network/networkResources.js';
-import { KarpenterResources } from './resources/cloud/aws/karpenterResources.js';
-// Import type definitions from providers
 import type {
-  DeploymentSpec,
-  DaemonSetSpec,
-  StatefulSetSpec,
-  RoleSpec,
-  ClusterRoleSpec,
-  RoleBindingSpec,
-  ClusterRoleBindingSpec,
-  JobSpec,
-  ServiceSpec,
-  ConfigMapSpec,
-  SecretSpec,
-  ServiceAccountSpec,
-} from './resources/core/coreResources.js';
-import type {
-  PersistentVolumeSpec,
-  PersistentVolumeClaimSpec,
-  StorageClassSpec,
-} from './resources/core/storageResources.js';
-import type {
+  AWSALBIngressSpec,
   AWSEBSStorageClassSpec,
+  AWSECRServiceAccountSpec,
   AWSEFSStorageClassSpec,
   AWSIRSAServiceAccountSpec,
-  AWSECRServiceAccountSpec,
-  AWSALBIngressSpec,
 } from './resources/cloud/aws/awsResources.js';
+import { KarpenterResources } from './resources/cloud/aws/karpenterResources.js';
 import type {
-  AzureDiskStorageClassSpec,
-  AzureFileStorageClassSpec,
-  AzureAGICIngressSpec,
-  AzureKeyVaultSecretProviderClassSpec,
-  AzureACRServiceAccountSpec,
-} from './resources/cloud/azure/azureResources.js';
-import type {
-  GCPPersistentDiskStorageClassSpec,
-  GCPFilestoreStorageClassSpec,
-  GCPGCEIngressSpec,
-  GCPWorkloadIdentityServiceAccountSpec,
-  GCPArtifactRegistryServiceAccountSpec,
-} from './resources/cloud/gcp/gcpResources.js';
-import type {
-  HorizontalPodAutoscalerSpec,
-  VerticalPodAutoscalerSpec,
-  CronJobSpec,
-} from './resources/autoscaling/autoscalingResources.js';
-import type { NetworkPolicySpec, IngressSpec } from './resources/network/networkResources.js';
-import type {
-  KarpenterNodePoolSpec,
-  KarpenterNodeClaimSpec,
   KarpenterEC2NodeClassSpec,
+  KarpenterNodeClaimSpec,
+  KarpenterNodePoolSpec,
 } from './resources/cloud/aws/karpenterResources.js';
-// Import HelmChartWriter for write functionality
-import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
-import { include, helm } from './helm.js';
 import { generateHelpersTemplate } from './utils/helmHelpers.js';
-import { generateManifestName } from './utils/resourceNaming.js';
 import type { HelperDefinition } from './utils/helmHelpers.js';
-import type { NamingStrategy } from './utils/resourceNaming.js';
 
 /**
  * Rutter class with modular architecture
@@ -88,13 +38,7 @@ export class Rutter {
   private readonly chart: Chart;
 
   // Resource providers
-  private readonly coreResources: CoreResources;
-  private readonly storageResources: StorageResources;
   private readonly awsResources: AWSResources;
-  private readonly azureResources: AzureResources;
-  private readonly gcpResources: GCPResources;
-  private readonly autoscalingResources: AutoscalingResources;
-  private readonly networkResources: NetworkResources;
   private readonly karpenterResources: KarpenterResources;
 
   // Chart metadata and configuration
@@ -118,366 +62,11 @@ export class Rutter {
     });
 
     // Initialize resource providers
-    this.coreResources = new CoreResources(this.chart);
-    this.storageResources = new StorageResources(this.chart);
     this.awsResources = new AWSResources(this.chart);
-    this.azureResources = new AzureResources(this.chart);
-    this.gcpResources = new GCPResources(this.chart);
-    this.autoscalingResources = new AutoscalingResources(this.chart);
-    this.networkResources = new NetworkResources(this.chart);
     this.karpenterResources = new KarpenterResources(this.chart);
   }
 
-  // Core Kubernetes Resources
-
-  /**
-   * Creates a Deployment resource
-   * @param spec - Deployment specification
-   * @returns Created Deployment ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addDeployment({
-   *   name: 'web-app',
-   *   image: 'nginx:1.21',
-   *   replicas: 3,
-   *   containerPort: 80
-   * });
-   * ```
-   *
-   * @since 1.0.0
-   */
-  addDeployment(spec: DeploymentSpec): ApiObject {
-    return this.coreResources.addDeployment(spec);
-  }
-
-  /**
-   * Creates a DaemonSet resource
-   * @param spec - DaemonSet specification
-   * @returns Created DaemonSet ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addDaemonSet({
-   *   name: 'log-collector',
-   *   image: 'fluentd:v1.14',
-   *   containerPort: 24224,
-   *   hostNetwork: true
-   * });
-   * ```
-   *
-   * @since 2.4.0
-   */
-  addDaemonSet(spec: DaemonSetSpec): ApiObject {
-    return this.coreResources.addDaemonSet(spec);
-  }
-
-  /**
-   * Creates a StatefulSet resource
-   * @param spec - StatefulSet specification
-   * @returns Created StatefulSet ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addStatefulSet({
-   *   name: 'database',
-   *   image: 'postgres:13',
-   *   replicas: 3,
-   *   serviceName: 'database-headless',
-   *   containerPort: 5432
-   * });
-   * ```
-   *
-   * @since 2.4.0
-   */
-  addStatefulSet(spec: StatefulSetSpec): ApiObject {
-    return this.coreResources.addStatefulSet(spec);
-  }
-
-  /**
-   * Creates a Role resource for RBAC
-   * @param spec - Role specification
-   * @returns Created Role ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addRole({
-   *   name: 'pod-reader',
-   *   rules: [
-   *     {
-   *       apiGroups: [''],
-   *       resources: ['pods'],
-   *       verbs: ['get', 'list', 'watch']
-   *     }
-   *   ]
-   * });
-   * ```
-   *
-   * @since 2.4.0
-   */
-  addRole(spec: RoleSpec): ApiObject {
-    return this.coreResources.addRole(spec);
-  }
-
-  /**
-   * Creates a ClusterRole resource for cluster-wide RBAC
-   * @param spec - ClusterRole specification
-   * @returns Created ClusterRole ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addClusterRole({
-   *   name: 'cluster-reader',
-   *   rules: [
-   *     {
-   *       apiGroups: [''],
-   *       resources: ['nodes', 'namespaces'],
-   *       verbs: ['get', 'list', 'watch']
-   *     }
-   *   ]
-   * });
-   * ```
-   *
-   * @since 2.4.0
-   */
-  addClusterRole(spec: ClusterRoleSpec): ApiObject {
-    return this.coreResources.addClusterRole(spec);
-  }
-
-  /**
-   * Creates a RoleBinding resource for RBAC
-   * @param spec - RoleBinding specification
-   * @returns Created RoleBinding ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addRoleBinding({
-   *   name: 'pod-reader-binding',
-   *   roleRef: {
-   *     kind: 'Role',
-   *     name: 'pod-reader',
-   *     apiGroup: 'rbac.authorization.k8s.io'
-   *   },
-   *   subjects: [
-   *     {
-   *       kind: 'ServiceAccount',
-   *       name: 'my-service-account'
-   *     }
-   *   ]
-   * });
-   * ```
-   *
-   * @since 2.4.0
-   */
-  addRoleBinding(spec: RoleBindingSpec): ApiObject {
-    return this.coreResources.addRoleBinding(spec);
-  }
-
-  /**
-   * Creates a ClusterRoleBinding resource for cluster-wide RBAC
-   * @param spec - ClusterRoleBinding specification
-   * @returns Created ClusterRoleBinding ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addClusterRoleBinding({
-   *   name: 'cluster-reader-binding',
-   *   roleRef: {
-   *     kind: 'ClusterRole',
-   *     name: 'cluster-reader',
-   *     apiGroup: 'rbac.authorization.k8s.io'
-   *   },
-   *   subjects: [
-   *     {
-   *       kind: 'ServiceAccount',
-   *       name: 'monitoring-agent',
-   *       namespace: 'monitoring'
-   *     }
-   *   ]
-   * });
-   * ```
-   *
-   * @since 2.4.0
-   */
-  addClusterRoleBinding(spec: ClusterRoleBindingSpec): ApiObject {
-    return this.coreResources.addClusterRoleBinding(spec);
-  }
-
-  /**
-   * Creates a Job resource for batch workloads
-   * @param spec - Job specification
-   * @returns Created Job ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addJob({
-   *   name: 'data-processor',
-   *   image: 'busybox:1.35',
-   *   command: ['sh', '-c', 'echo "Processing..." && sleep 30'],
-   *   completions: 1
-   * });
-   * ```
-   *
-   * @since 2.4.0
-   */
-  addJob(spec: JobSpec): ApiObject {
-    return this.coreResources.addJob(spec);
-  }
-
-  /**
-   * Creates a Service resource
-   * @param spec - Service specification
-   * @returns Created Service ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addService({
-   *   name: 'web-service',
-   *   port: 80,
-   *   targetPort: 8080,
-   *   type: 'ClusterIP'
-   * });
-   * ```
-   *
-   * @since 1.0.0
-   */
-  addService(spec: ServiceSpec): ApiObject {
-    return this.coreResources.addService(spec);
-  }
-
-  /**
-   * Creates a ConfigMap resource
-   * @param spec - ConfigMap specification
-   * @returns Created ConfigMap ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addConfigMap({
-   *   name: 'app-config',
-   *   data: {
-   *     'config.yaml': 'key: value',
-   *     'app.properties': 'debug=true'
-   *   }
-   * });
-   * ```
-   *
-   * @since 1.0.0
-   */
-  addConfigMap(spec: ConfigMapSpec): ApiObject {
-    return this.coreResources.addConfigMap(spec);
-  }
-
-  /**
-   * Creates a Secret resource
-   * @param spec - Secret specification
-   * @returns Created Secret ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addSecret({
-   *   name: 'app-secrets',
-   *   type: 'Opaque',
-   *   data: {
-   *     username: 'YWRtaW4=',
-   *     password: 'MWYyZDFlMmU2N2Rm'
-   *   }
-   * });
-   * ```
-   *
-   * @since 1.0.0
-   */
-  addSecret(spec: SecretSpec): ApiObject {
-    return this.coreResources.addSecret(spec);
-  }
-
-  /**
-   * Creates a ServiceAccount resource
-   * @param spec - ServiceAccount specification
-   * @returns Created ServiceAccount ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addServiceAccount({
-   *   name: 'app-service-account',
-   *   automountServiceAccountToken: false
-   * });
-   * ```
-   *
-   * @since 1.0.0
-   */
-  addServiceAccount(spec: ServiceAccountSpec): ApiObject {
-    return this.coreResources.addServiceAccount(spec);
-  }
-
-  // Storage Resources
-
-  /**
-   * Creates a PersistentVolume resource
-   * @param spec - PersistentVolume specification
-   * @returns Created PersistentVolume ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addPersistentVolume({
-   *   name: 'data-pv',
-   *   capacity: '10Gi',
-   *   accessModes: ['ReadWriteOnce'],
-   *   storageClassName: 'fast-ssd'
-   * });
-   * ```
-   *
-   * @since 1.0.0
-   */
-  addPersistentVolume(spec: PersistentVolumeSpec): ApiObject {
-    return this.storageResources.addPersistentVolume(spec);
-  }
-
-  /**
-   * Creates a PersistentVolumeClaim resource
-   * @param spec - PersistentVolumeClaim specification
-   * @returns Created PersistentVolumeClaim ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addPersistentVolumeClaim({
-   *   name: 'data-pvc',
-   *   size: '10Gi',
-   *   accessModes: ['ReadWriteOnce'],
-   *   storageClassName: 'fast-ssd'
-   * });
-   * ```
-   *
-   * @since 1.0.0
-   */
-  addPersistentVolumeClaim(spec: PersistentVolumeClaimSpec): ApiObject {
-    return this.storageResources.addPersistentVolumeClaim(spec);
-  }
-
-  /**
-   * Creates a StorageClass resource
-   * @param spec - StorageClass specification
-   * @returns Created StorageClass ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addStorageClass({
-   *   name: 'fast-ssd',
-   *   provisioner: 'kubernetes.io/aws-ebs',
-   *   parameters: {
-   *     type: 'gp3',
-   *     encrypted: 'true'
-   *   }
-   * });
-   * ```
-   *
-   * @since 1.0.0
-   */
-  addStorageClass(spec: StorageClassSpec): ApiObject {
-    return this.storageResources.addStorageClass(spec);
-  }
-
   // AWS Resources
-
   /**
    * Creates an AWS EBS StorageClass
    * @param spec - EBS StorageClass specification
@@ -527,8 +116,8 @@ export class Rutter {
    * @example
    * ```typescript
    * rutter.addAWSIRSAServiceAccount({
-   *   name: 'aws-service-account',
-   *   roleArn: 'arn:aws:iam::123456789012:role/MyRole'
+   *   name: 'my-service-account',
+   *   roleArn: 'arn:aws:iam::ACCOUNT_ID:role/MyRole'
    * });
    * ```
    *
@@ -564,130 +153,7 @@ export class Rutter {
     return this.awsResources.addALBIngress(spec);
   }
 
-  // Azure Cloud Resources
-
-  /**
-   * Creates an Azure Disk StorageClass
-   * @param spec - Azure Disk StorageClass specification
-   * @returns Created StorageClass ApiObject
-   *
-   * @since 2.4.0
-   */
-  addAzureDiskStorageClass(spec: AzureDiskStorageClassSpec): ApiObject {
-    return this.azureResources.addAzureDiskStorageClass(spec);
-  }
-
-  /**
-   * Creates an Azure File StorageClass
-   * @param spec - Azure File StorageClass specification
-   * @returns Created StorageClass ApiObject
-   *
-   * @since 2.4.0
-   */
-  addAzureFileStorageClass(spec: AzureFileStorageClassSpec): ApiObject {
-    return this.azureResources.addAzureFileStorageClass(spec);
-  }
-
-  /**
-   * Creates an Azure Application Gateway Ingress
-   * @param spec - AGIC Ingress specification
-   * @returns Created Ingress ApiObject
-   *
-   * @since 2.4.0
-   */
-  addAzureApplicationGatewayIngress(spec: AzureAGICIngressSpec): ApiObject {
-    return this.azureResources.addApplicationGatewayIngress(spec);
-  }
-
-  /**
-   * Creates an Azure Key Vault SecretProviderClass
-   * @param spec - Azure Key Vault SecretProviderClass specification
-   * @returns Created SecretProviderClass ApiObject
-   *
-   * @since 2.4.0
-   */
-  addAzureKeyVaultSecretProviderClass(spec: AzureKeyVaultSecretProviderClassSpec): ApiObject {
-    return this.azureResources.addAzureKeyVaultSecretProviderClass(spec);
-  }
-
-  /**
-   * Creates an Azure Container Registry ServiceAccount
-   * @param spec - Azure ACR ServiceAccount specification
-   * @returns Created ServiceAccount ApiObject
-   *
-   * @since 2.4.0
-   */
-  addAzureACRServiceAccount(spec: AzureACRServiceAccountSpec): ApiObject {
-    return this.azureResources.addAzureACRServiceAccount(spec);
-  }
-
-  // GCP Cloud Resources
-
-  /**
-   * Creates a GCP Persistent Disk StorageClass
-   * @param spec - GCP PD StorageClass specification
-   * @returns Created StorageClass ApiObject
-   *
-   * @since 2.4.0
-   */
-  addGCPPersistentDiskStorageClass(spec: GCPPersistentDiskStorageClassSpec): ApiObject {
-    return this.gcpResources.addPersistentDiskStorageClass(spec);
-  }
-
-  /**
-   * Creates a GCP Filestore StorageClass
-   * @param spec - GCP Filestore StorageClass specification
-   * @returns Created StorageClass ApiObject
-   *
-   * @since 2.4.0
-   */
-  addGCPFilestoreStorageClass(spec: GCPFilestoreStorageClassSpec): ApiObject {
-    return this.gcpResources.addFilestoreStorageClass(spec);
-  }
-
-  /**
-   * Creates a GCE Ingress with Google Cloud Load Balancer
-   * @param spec - GCE Ingress specification
-   * @returns Created Ingress ApiObject
-   *
-   * @since 2.4.0
-   */
-  addGCPGCEIngress(spec: GCPGCEIngressSpec): ApiObject {
-    return this.gcpResources.addGCEIngress(spec);
-  }
-
-  /**
-   * Creates a ServiceAccount with Workload Identity annotations
-   * @param spec - Workload Identity ServiceAccount specification
-   * @returns Created ServiceAccount ApiObject
-   *
-   * @since 2.4.0
-   */
-  addGCPWorkloadIdentityServiceAccount(spec: GCPWorkloadIdentityServiceAccountSpec): ApiObject {
-    return this.gcpResources.addWorkloadIdentityServiceAccount(spec);
-  }
-
-  /**
-   * Creates a ServiceAccount with GCP Artifact Registry access
-   * @param spec - Artifact Registry ServiceAccount specification
-   * @returns Created ServiceAccount ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addGCPArtifactRegistryServiceAccount({
-   *   name: 'artifact-registry-sa',
-   *   googleServiceAccount: 'my-gsa@project.iam.gserviceaccount.com'
-   * });
-   * ```
-   *
-   * @since 2.7.0
-   */
-  addGCPArtifactRegistryServiceAccount(spec: GCPArtifactRegistryServiceAccountSpec): ApiObject {
-    return this.gcpResources.addArtifactRegistryServiceAccount(spec);
-  }
-
   // AWS Karpenter Resources
-
   /**
    * Creates a Karpenter NodePool resource
    * @param spec - NodePool specification
@@ -859,164 +325,7 @@ export class Rutter {
     return this.karpenterResources.addKarpenterNodePoolWithScheduling(spec);
   }
 
-  // Network Resources
-
-  /**
-   * Creates a NetworkPolicy resource
-   * @param spec - NetworkPolicy specification
-   * @returns Created NetworkPolicy ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addNetworkPolicy({
-   *   name: 'deny-all',
-   *   podSelector: {},
-   *   policyTypes: ['Ingress', 'Egress']
-   * });
-   * ```
-   *
-   * @since 2.7.0
-   */
-  addNetworkPolicy(spec: NetworkPolicySpec): ApiObject {
-    return this.networkResources.addNetworkPolicy(spec);
-  }
-
-  /**
-   * Creates a deny-all NetworkPolicy that blocks all traffic
-   * @param name - Policy name
-   * @param podSelector - Pod selector to apply policy to
-   * @param labels - Optional labels
-   * @param annotations - Optional annotations
-   * @returns Created NetworkPolicy ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addDenyAllNetworkPolicy('deny-all', { matchLabels: { app: 'web' } });
-   * ```
-   *
-   * @since 2.7.0
-   */
-  addDenyAllNetworkPolicy(
-    name: string,
-    podSelector: NetworkPolicySpec['podSelector'] = {},
-    labels?: Record<string, string>,
-    annotations?: Record<string, string>,
-  ): ApiObject {
-    return this.networkResources.addDenyAllNetworkPolicy(name, podSelector, labels, annotations);
-  }
-
-  /**
-   * Creates a NetworkPolicy that allows traffic from specific pods
-   * @param name - Policy name
-   * @param podSelector - Pod selector to apply policy to
-   * @param fromPodSelector - Pod selector for allowed source pods
-   * @param ports - Optional ports to allow
-   * @param labels - Optional labels
-   * @param annotations - Optional annotations
-   * @returns Created NetworkPolicy ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addAllowFromPodsNetworkPolicy(
-   *   'allow-from-frontend',
-   *   { matchLabels: { app: 'backend' } },
-   *   { matchLabels: { app: 'frontend' } },
-   *   [{ port: 8080, protocol: 'TCP' }]
-   * );
-   * ```
-   *
-   * @since 2.7.0
-   */
-  addAllowFromPodsNetworkPolicy(
-    name: string,
-    podSelector: NetworkPolicySpec['podSelector'],
-    fromPodSelector: NetworkPolicySpec['podSelector'],
-    ports?: Array<{ port?: number | string; protocol?: 'TCP' | 'UDP' | 'SCTP' }>,
-    labels?: Record<string, string>,
-    annotations?: Record<string, string>,
-  ): ApiObject {
-    return this.networkResources.addAllowFromPodsNetworkPolicy(
-      name,
-      podSelector,
-      fromPodSelector,
-      ports,
-      labels,
-      annotations,
-    );
-  }
-
-  /**
-   * Creates a NetworkPolicy that allows traffic from specific namespaces
-   * @param name - Policy name
-   * @param podSelector - Pod selector to apply policy to
-   * @param fromNamespaceSelector - Namespace selector for allowed source namespaces
-   * @param ports - Optional ports to allow
-   * @param labels - Optional labels
-   * @param annotations - Optional annotations
-   * @returns Created NetworkPolicy ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addAllowFromNamespaceNetworkPolicy(
-   *   'allow-from-monitoring',
-   *   { matchLabels: { app: 'web' } },
-   *   { matchLabels: { name: 'monitoring' } },
-   *   [{ port: 9090, protocol: 'TCP' }]
-   * );
-   * ```
-   *
-   * @since 2.7.0
-   */
-  addAllowFromNamespaceNetworkPolicy(
-    name: string,
-    podSelector: NetworkPolicySpec['podSelector'],
-    fromNamespaceSelector: NetworkPolicySpec['podSelector'],
-    ports?: Array<{ port?: number | string; protocol?: 'TCP' | 'UDP' | 'SCTP' }>,
-    labels?: Record<string, string>,
-    annotations?: Record<string, string>,
-  ): ApiObject {
-    return this.networkResources.addAllowFromNamespaceNetworkPolicy(
-      name,
-      podSelector,
-      fromNamespaceSelector,
-      ports,
-      labels,
-      annotations,
-    );
-  }
-
-  /**
-   * Creates an Ingress resource
-   * @param spec - Ingress specification
-   * @returns Created Ingress ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addIngress({
-   *   name: 'web-ingress',
-   *   rules: [{
-   *     host: 'example.com',
-   *     http: {
-   *       paths: [{
-   *         path: '/',
-   *         pathType: 'Prefix',
-   *         backend: {
-   *           service: { name: 'web-service', port: { number: 80 } }
-   *         }
-   *       }]
-   *     }
-   *   }]
-   * });
-   * ```
-   *
-   * @since 2.7.0
-   */
-  addIngress(spec: IngressSpec): ApiObject {
-    return this.networkResources.addIngress(spec);
-  }
-
   // AWS ECR ServiceAccount
-
   /**
    * Creates a ServiceAccount with ECR access annotations
    * @param spec - ECR ServiceAccount specification
@@ -1026,7 +335,7 @@ export class Rutter {
    * ```typescript
    * rutter.addAWSECRServiceAccount({
    *   name: 'ecr-service-account',
-   *   roleArn: 'arn:aws:iam::123456789012:role/ECRAccessRole'
+   *   roleArn: 'arn:aws:iam::ACCOUNT_ID:role/ECRAccessRole'
    * });
    * ```
    *
@@ -1036,99 +345,7 @@ export class Rutter {
     return this.awsResources.addECRServiceAccount(spec);
   }
 
-  // Autoscaling Resources
-
-  /**
-   * Creates a Horizontal Pod Autoscaler (HPA) resource
-   * @param spec - HPA specification
-   * @returns Created HPA ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addHorizontalPodAutoscaler({
-   *   name: 'web-hpa',
-   *   scaleTargetRef: {
-   *     apiVersion: 'apps/v1',
-   *     kind: 'Deployment',
-   *     name: 'web-app'
-   *   },
-   *   minReplicas: 2,
-   *   maxReplicas: 10,
-   *   metrics: [{
-   *     type: 'Resource',
-   *     resource: {
-   *       name: 'cpu',
-   *       target: { type: 'Utilization', averageUtilization: 70 }
-   *     }
-   *   }]
-   * });
-   * ```
-   *
-   * @since 2.7.0
-   */
-  addHorizontalPodAutoscaler(spec: HorizontalPodAutoscalerSpec): ApiObject {
-    return this.autoscalingResources.addHorizontalPodAutoscaler(spec);
-  }
-
-  /**
-   * Creates a Vertical Pod Autoscaler (VPA) resource
-   * @param spec - VPA specification
-   * @returns Created VPA ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addVerticalPodAutoscaler({
-   *   name: 'web-vpa',
-   *   targetRef: {
-   *     apiVersion: 'apps/v1',
-   *     kind: 'Deployment',
-   *     name: 'web-app'
-   *   },
-   *   updatePolicy: { updateMode: 'Auto' }
-   * });
-   * ```
-   *
-   * @since 2.7.0
-   */
-  addVerticalPodAutoscaler(spec: VerticalPodAutoscalerSpec): ApiObject {
-    return this.autoscalingResources.addVerticalPodAutoscaler(spec);
-  }
-
-  /**
-   * Creates a CronJob resource
-   * @param spec - CronJob specification
-   * @returns Created CronJob ApiObject
-   *
-   * @example
-   * ```typescript
-   * rutter.addCronJob({
-   *   name: 'backup-job',
-   *   schedule: '0 2 * * *',
-   *   jobTemplate: {
-   *     spec: {
-   *       template: {
-   *         spec: {
-   *           containers: [{
-   *             name: 'backup',
-   *             image: 'backup:latest',
-   *             command: ['backup.sh']
-   *           }],
-   *           restartPolicy: 'OnFailure'
-   *         }
-   *       }
-   *     }
-   *   }
-   * });
-   * ```
-   *
-   * @since 2.7.0
-   */
-  addCronJob(spec: CronJobSpec): ApiObject {
-    return this.autoscalingResources.addCronJob(spec);
-  }
-
   // Utility methods
-
   /**
    * Adds a Kubernetes manifest to the chart using CDK8S
    *
@@ -1334,12 +551,7 @@ export class Rutter {
       enriched.forEach((obj, index) => {
         const yaml = YAML.stringify(obj).trim();
         if (yaml) {
-          const manifestId = generateManifestName(
-            obj,
-            this.props.namingStrategy ?? 'descriptive',
-            index + 1,
-            this.props.manifestPrefix,
-          );
+          const manifestId = `manifest-${index + 1}`;
           synthAssets.push({ id: manifestId, yaml });
         }
       });
@@ -1418,9 +630,7 @@ export interface RutterProps {
   /** Custom Helm helpers content or definitions */
   helpersTpl?: string | HelperDefinition[];
   /** Cloud provider for default helpers */
-  cloudProvider?: 'aws' | 'azure' | 'gcp';
-  /** Manifest file naming strategy */
-  namingStrategy?: NamingStrategy;
+  cloudProvider?: 'aws';
   /** Custom prefix for manifest files */
   manifestPrefix?: string;
   /** Combine all resources into single manifest file */
@@ -1428,20 +638,6 @@ export interface RutterProps {
 }
 
 // Re-export types for backward compatibility
-export type {
-  DeploymentSpec,
-  ServiceSpec,
-  ConfigMapSpec,
-  SecretSpec,
-  ServiceAccountSpec,
-} from './resources/core/coreResources.js';
-
-export type {
-  PersistentVolumeSpec,
-  PersistentVolumeClaimSpec,
-  StorageClassSpec,
-} from './resources/core/storageResources.js';
-
 export type {
   AWSEBSStorageClassSpec,
   AWSEFSStorageClassSpec,

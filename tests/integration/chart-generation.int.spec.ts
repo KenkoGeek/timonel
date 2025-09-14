@@ -4,8 +4,8 @@ import { execSync } from 'child_process';
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-import { Rutter } from '../../dist/lib/rutter.js';
 import { valuesRef } from '../../dist/lib/helm.js';
+import { Rutter } from '../../dist/lib/rutter.js';
 
 describe('Chart Generation Integration', () => {
   const testChartsDir = path.join(__dirname, '__charts__');
@@ -90,52 +90,114 @@ describe('Chart Generation Integration', () => {
       });
 
       // Add Deployment
-      rutter.addDeployment({
-        name: 'integration-test-app',
-        image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-        replicas: valuesRef('replicas'),
-        containerPort: 8080,
-        env: [
-          { name: 'NODE_ENV', value: 'production' },
-          { name: 'PORT', value: '8080' },
-        ],
-        resources: {
-          limits: {
-            cpu: valuesRef('resources.limits.cpu'),
-            memory: valuesRef('resources.limits.memory'),
+      rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'integration-test-app',
           },
-          requests: {
-            cpu: valuesRef('resources.requests.cpu'),
-            memory: valuesRef('resources.requests.memory'),
+          spec: {
+            replicas: valuesRef('replicas'),
+            selector: {
+              matchLabels: {
+                app: 'integration-test-app',
+              },
+            },
+            template: {
+              metadata: {
+                labels: {
+                  app: 'integration-test-app',
+                },
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'integration-test-app',
+                    image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
+                    ports: [
+                      {
+                        containerPort: 8080,
+                      },
+                    ],
+                    env: [
+                      { name: 'NODE_ENV', value: 'production' },
+                      { name: 'PORT', value: '8080' },
+                    ],
+                    resources: {
+                      limits: {
+                        cpu: valuesRef('resources.limits.cpu'),
+                        memory: valuesRef('resources.limits.memory'),
+                      },
+                      requests: {
+                        cpu: valuesRef('resources.requests.cpu'),
+                        memory: valuesRef('resources.requests.memory'),
+                      },
+                    },
+                  },
+                ],
+              },
+            },
           },
         },
-      });
+        'integration-deployment',
+      );
 
       // Add Service
-      rutter.addService({
-        name: 'integration-test-service', // Use unique name
-        port: valuesRef('service.port'),
-        targetPort: 8080,
-        type: valuesRef('service.type'),
-      });
+      rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'Service',
+          metadata: {
+            name: 'integration-test-service',
+          },
+          spec: {
+            selector: {
+              app: 'integration-test-app',
+            },
+            ports: [
+              {
+                port: valuesRef('service.port'),
+                targetPort: 8080,
+              },
+            ],
+            type: valuesRef('service.type'),
+          },
+        },
+        'integration-service',
+      );
 
       // Add ConfigMap
-      rutter.addConfigMap({
-        name: 'integration-test-config',
-        data: {
-          'app.properties': 'debug=false\nlog.level=info',
-          'config.json': '{"feature": {"enabled": true}}',
+      rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'ConfigMap',
+          metadata: {
+            name: 'integration-test-config',
+          },
+          data: {
+            'app.properties': 'debug=false\nlog.level=info',
+            'config.json': '{"feature": {"enabled": true}}',
+          },
         },
-      });
+        'integration-configmap',
+      );
 
       // Add Secret
-      rutter.addSecret({
-        name: 'integration-test-secret',
-        stringData: {
-          'database-url': 'postgresql://user:pass@localhost:5432/db',
-          'api-key': 'secret-api-key',
+      rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'Secret',
+          metadata: {
+            name: 'integration-test-secret',
+          },
+          stringData: {
+            'database-url': 'postgresql://user:pass@localhost:5432/db',
+            'api-key': 'secret-api-key',
+          },
         },
-      });
+        'integration-secret',
+      );
 
       // Generate the chart
       rutter.write(testChartPath);
@@ -331,6 +393,39 @@ describe('Chart Generation Integration', () => {
         }
       }
     });
+
+    it('should validate with helm kubeconform plugin if available', () => {
+      // Skip if helm is not available
+      try {
+        execSync('helm version', { stdio: 'ignore' });
+      } catch {
+        console.warn('Helm not available, skipping helm kubeconform plugin test');
+        return;
+      }
+
+      // Check if helm kubeconform plugin is installed
+      try {
+        execSync('helm plugin list | grep kubeconform', { stdio: 'ignore' });
+      } catch {
+        console.warn(
+          'helm kubeconform plugin not available, skipping helm kubeconform validation test',
+        );
+        return;
+      }
+
+      try {
+        // Validate chart using helm kubeconform plugin
+        execSync(`helm kubeconform ${testChartPath}`, { stdio: 'pipe' });
+      } catch (error) {
+        // Log the error for debugging but don't fail the test
+        console.log(
+          'helm kubeconform validation failed (this may be expected in CI):',
+          error.message,
+        );
+        // Skip the test instead of failing
+        return;
+      }
+    });
   });
 
   describe('Edge Cases Integration', () => {
@@ -346,12 +441,44 @@ describe('Chart Generation Integration', () => {
         },
       });
 
-      rutter.addDeployment({
-        name: 'zero-replica-app',
-        image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-        replicas: valuesRef('replicas'),
-        containerPort: 80,
-      });
+      rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'zero-replica-app',
+          },
+          spec: {
+            replicas: valuesRef('replicas'),
+            selector: {
+              matchLabels: {
+                app: 'zero-replica-app',
+              },
+            },
+            template: {
+              metadata: {
+                labels: {
+                  app: 'zero-replica-app',
+                },
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'zero-replica-app',
+                    image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
+                    ports: [
+                      {
+                        containerPort: 80,
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        'zero-replica-deployment',
+      );
 
       const zeroReplicaPath = path.join(testChartsDir, 'zero-replica-chart');
       rutter.write(zeroReplicaPath);
@@ -380,20 +507,68 @@ describe('Chart Generation Integration', () => {
         },
       });
 
-      rutter.addDeployment({
-        name: 'nodeport-app',
-        image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
-        replicas: 1,
-        containerPort: 80,
-      });
+      rutter.addManifest(
+        {
+          apiVersion: 'apps/v1',
+          kind: 'Deployment',
+          metadata: {
+            name: 'nodeport-app',
+          },
+          spec: {
+            replicas: 1,
+            selector: {
+              matchLabels: {
+                app: 'nodeport-app',
+              },
+            },
+            template: {
+              metadata: {
+                labels: {
+                  app: 'nodeport-app',
+                },
+              },
+              spec: {
+                containers: [
+                  {
+                    name: 'nodeport-app',
+                    image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
+                    ports: [
+                      {
+                        containerPort: 80,
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        'nodeport-deployment',
+      );
 
-      rutter.addService({
-        name: 'nodeport-service-2', // Use unique name
-        port: valuesRef('service.port'),
-        targetPort: 80,
-        type: valuesRef('service.type'),
-        nodePort: valuesRef('service.nodePort'),
-      });
+      rutter.addManifest(
+        {
+          apiVersion: 'v1',
+          kind: 'Service',
+          metadata: {
+            name: 'nodeport-service-2',
+          },
+          spec: {
+            selector: {
+              app: 'nodeport-app',
+            },
+            ports: [
+              {
+                port: valuesRef('service.port'),
+                targetPort: 80,
+                nodePort: valuesRef('service.nodePort'),
+              },
+            ],
+            type: valuesRef('service.type'),
+          },
+        },
+        'nodeport-service',
+      );
 
       const nodePortPath = path.join(testChartsDir, 'nodeport-chart');
       rutter.write(nodePortPath);

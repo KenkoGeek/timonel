@@ -203,12 +203,90 @@ export function include(name: string, context = '.'): string {
 }
 
 /**
+ * Branded types for better type safety in Helm template paths
+ * @since 1.1.0
+ */
+export type HelmPath = string & { readonly __brand: unique symbol };
+export type NumberPath = HelmPath & { readonly __numberType: unique symbol };
+export type BooleanPath = HelmPath & { readonly __booleanType: unique symbol };
+export type StringPath = HelmPath & { readonly __stringType: unique symbol };
+export type FloatPath = HelmPath & { readonly __floatType: unique symbol };
+
+/**
+ * Configuration options for typed reference creation
+ * @since 1.1.0
+ */
+interface TypedRefOptions {
+  /** Whether to include default value handling */
+  withDefault?: boolean;
+  /** Default value to use if the path is not set */
+  defaultValue?: string | number | boolean;
+  /** Whether to quote string values */
+  quote?: boolean;
+}
+
+/**
+ * Factory function to create typed Helm value references with reduced code duplication
+ * @param path - The path to the value in the Helm values
+ * @param type - The expected type of the value
+ * @param options - Additional options for reference creation
+ * @returns A string that can be used in Helm templates
+ * @throws {Error} If the path is invalid
+ * @since 1.1.0
+ */
+export function createTypedRef(
+  path: string,
+  type: 'number' | 'boolean' | 'string' | 'float',
+  options: TypedRefOptions = {},
+): string {
+  if (!isValidHelmPath(path)) {
+    throw new Error(`Invalid Helm template path: ${path}`);
+  }
+
+  let template = `{{ .Values.${path}`;
+
+  // Apply type casting based on type
+  switch (type) {
+    case 'number':
+      template += ' | int';
+      break;
+    case 'boolean':
+      template += ' | toBool';
+      break;
+    case 'string':
+      template += ' | toString';
+      break;
+    case 'float':
+      template += ' | float64';
+      break;
+  }
+
+  // Handle default values following Helm best practices
+  if (options.withDefault && options.defaultValue !== undefined) {
+    const defaultVal =
+      typeof options.defaultValue === 'string' && options.quote
+        ? `"${options.defaultValue}"`
+        : String(options.defaultValue);
+    template += ` | default ${defaultVal}`;
+  }
+
+  // Handle string quoting for security
+  if (type === 'string' && options.quote && !options.withDefault) {
+    template += ' | quote';
+  }
+
+  template += ' }}';
+  return template;
+}
+
+/**
  * Creates a numeric reference from .Values with int cast
  *
  * Generates a Helm template expression that casts the value to integer,
  * truncating any decimal places.
  *
  * @param {string} path - Path to the value using dot notation
+ * @param {TypedRefOptions} [options] - Additional options for reference creation
  * @returns {string} Helm template expression with int cast
  * @throws {Error} If the path is not valid for Helm templates
  *
@@ -220,17 +298,15 @@ export function include(name: string, context = '.'): string {
  *
  * @since 0.1.0
  */
-export function numberRef(path: string): string {
-  if (!isValidHelmPath(path)) {
-    throw new Error(`Invalid Helm template path: ${path}`);
-  }
-  return `{{ .Values.${path} | int }}`;
+export function numberRef(path: string, options?: TypedRefOptions): string {
+  return createTypedRef(path, 'number', options);
 }
 
 /**
  * Creates a boolean reference from .Values with toBool cast
  *
  * @param {string} path - Path to the value using dot notation
+ * @param {TypedRefOptions} [options] - Additional options for reference creation
  * @returns {string} Helm template expression with toBool cast
  * @throws {Error} If the path is not valid for Helm templates
  *
@@ -242,17 +318,15 @@ export function numberRef(path: string): string {
  *
  * @since 0.1.0
  */
-export function boolRef(path: string): string {
-  if (!isValidHelmPath(path)) {
-    throw new Error(`Invalid Helm template path: ${path}`);
-  }
-  return `{{ .Values.${path} | toBool }}`;
+export function boolRef(path: string, options?: TypedRefOptions): string {
+  return createTypedRef(path, 'boolean', options);
 }
 
 /**
  * Creates a string reference from .Values with toString cast
  *
  * @param {string} path - Path to the value using dot notation
+ * @param {TypedRefOptions} [options] - Additional options for reference creation
  * @returns {string} Helm template expression with toString cast
  * @throws {Error} If the path is not valid for Helm templates
  *
@@ -264,17 +338,16 @@ export function boolRef(path: string): string {
  *
  * @since 0.1.0
  */
-export function stringRef(path: string): string {
-  if (!isValidHelmPath(path)) {
-    throw new Error(`Invalid Helm template path: ${path}`);
-  }
-  return `{{ .Values.${path} | toString }}`;
+export function stringRef(path: string, options?: TypedRefOptions): string {
+  const defaultOptions = { quote: true, ...options };
+  return createTypedRef(path, 'string', defaultOptions);
 }
 
 /**
  * Creates a float reference from .Values with float64 cast
  *
  * @param {string} path - Path to the value using dot notation
+ * @param {TypedRefOptions} [options] - Additional options for reference creation
  * @returns {string} Helm template expression with float64 cast
  * @throws {Error} If the path is not valid for Helm templates
  *
@@ -286,11 +359,8 @@ export function stringRef(path: string): string {
  *
  * @since 0.1.0
  */
-export function floatRef(path: string): string {
-  if (!isValidHelmPath(path)) {
-    throw new Error(`Invalid Helm template path: ${path}`);
-  }
-  return `{{ .Values.${path} | float64 }}`;
+export function floatRef(path: string, options?: TypedRefOptions): string {
+  return createTypedRef(path, 'float', options);
 }
 
 /**

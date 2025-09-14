@@ -7,6 +7,8 @@ import {
   template,
   numberRef,
   boolRef,
+  stringRef,
+  floatRef,
   quote,
   indent,
   helm,
@@ -141,6 +143,44 @@ describe('Helm Template Helpers', () => {
       expect(() => boolRef('.invalid')).toThrow('Invalid Helm template path');
       expect(() => boolRef('invalid path')).toThrow('Invalid Helm template path');
       expect(() => boolRef('invalid@path')).toThrow('Invalid Helm template path');
+    });
+  });
+
+  describe('stringRef', () => {
+    it('should create string reference with toString cast and default quoting', () => {
+      const result = stringRef('app.name');
+      expect(result).toBe('{{ .Values.app.name | toString | quote }}');
+    });
+
+    it('should handle nested paths with default quoting', () => {
+      const result = stringRef('database.connection.host');
+      expect(result).toBe('{{ .Values.database.connection.host | toString | quote }}');
+    });
+
+    it('should throw error for invalid paths', () => {
+      expect(() => stringRef('')).toThrow('Invalid Helm template path');
+      expect(() => stringRef('.invalid')).toThrow('Invalid Helm template path');
+      expect(() => stringRef('invalid path')).toThrow('Invalid Helm template path');
+      expect(() => stringRef('invalid@path')).toThrow('Invalid Helm template path');
+    });
+  });
+
+  describe('floatRef', () => {
+    it('should create float reference with float64 cast', () => {
+      const result = floatRef('metrics.threshold');
+      expect(result).toBe('{{ .Values.metrics.threshold | float64 }}');
+    });
+
+    it('should handle nested paths', () => {
+      const result = floatRef('performance.cpu.limit');
+      expect(result).toBe('{{ .Values.performance.cpu.limit | float64 }}');
+    });
+
+    it('should throw error for invalid paths', () => {
+      expect(() => floatRef('')).toThrow('Invalid Helm template path');
+      expect(() => floatRef('.invalid')).toThrow('Invalid Helm template path');
+      expect(() => floatRef('invalid path')).toThrow('Invalid Helm template path');
+      expect(() => floatRef('invalid@path')).toThrow('Invalid Helm template path');
     });
   });
 
