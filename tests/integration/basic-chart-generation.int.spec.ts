@@ -83,7 +83,7 @@ describe('Basic Chart Generation Integration', () => {
             name: 'basic-test-app',
           },
           spec: {
-            replicas: Number(valuesRef('replicas')),
+            replicas: valuesRef('replicas'),
             selector: {
               matchLabels: {
                 app: 'basic-test-app',
@@ -142,7 +142,7 @@ describe('Basic Chart Generation Integration', () => {
             },
             ports: [
               {
-                port: Number(valuesRef('service.port')),
+                port: valuesRef('service.port'),
                 targetPort: 8080,
               },
             ],
@@ -207,20 +207,11 @@ describe('Basic Chart Generation Integration', () => {
       const yamlFiles = templateFiles.filter((f) => f.endsWith('.yaml'));
       expect(yamlFiles.length).toBeGreaterThan(0);
 
-      // Validate with helm lint if available
-      try {
-        execSync('helm version', { stdio: 'ignore' });
-        const result = execSync(`helm lint ${testChartPath}`, { encoding: 'utf8' });
-        console.log('Helm lint result:', result);
-        expect(result).toContain('0 chart(s) failed');
-      } catch (error) {
-        if (error.message.includes('helm')) {
-          console.warn('Helm not available, skipping helm lint validation');
-        } else {
-          console.error('Helm lint failed:', error.message);
-          throw error;
-        }
-      }
+      // Validate with helm lint - test should fail if helm is not available
+      execSync('helm version', { stdio: 'ignore', env: process.env });
+      const result = execSync(`helm lint ${testChartPath}`, { encoding: 'utf8', env: process.env });
+      console.log('Helm lint result:', result);
+      expect(result).toContain('0 chart(s) failed');
 
       // Check that at least one template contains Kubernetes resources
       let foundKubernetesResource = false;

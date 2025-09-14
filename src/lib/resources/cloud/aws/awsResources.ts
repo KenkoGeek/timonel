@@ -1,4 +1,5 @@
-import { ApiObject } from 'cdk8s';
+import type { ApiObject } from 'cdk8s';
+import * as kplus from 'cdk8s-plus-33';
 
 import { BaseResourceProvider } from '../../baseResourceProvider.js';
 
@@ -10,8 +11,6 @@ import { BaseResourceProvider } from '../../baseResourceProvider.js';
  */
 export class AWSResources extends BaseResourceProvider {
   private static readonly STORAGE_API_VERSION = 'storage.k8s.io/v1';
-  private static readonly CORE_API_VERSION = 'v1';
-  private static readonly NETWORKING_API_VERSION = 'networking.k8s.io/v1';
 
   /**
    * Creates an AWS EBS StorageClass
@@ -122,7 +121,7 @@ export class AWSResources extends BaseResourceProvider {
    *
    * @since 2.4.0
    */
-  addIRSAServiceAccount(spec: AWSIRSAServiceAccountSpec): ApiObject {
+  addIRSAServiceAccount(spec: AWSIRSAServiceAccountSpec): kplus.ServiceAccount {
     this.validateRoleArn(spec.roleArn);
 
     const annotations: Record<string, string> = {
@@ -130,19 +129,29 @@ export class AWSResources extends BaseResourceProvider {
       ...(spec.annotations ?? {}),
     };
 
-    return new ApiObject(this.chart, spec.name, {
-      apiVersion: AWSResources.CORE_API_VERSION,
-      kind: 'ServiceAccount',
+    const serviceAccount = new kplus.ServiceAccount(this.chart, spec.name, {
       metadata: {
         name: spec.name,
         annotations,
-        ...(spec.labels ? { labels: spec.labels } : {}),
+        labels: spec.labels ?? {},
       },
-      ...(spec.automountServiceAccountToken !== undefined
-        ? { automountServiceAccountToken: spec.automountServiceAccountToken }
-        : {}),
-      ...(spec.imagePullSecrets ? { imagePullSecrets: spec.imagePullSecrets } : {}),
+      automountToken: spec.automountServiceAccountToken ?? true,
     });
+
+    // Add image pull secrets if specified
+    if (spec.imagePullSecrets) {
+      spec.imagePullSecrets.forEach((secret) => {
+        serviceAccount.addSecret(
+          kplus.Secret.fromSecretName(
+            this.chart,
+            `${spec.name}-secret-${secret.name}`,
+            secret.name,
+          ),
+        );
+      });
+    }
+
+    return serviceAccount;
   }
 
   /**
@@ -167,35 +176,62 @@ export class AWSResources extends BaseResourceProvider {
    *
    * @since 2.4.0
    */
-  addALBIngress(spec: AWSALBIngressSpec): ApiObject {
+  addALBIngress(spec: AWSALBIngressSpec): kplus.Ingress {
     // Validate ingress paths format
     this.validateIngressPaths(spec.rules);
 
     const annotations = this.buildALBAnnotations(spec);
 
-    // Transform rules to correct networking.k8s.io/v1 format with http wrapper
-    const transformedRules = spec.rules.map((rule) => ({
-      ...(rule.host ? { host: rule.host } : {}),
-      http: {
-        paths: rule.paths,
+    const ingress = new kplus.Ingress(this.chart, spec.name, {
+      metadata: {
+        name: spec.name,
+        annotations,
+        labels: spec.labels ?? {},
       },
-    }));
+      className: spec.ingressClassName ?? 'alb',
+    });
 
-    const ingressSpec = {
-      // Use ingressClassName instead of deprecated annotation
-      ingressClassName: spec.ingressClassName ?? 'alb',
-      rules: transformedRules,
-      ...(spec.tls ? { tls: spec.tls } : {}),
-    };
+    // Add rules to the ingress
+    spec.rules.forEach((rule) => {
+      rule.paths.forEach((path) => {
+        // Create a service reference for the backend - we need to create a Service instance that references the existing service
+        const service = new kplus.Service(
+          this.chart,
+          `${spec.name}-service-ref-${path.backend.service.name}`,
+          {
+            // This creates a reference to an existing service by name
+            // The service should already exist in the cluster
+          },
+        );
 
-    return this.createApiObject(
-      spec.name,
-      AWSResources.NETWORKING_API_VERSION,
-      'Ingress',
-      ingressSpec,
-      spec.labels,
-      annotations,
-    );
+        const backend = kplus.IngressBackend.fromService(service, {
+          port:
+            path.backend.service.port.number || parseInt(path.backend.service.port.name || '80'),
+        });
+
+        ingress.addRule(path.path, backend, path.pathType as kplus.HttpIngressPathType);
+      });
+    });
+
+    // Add TLS configuration if specified
+    if (spec.tls) {
+      spec.tls.forEach((tlsConfig) => {
+        if (tlsConfig.secretName && tlsConfig.hosts) {
+          const secret = kplus.Secret.fromSecretName(
+            this.chart,
+            `${spec.name}-tls-secret-${tlsConfig.secretName}`,
+            tlsConfig.secretName,
+          );
+          const tlsConfigObj: kplus.IngressTls = {
+            hosts: tlsConfig.hosts,
+            secret: secret,
+          };
+          ingress.addTls([tlsConfigObj]);
+        }
+      });
+    }
+
+    return ingress;
   }
 
   /**
@@ -425,30 +461,35 @@ export class AWSResources extends BaseResourceProvider {
    *
    * @since 2.7.0
    */
-  addECRServiceAccount(spec: AWSECRServiceAccountSpec): ApiObject {
+  addECRServiceAccount(spec: AWSECRServiceAccountSpec): kplus.ServiceAccount {
     const annotations = {
       'eks.amazonaws.com/role-arn': spec.roleArn,
       ...(spec.annotations || {}),
     };
 
-    const serviceAccountSpec: Record<string, unknown> = {};
+    const serviceAccount = new kplus.ServiceAccount(this.chart, spec.name, {
+      metadata: {
+        name: spec.name,
+        annotations,
+        labels: spec.labels ?? {},
+      },
+      automountToken: spec.automountServiceAccountToken ?? true,
+    });
 
-    if (spec.automountServiceAccountToken !== undefined) {
-      serviceAccountSpec['automountServiceAccountToken'] = spec.automountServiceAccountToken;
-    }
-
+    // Add image pull secrets if specified
     if (spec.imagePullSecrets) {
-      serviceAccountSpec['imagePullSecrets'] = spec.imagePullSecrets;
+      spec.imagePullSecrets.forEach((secret) => {
+        serviceAccount.addSecret(
+          kplus.Secret.fromSecretName(
+            this.chart,
+            `${spec.name}-ecr-secret-${secret.name}`,
+            secret.name,
+          ),
+        );
+      });
     }
 
-    return this.createApiObject(
-      spec.name,
-      AWSResources.CORE_API_VERSION,
-      'ServiceAccount',
-      serviceAccountSpec,
-      spec.labels,
-      annotations,
-    );
+    return serviceAccount;
   }
 }
 

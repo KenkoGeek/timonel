@@ -85,6 +85,7 @@
   },
   "dependencies": {
     "cdk8s": "^2.70.11",
+    "cdk8s-plus-33": "^2.3.5",
     "constructs": "^10.4.2",
     "ts-node": "^10.9.2",
     "yaml": "^2.8.1"

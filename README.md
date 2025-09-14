@@ -16,7 +16,8 @@ using cdk8s. Define Kubernetes resources with classes and synthesize a full Helm
 
 ## ✨ Key Features
 
-- **Type-safe API** with strict TypeScript and cdk8s constructs
+- **Type-safe API** with strict TypeScript and cdk8s-plus-33 constructs
+- **Flexible resource creation** with built-in methods and `addManifest()` for custom resources
 - **Multi-environment support** with automatic values files generation
 - **Umbrella Charts** for managing multiple subcharts as a single unit
 - **Complete multi-cloud integrations** for AWS, Azure, and GCP
@@ -72,6 +73,7 @@ const rutter = new Rutter({
   },
 });
 
+// Use built-in methods for common resources
 rutter.addDeployment({
   name: 'my-app',
   image: `${valuesRef('image.repository')}:${valuesRef('image.tag')}`,
@@ -80,6 +82,29 @@ rutter.addDeployment({
 });
 
 rutter.addService({ name: 'my-app', port: 80 });
+
+// Use addManifest() for custom resources
+rutter.addManifest({
+  apiVersion: 'autoscaling/v2',
+  kind: 'HorizontalPodAutoscaler',
+  metadata: { name: 'my-app-hpa' },
+  spec: {
+    scaleTargetRef: {
+      apiVersion: 'apps/v1',
+      kind: 'Deployment',
+      name: 'my-app'
+    },
+    minReplicas: Number(valuesRef('replicas')),
+    maxReplicas: 10,
+    metrics: [{
+      type: 'Resource',
+      resource: {
+        name: 'cpu',
+        target: { type: 'Utilization', averageUtilization: 70 }
+      }
+    }]
+  }
+});
 
 export default function run(outDir: string) {
   rutter.write(outDir);

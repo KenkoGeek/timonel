@@ -3,7 +3,7 @@
  * @since 0.2.0
  */
 
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'fs';
+import { mkdtempSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 
@@ -38,9 +38,10 @@ describe('Umbrella Chart Integration - WordPress+MySQL', () => {
 
   afterEach(() => {
     // Clean up temporary directory
-    if (tempDir) {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
+    // Temporarily disabled for debugging
+    // if (tempDir) {
+    //   rmSync(tempDir, { recursive: true, force: true });
+    // }
   });
 
   it('should generate complete umbrella chart with WordPress and MySQL subcharts', () => {
@@ -107,20 +108,11 @@ describe('Umbrella Chart Integration - WordPress+MySQL', () => {
     const expectedMySQLChart = YAML.parse(expectedMySQLChartYaml);
     expect(mysqlChart).toMatchObject(expectedMySQLChart);
 
-    // Validate with helm lint if available
-    try {
-      execSync('helm version', { stdio: 'ignore' });
-      const result = execSync(`helm lint ${outputDir}`, { encoding: 'utf8' });
-      console.log('Helm lint result:', result);
-      expect(result).toContain('0 chart(s) failed');
-    } catch (error) {
-      if (error.message.includes('helm')) {
-        console.warn('Helm not available, skipping helm lint validation');
-      } else {
-        console.error('Helm lint failed:', error.message);
-        throw error;
-      }
-    }
+    // Validate with helm lint - test should fail if helm is not available
+    execSync('helm version', { stdio: 'ignore', env: process.env });
+    const result = execSync(`helm lint ${outputDir}`, { encoding: 'utf8', env: process.env });
+    console.log('Helm lint result:', result);
+    expect(result).toContain('0 chart(s) failed');
   });
 
   it('should handle umbrella chart with minimal configuration', () => {

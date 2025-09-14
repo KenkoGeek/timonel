@@ -1,6 +1,7 @@
 import { ApiObject, App, Chart, Testing } from 'cdk8s';
 import type { ChartProps } from 'cdk8s';
 import type { Construct } from 'constructs';
+import type { ServiceAccount, Ingress } from 'cdk8s-plus-33';
 import YAML from 'yaml';
 
 import { helm, include } from './helm.js';
@@ -123,7 +124,7 @@ export class Rutter {
    *
    * @since 1.0.0
    */
-  addAWSIRSAServiceAccount(spec: AWSIRSAServiceAccountSpec): ApiObject {
+  addAWSIRSAServiceAccount(spec: AWSIRSAServiceAccountSpec): ServiceAccount {
     return this.awsResources.addIRSAServiceAccount(spec);
   }
 
@@ -149,7 +150,7 @@ export class Rutter {
    *
    * @since 1.0.0
    */
-  addAWSALBIngress(spec: AWSALBIngressSpec): ApiObject {
+  addAWSALBIngress(spec: AWSALBIngressSpec): Ingress {
     return this.awsResources.addALBIngress(spec);
   }
 
@@ -341,7 +342,7 @@ export class Rutter {
    *
    * @since 2.7.0
    */
-  addAWSECRServiceAccount(spec: AWSECRServiceAccountSpec): ApiObject {
+  addAWSECRServiceAccount(spec: AWSECRServiceAccountSpec): ServiceAccount {
     return this.awsResources.addECRServiceAccount(spec);
   }
 
@@ -379,6 +380,7 @@ export class Rutter {
    * ```
    *
    * @since 3.0.0
+   * @note Consider using cdk8s-plus constructs for better type safety when available
    */
   addManifest(yamlOrObject: string | Record<string, unknown>, id: string): ApiObject {
     let manifestObject: Record<string, unknown>;
@@ -505,6 +507,14 @@ export class Rutter {
    * @since 2.4.0
    */
   private toSynthArray(): SynthAsset[] {
+    // Get ApiObject IDs before synthesis
+    const apiObjectIds: string[] = [];
+    for (const child of this.chart.node.children) {
+      if (child instanceof ApiObject) {
+        apiObjectIds.push(child.node.id);
+      }
+    }
+
     // Use cdk8s Testing.synth to obtain manifest objects
     const manifestObjs = Testing.synth(this.chart) as unknown[];
 
@@ -540,7 +550,7 @@ export class Rutter {
     if (this.props.singleManifestFile) {
       // Combine all resources into single manifest
       const combinedYaml = enriched
-        .map((obj) => YAML.stringify(obj).trim())
+        .map((obj) => this.processHelmTemplates(YAML.stringify(obj).trim()))
         .filter(Boolean)
         .join('\n---\n');
 
@@ -549,9 +559,12 @@ export class Rutter {
     } else {
       // Create separate files for each resource (default behavior)
       enriched.forEach((obj, index) => {
-        const yaml = YAML.stringify(obj).trim();
+        const yaml = this.processHelmTemplates(YAML.stringify(obj).trim());
         if (yaml) {
-          const manifestId = `manifest-${index + 1}`;
+          // Use descriptive name from ApiObject ID if available, otherwise fallback to generic name
+          // eslint-disable-next-line security/detect-object-injection
+          const apiObjectId = apiObjectIds[index];
+          const manifestId = apiObjectId || `manifest-${index + 1}`;
           synthAssets.push({ id: manifestId, yaml });
         }
       });
@@ -563,6 +576,17 @@ export class Rutter {
     });
 
     return synthAssets;
+  }
+
+  /**
+   * Process YAML content to remove quotes from Helm templates
+   * This fixes the issue where YAML.stringify adds quotes around Helm template expressions
+   * Removes quotes from all Helm template expressions
+   */
+  private processHelmTemplates(yaml: string): string {
+    // Remove quotes from Helm template expressions
+    // Match patterns like "{{ .Values.replicas | int }}", "{{ .Release.Name }}", etc.
+    return yaml.replace(/": "\{\{([^}]+)\}\}"/g, ': {{ $1 }}').replace(/": "\.nan"/g, ': .nan');
   }
 
   /**

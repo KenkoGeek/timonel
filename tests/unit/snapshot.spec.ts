@@ -4,7 +4,7 @@ import * as path from 'path';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import YAML from 'yaml';
 
-import { valuesRef } from '../../dist/lib/helm.js';
+import { valuesRef, numberRef } from '../../dist/lib/helm.js';
 import { HelmChartWriter } from '../../dist/lib/helmChartWriter.js';
 import { Rutter } from '../../dist/lib/rutter.js';
 
@@ -30,9 +30,7 @@ function normalizeYaml(yamlContent: string): string {
 
     // Re-serialize with consistent options
     return YAML.stringify(parsed, {
-      sortKeys: true,
       lineWidth: 0,
-      minContentWidth: 0,
     });
   } catch (_error) {
     // If parsing fails, return original content
@@ -152,7 +150,7 @@ describe('YAML Snapshot Tests', () => {
             name: 'snapshot-app',
           },
           spec: {
-            replicas: Number(valuesRef('replicas')),
+            replicas: numberRef('replicas'),
             selector: {
               matchLabels: {
                 app: 'snapshot-app',

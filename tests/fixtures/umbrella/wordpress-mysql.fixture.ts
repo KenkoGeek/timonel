@@ -63,17 +63,17 @@ export function createWordPressFixture(): Rutter {
       apiVersion: 'apps/v1',
       kind: 'Deployment',
       metadata: {
-        name: '{{ include "wordpress.fullname" . }}',
-        labels: '{{- include "wordpress.labels" . | nindent 4 }}',
+        name: '{{ include "chart.fullname" . }}',
+        labels: '{{- include "chart.labels" . | nindent 4 }}',
       },
       spec: {
         replicas: '{{ .Values.replicaCount }}',
         selector: {
-          matchLabels: '{{- include "wordpress.selectorLabels" . | nindent 6 }}',
+          matchLabels: '{{- include "chart.selectorLabels" . | nindent 6 }}',
         },
         template: {
           metadata: {
-            labels: '{{- include "wordpress.selectorLabels" . | nindent 8 }}',
+            labels: '{{- include "chart.selectorLabels" . | nindent 8 }}',
           },
           spec: {
             containers: [
@@ -124,7 +124,7 @@ export function createWordPressFixture(): Rutter {
               {
                 name: 'wordpress-data',
                 persistentVolumeClaim: {
-                  claimName: '{{ include "wordpress.fullname" . }}-data',
+                  claimName: '{{ include "chart.fullname" . }}-data',
                 },
               },
             ],
@@ -141,8 +141,8 @@ export function createWordPressFixture(): Rutter {
       apiVersion: 'v1',
       kind: 'Service',
       metadata: {
-        name: '{{ include "wordpress.fullname" . }}',
-        labels: '{{- include "wordpress.labels" . | nindent 4 }}',
+        name: '{{ include "chart.fullname" . }}',
+        labels: '{{- include "chart.labels" . | nindent 4 }}',
       },
       spec: {
         type: '{{ .Values.service.type }}',
@@ -154,7 +154,7 @@ export function createWordPressFixture(): Rutter {
             name: 'http',
           },
         ],
-        selector: '{{- include "wordpress.selectorLabels" . | nindent 4 }}',
+        selector: '{{- include "chart.selectorLabels" . | nindent 4 }}',
       },
     },
     'service',
@@ -166,8 +166,8 @@ export function createWordPressFixture(): Rutter {
       apiVersion: 'v1',
       kind: 'PersistentVolumeClaim',
       metadata: {
-        name: '{{ include "wordpress.fullname" . }}-data',
-        labels: '{{- include "wordpress.labels" . | nindent 4 }}',
+        name: '{{ include "chart.fullname" . }}-data',
+        labels: '{{- include "chart.labels" . | nindent 4 }}',
       },
       spec: {
         accessModes: ['ReadWriteOnce'],
@@ -235,17 +235,17 @@ export function createMySQLFixture(): Rutter {
       apiVersion: 'apps/v1',
       kind: 'Deployment',
       metadata: {
-        name: '{{ include "mysql.fullname" . }}',
-        labels: '{{- include "mysql.labels" . | nindent 4 }}',
+        name: '{{ include "chart.fullname" . }}',
+        labels: '{{- include "chart.labels" . | nindent 4 }}',
       },
       spec: {
         replicas: 1,
         selector: {
-          matchLabels: '{{- include "mysql.selectorLabels" . | nindent 6 }}',
+          matchLabels: '{{- include "chart.selectorLabels" . | nindent 6 }}',
         },
         template: {
           metadata: {
-            labels: '{{- include "mysql.selectorLabels" . | nindent 8 }}',
+            labels: '{{- include "chart.selectorLabels" . | nindent 8 }}',
           },
           spec: {
             containers: [
@@ -301,7 +301,7 @@ export function createMySQLFixture(): Rutter {
               {
                 name: 'mysql-data',
                 persistentVolumeClaim: {
-                  claimName: '{{ include "mysql.fullname" . }}-data',
+                  claimName: '{{ include "chart.fullname" . }}-data',
                 },
               },
             ],
@@ -318,8 +318,8 @@ export function createMySQLFixture(): Rutter {
       apiVersion: 'v1',
       kind: 'Service',
       metadata: {
-        name: '{{ include "mysql.fullname" . }}',
-        labels: '{{- include "mysql.labels" . | nindent 4 }}',
+        name: '{{ include "chart.fullname" . }}',
+        labels: '{{- include "chart.labels" . | nindent 4 }}',
       },
       spec: {
         type: 'ClusterIP',
@@ -331,7 +331,7 @@ export function createMySQLFixture(): Rutter {
             name: 'mysql',
           },
         ],
-        selector: '{{- include "mysql.selectorLabels" . | nindent 4 }}',
+        selector: '{{- include "chart.selectorLabels" . | nindent 4 }}',
       },
     },
     'service',
@@ -343,8 +343,8 @@ export function createMySQLFixture(): Rutter {
       apiVersion: 'v1',
       kind: 'PersistentVolumeClaim',
       metadata: {
-        name: '{{ include "mysql.fullname" . }}-data',
-        labels: '{{- include "mysql.labels" . | nindent 4 }}',
+        name: '{{ include "chart.fullname" . }}-data',
+        labels: '{{- include "chart.labels" . | nindent 4 }}',
       },
       spec: {
         accessModes: ['ReadWriteOnce'],
@@ -366,7 +366,7 @@ export function createMySQLFixture(): Rutter {
       kind: 'Secret',
       metadata: {
         name: '{{ .Values.auth.existingSecret }}',
-        labels: '{{- include "mysql.labels" . | nindent 4 }}',
+        labels: '{{- include "chart.labels" . | nindent 4 }}',
       },
       type: 'Opaque',
       data: {

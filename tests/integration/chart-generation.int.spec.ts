@@ -191,8 +191,9 @@ describe('Chart Generation Integration', () => {
             name: 'integration-test-secret',
           },
           stringData: {
-            'database-url': 'postgresql://testuser:testpass@localhost:5432/testdb',
-            'api-key': 'test-api-key-placeholder',
+            'database-url':
+              'postgresql://example-user:example-password@example-host:5432/example-db',
+            'api-key': 'example-api-key-value',
           },
         },
         'integration-secret',
@@ -238,30 +239,21 @@ describe('Chart Generation Integration', () => {
 
   describe('Helm Validation', () => {
     it('should pass helm lint validation', () => {
-      // Skip if helm is not available
-      try {
-        execSync('helm version', { stdio: 'ignore' });
-      } catch {
-        console.warn('Helm not available, skipping helm lint test');
-        return;
-      }
+      // Ensure helm is available - test should fail if not
+      execSync('helm version', { stdio: 'ignore', env: process.env });
 
       expect(() => {
-        execSync(`helm lint ${testChartPath}`, { stdio: 'pipe' });
+        execSync(`helm lint ${testChartPath}`, { stdio: 'pipe', env: process.env });
       }).not.toThrow();
     });
 
     it('should generate valid Kubernetes manifests with helm template', () => {
-      // Skip if helm is not available
-      try {
-        execSync('helm version', { stdio: 'ignore' });
-      } catch {
-        console.warn('Helm not available, skipping helm template test');
-        return;
-      }
+      // Ensure helm is available - test should fail if not
+      execSync('helm version', { stdio: 'ignore', env: process.env });
 
       const output = execSync(`helm template test-release ${testChartPath}`, {
         encoding: 'utf8',
+        env: process.env,
       });
 
       // Verify basic Kubernetes resource structure
@@ -274,74 +266,52 @@ describe('Chart Generation Integration', () => {
 
       // Verify template rendering
       expect(output).toContain('image: "nginx:1.27"');
-      expect(output).toContain('replicas: "3"');
+      expect(output).toContain('replicas: 3');
     });
 
     it('should generate different manifests for different environments', () => {
-      // Skip if helm is not available
-      try {
-        execSync('helm version', { stdio: 'ignore' });
-      } catch {
-        console.warn('Helm not available, skipping environment-specific test');
-        return;
-      }
+      // Ensure helm is available - test should fail if not
+      execSync('helm version', { stdio: 'ignore', env: process.env });
 
       const devOutput = execSync(
         `helm template test-release ${testChartPath} -f ${testChartPath}/values-dev.yaml`,
-        { encoding: 'utf8' },
+        { encoding: 'utf8', env: process.env },
       );
 
       const prodOutput = execSync(
         `helm template test-release ${testChartPath} -f ${testChartPath}/values-prod.yaml`,
-        { encoding: 'utf8' },
+        { encoding: 'utf8', env: process.env },
       );
 
       // Dev should have 1 replica
-      expect(devOutput).toContain('replicas: "1"');
+      expect(devOutput).toContain('replicas: 1');
       // Prod should have 5 replicas
-      expect(prodOutput).toContain('replicas: "5"');
+      expect(prodOutput).toContain('replicas: 5');
     });
   });
 
   describe('Kubernetes Validation', () => {
-    it('should pass kubectl dry-run validation', () => {
-      // Skip if no Kubernetes cluster is available
-      try {
-        execSync('kubectl cluster-info', { stdio: 'pipe' });
-      } catch {
-        console.log('kubectl cluster not available, skipping kubectl validation test');
-        return;
-      }
-      // Skip if kubectl is not available
-      try {
-        execSync('kubectl version --client', { stdio: 'ignore' });
-      } catch {
-        console.warn('kubectl not available, skipping kubectl validation test');
-        return;
-      }
+    it('should validate with kubeconform if available', () => {
+      // Ensure kubeconform is available - test should fail if not
+      execSync('kubeconform -v', { stdio: 'ignore', env: process.env });
 
-      // Skip if helm is not available
-      try {
-        execSync('helm version', { stdio: 'ignore' });
-      } catch {
-        console.warn('Helm not available, skipping kubectl validation test');
-        return;
-      }
+      // Ensure helm is available - test should fail if not
+      execSync('helm version', { stdio: 'ignore', env: process.env });
 
-      // Generate manifests and validate with kubectl
+      // Generate manifests and validate with kubeconform
       const manifests = execSync(`helm template test-release ${testChartPath}`, {
         encoding: 'utf8',
+        env: process.env,
       });
 
       // Write manifests to temporary file
-      const tempManifestPath = path.join(testChartsDir, 'temp-manifests.yaml');
+      const tempManifestPath = path.join(testChartsDir, 'temp-kubeconform.yaml');
       fs.writeFileSync(tempManifestPath, manifests);
 
       try {
+        // Validate with kubeconform - test should fail if validation fails
         expect(() => {
-          execSync(`kubectl apply --dry-run=client -f ${tempManifestPath}`, {
-            stdio: 'pipe',
-          });
+          execSync(`kubeconform ${tempManifestPath}`, { stdio: 'pipe', env: process.env });
         }).not.toThrow();
       } finally {
         // Clean up temp file
@@ -351,79 +321,17 @@ describe('Chart Generation Integration', () => {
       }
     });
 
-    it('should validate with kubeconform if available', () => {
-      // Skip if kubeconform is not available
-      try {
-        execSync('kubeconform -v', { stdio: 'ignore' });
-      } catch {
-        console.warn('kubeconform not available, skipping kubeconform validation test');
-        return;
-      }
-
-      // Skip if helm is not available
-      try {
-        execSync('helm version', { stdio: 'ignore' });
-      } catch {
-        console.warn('Helm not available, skipping kubeconform validation test');
-        return;
-      }
-
-      // Generate manifests and validate with kubeconform
-      const manifests = execSync(`helm template test-release ${testChartPath}`, {
-        encoding: 'utf8',
-      });
-
-      // Write manifests to temporary file
-      const tempManifestPath = path.join(testChartsDir, 'temp-kubeconform.yaml');
-      fs.writeFileSync(tempManifestPath, manifests);
-
-      try {
-        // Try kubeconform validation - skip if it fails
-        execSync(`kubeconform ${tempManifestPath}`, { stdio: 'pipe' });
-      } catch (error) {
-        // Log the error for debugging but don't fail the test
-        console.log('kubeconform validation failed (this may be expected in CI):', error.message);
-        // Skip the test instead of failing
-        return;
-      } finally {
-        // Clean up temp file
-        if (fs.existsSync(tempManifestPath)) {
-          fs.unlinkSync(tempManifestPath);
-        }
-      }
-    });
-
     it('should validate with helm kubeconform plugin if available', () => {
-      // Skip if helm is not available
-      try {
-        execSync('helm version', { stdio: 'ignore' });
-      } catch {
-        console.warn('Helm not available, skipping helm kubeconform plugin test');
-        return;
-      }
+      // Ensure helm is available - test should fail if not
+      execSync('helm version', { stdio: 'ignore', env: process.env });
 
-      // Check if helm kubeconform plugin is installed
-      try {
-        execSync('helm plugin list | grep kubeconform', { stdio: 'ignore' });
-      } catch {
-        console.warn(
-          'helm kubeconform plugin not available, skipping helm kubeconform validation test',
-        );
-        return;
-      }
+      // Ensure helm kubeconform plugin is installed - test should fail if not
+      execSync('helm plugin list | grep kubeconform', { stdio: 'ignore', env: process.env });
 
-      try {
-        // Validate chart using helm kubeconform plugin
-        execSync(`helm kubeconform ${testChartPath}`, { stdio: 'pipe' });
-      } catch (error) {
-        // Log the error for debugging but don't fail the test
-        console.log(
-          'helm kubeconform validation failed (this may be expected in CI):',
-          error.message,
-        );
-        // Skip the test instead of failing
-        return;
-      }
+      // Validate chart using helm kubeconform plugin - test should fail if validation fails
+      expect(() => {
+        execSync(`helm kubeconform ${testChartPath}`, { stdio: 'pipe', env: process.env });
+      }).not.toThrow();
     });
   });
 
