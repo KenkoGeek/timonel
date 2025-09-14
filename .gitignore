@@ -28,4 +28,5 @@ examples/**
 timonel.wiki/
 charts/**
 temp-test*
+tests/integration/__charts__/*
 docs/
