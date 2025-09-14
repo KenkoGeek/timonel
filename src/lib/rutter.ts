@@ -1,7 +1,6 @@
 import type { ChartProps } from 'cdk8s';
-import { Chart, App, Testing } from 'cdk8s';
+import { Chart, App, Testing, ApiObject } from 'cdk8s';
 import type { Construct } from 'constructs';
-import type { ApiObject } from 'cdk8s';
 import YAML from 'yaml';
 
 // Import resource providers
@@ -1131,14 +1130,19 @@ export class Rutter {
   // Utility methods
 
   /**
-   * Adds a custom resource definition (CRD) YAML or object
-   * @param yamlOrObject - CRD YAML content string or object
-   * @param id - Unique identifier for the CRD
+   * Adds a Kubernetes manifest to the chart using CDK8S
+   *
+   * This method allows you to add any Kubernetes manifest (CRDs, custom resources, etc.)
+   * either as YAML strings or as objects. The manifest will be processed using CDK8S
+   * for better type safety and validation.
+   *
+   * @param yamlOrObject - Kubernetes manifest as YAML string or object
+   * @param id - Unique identifier for the manifest (default: 'manifest')
    *
    * @example
    * ```typescript
-   * // Using YAML string
-   * rutter.addCrd(`
+   * // Using YAML string for CRD
+   * rutter.addManifest(`
    * apiVersion: apiextensions.k8s.io/v1
    * kind: CustomResourceDefinition
    * metadata:
@@ -1148,91 +1152,92 @@ export class Rutter {
    *   versions: []
    * `);
    *
-   * // Using object
-   * rutter.addCrd({
-   *   apiVersion: 'apiextensions.k8s.io/v1',
-   *   kind: 'CustomResourceDefinition',
-   *   metadata: { name: 'example.com' },
-   *   spec: { group: 'example.com', versions: [] }
+   * // Using object for any Kubernetes resource
+   * rutter.addManifest({
+   *   apiVersion: 'v1',
+   *   kind: 'ConfigMap',
+   *   metadata: { name: 'my-config' },
+   *   data: { key: 'value' }
    * });
    * ```
    *
-   * @since 1.0.0
+   * @since 3.0.0
    */
-  addCrd(yamlOrObject: string | Record<string, unknown>, id = 'crd'): void {
-    let yaml: string;
-    let crdObject: Record<string, unknown>;
+  addManifest(yamlOrObject: string | Record<string, unknown>, id = 'manifest'): ApiObject {
+    let manifestObject: Record<string, unknown>;
 
     if (typeof yamlOrObject === 'string') {
-      // Validate YAML string
+      // Parse YAML string to object
       try {
-        crdObject = YAML.parse(yamlOrObject) as Record<string, unknown>;
-        yaml = yamlOrObject.trim();
+        manifestObject = YAML.parse(yamlOrObject) as Record<string, unknown>;
       } catch (error) {
         throw new Error(
-          `Invalid YAML provided to addCrd(): ${error instanceof Error ? error.message : 'Unknown error'}`,
+          `Invalid YAML provided to addManifest(): ${error instanceof Error ? error.message : 'Unknown error'}`,
         );
       }
     } else if (typeof yamlOrObject === 'object' && yamlOrObject !== null) {
-      // Use object directly and convert to YAML
-      crdObject = yamlOrObject;
-      try {
-        yaml = YAML.stringify(yamlOrObject).trim();
-      } catch (error) {
-        throw new Error(
-          `Failed to convert object to YAML in addCrd(): ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
-      }
+      // Use object directly
+      manifestObject = yamlOrObject;
     } else {
-      throw new Error('addCrd() requires either a YAML string or an object');
+      throw new Error('addManifest() requires either a YAML string or an object');
     }
 
-    // Ensure we have valid content
-    if (!yaml) {
-      throw new Error('addCrd() received empty or invalid content');
-    }
+    // Validate basic Kubernetes manifest structure
+    this.validateManifestStructure(manifestObject);
 
-    // Validate CRD structure
-    this.validateCrdStructure(crdObject);
-
-    this.assets.push({ id, yaml, target: 'crds' });
+    // Create CDK8S ApiObject from the manifest
+    return new ApiObject(this.chart, id, {
+      apiVersion: manifestObject['apiVersion'] as string,
+      kind: manifestObject['kind'] as string,
+      metadata: manifestObject['metadata'] as Record<string, unknown>,
+      spec: manifestObject['spec'] as Record<string, unknown>,
+      data: manifestObject['data'] as Record<string, unknown>,
+    });
   }
 
   /**
-   * Validates CRD structure according to Kubernetes specification
-   * @param crd - CRD object to validate
+   * Validates the structure of a Kubernetes manifest object
+   * @param manifest - The manifest object to validate
    * @private
-   * @since 2.5.0
+   * @since 3.0.0
    */
-  private validateCrdStructure(crd: Record<string, unknown>): void {
-    if (crd['apiVersion'] !== 'apiextensions.k8s.io/v1') {
-      throw new Error('CRD must use apiVersion: apiextensions.k8s.io/v1');
+  private validateManifestStructure(manifest: Record<string, unknown>): void {
+    if (!manifest['apiVersion'] || typeof manifest['apiVersion'] !== 'string') {
+      throw new Error('Kubernetes manifest must have a valid apiVersion');
     }
 
-    if (crd['kind'] !== 'CustomResourceDefinition') {
-      throw new Error('CRD must have kind: CustomResourceDefinition');
+    if (!manifest['kind'] || typeof manifest['kind'] !== 'string') {
+      throw new Error('Kubernetes manifest must have a valid kind');
     }
 
-    if (!crd['metadata'] || typeof crd['metadata'] !== 'object' || crd['metadata'] === null) {
-      throw new Error('CRD must have a metadata object');
+    if (
+      !manifest['metadata'] ||
+      typeof manifest['metadata'] !== 'object' ||
+      manifest['metadata'] === null
+    ) {
+      throw new Error('Kubernetes manifest must have valid metadata');
     }
 
-    const metadata = crd['metadata'] as Record<string, unknown>;
+    const metadata = manifest['metadata'] as Record<string, unknown>;
     if (!metadata['name'] || typeof metadata['name'] !== 'string') {
-      throw new Error('CRD must have a valid metadata.name');
+      throw new Error('Kubernetes manifest metadata must have a valid name');
     }
 
-    if (!crd['spec'] || typeof crd['spec'] !== 'object' || crd['spec'] === null) {
-      throw new Error('CRD must have a spec object');
-    }
+    // Additional validation for specific resource types
+    const kind = manifest['kind'] as string;
+    if (kind === 'CustomResourceDefinition') {
+      if (!manifest['spec'] || typeof manifest['spec'] !== 'object' || manifest['spec'] === null) {
+        throw new Error('CustomResourceDefinition must have a valid spec');
+      }
 
-    const spec = crd['spec'] as Record<string, unknown>;
-    if (!spec['group'] || typeof spec['group'] !== 'string') {
-      throw new Error('CRD must have a valid spec.group');
-    }
+      const spec = manifest['spec'] as Record<string, unknown>;
+      if (!spec['group'] || typeof spec['group'] !== 'string') {
+        throw new Error('CustomResourceDefinition spec must have a valid group');
+      }
 
-    if (!Array.isArray(spec['versions']) || spec['versions'].length === 0) {
-      throw new Error('CRD must have at least one version in spec.versions');
+      if (!Array.isArray(spec['versions']) || spec['versions'].length === 0) {
+        throw new Error('CustomResourceDefinition must have at least one version in spec.versions');
+      }
     }
   }
 
