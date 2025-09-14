@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Chart, App } from 'cdk8s';
 
-import { NetworkResources } from '../../dist/lib/resources/network/networkResources.js';
-import type { IngressSpec } from '../../dist/lib/resources/network/networkResources.js';
+import { NetworkResources } from '../../src/lib/resources/network/networkResources.js';
+import type { IngressSpec } from '../../src/lib/resources/network/networkResources.js';
 
 describe('Ingress TLS Security Validation', () => {
   let networkResources: NetworkResources;

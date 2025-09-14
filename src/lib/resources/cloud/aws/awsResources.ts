@@ -369,10 +369,7 @@ export class AWSResources extends BaseResourceProvider {
       return;
     }
 
-    const arnRegex = /^arn:aws:iam::\d{12}:role\/[\w+=,.@-]+$/;
-    if (!arnRegex.test(roleArn)) {
-      throw new Error(`Invalid AWS IAM Role ARN format: ${roleArn}`);
-    }
+    this.validateAwsArn(roleArn, 'IAM Role');
   }
 
   /**
@@ -426,6 +423,8 @@ export class AWSResources extends BaseResourceProvider {
    * @since 2.7.0
    */
   addECRServiceAccount(spec: AWSECRServiceAccountSpec): ApiObject {
+    this.validateRoleArn(spec.roleArn);
+
     const annotations = {
       'eks.amazonaws.com/role-arn': spec.roleArn,
       ...(spec.annotations || {}),
@@ -449,6 +448,74 @@ export class AWSResources extends BaseResourceProvider {
       spec.labels,
       annotations,
     );
+  }
+
+  /**
+   * Validates AWS ARN format for service account roles
+   * @param arn - ARN to validate
+   * @param context - Context for error messages
+   * @throws Error if ARN format is invalid
+   * @since 2.9.0
+   */
+  private validateAwsArn(arn: string, context: string): void {
+    if (!arn || typeof arn !== 'string') {
+      throw new Error(`Invalid ARN for ${context}: ARN must be a non-empty string`);
+    }
+
+    // AWS ARN format: arn:partition:service:region:account-id:resource
+    const arnPattern = /^arn:(aws|aws-us-gov|aws-cn):([a-z0-9-]+):([a-z0-9-]*):([0-9]{12}):(.+)$/;
+
+    if (!arnPattern.test(arn)) {
+      throw new Error(
+        `Invalid AWS ARN format for ${context}: ${arn}. ` +
+          `Expected format: arn:partition:service:region:account-id:resource`,
+      );
+    }
+
+    const match = arn.match(arnPattern);
+    if (!match) {
+      throw new Error(
+        `Invalid AWS ARN format for ${context}: ${arn}. ` +
+          `Expected format: arn:partition:service:region:account-id:resource`,
+      );
+    }
+
+    const [, partition, service, , accountId, resource] = match;
+
+    // Ensure all required parts are present
+    if (!partition || !service || !accountId || !resource) {
+      throw new Error(
+        `Incomplete AWS ARN format for ${context}: ${arn}. ` + `Missing required components.`,
+      );
+    }
+
+    // Validate IAM role ARN specifically
+    if (service === 'iam') {
+      const iamRolePattern =
+        /^(role|user|group|policy|server-certificate|instance-profile)\/[A-Za-z0-9+=,.@\-_/]+$/;
+      if (!iamRolePattern.test(resource)) {
+        throw new Error(
+          `Invalid IAM resource format for ${context}: ${resource}. ` +
+            `Expected format: type/name (e.g., role/MyRole)`,
+        );
+      }
+    }
+
+    // Validate account ID format
+    if (!/^[0-9]{12}$/.test(accountId)) {
+      throw new Error(
+        `Invalid AWS account ID for ${context}: ${accountId}. ` +
+          `Account ID must be exactly 12 digits`,
+      );
+    }
+
+    // Validate partition
+    if (!['aws', 'aws-us-gov', 'aws-cn'].includes(partition)) {
+      console.warn(
+        `⚠️  WARNING: Unusual AWS partition '${partition}' in ARN for ${context}. ` +
+          `Expected: aws, aws-us-gov, or aws-cn`,
+      );
+    }
   }
 }
 

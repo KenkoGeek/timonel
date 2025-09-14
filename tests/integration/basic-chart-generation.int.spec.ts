@@ -4,8 +4,8 @@ import * as path from 'path';
 import * as YAML from 'yaml';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-import { Rutter } from '../../dist/lib/rutter.js';
-import { valuesRef } from '../../dist/lib/helm.js';
+import { Rutter } from '../../src/lib/rutter.js';
+import { valuesRef } from '../../src/lib/helm.js';
 
 describe('Basic Chart Generation Integration', () => {
   const testChartsDir = path.join(__dirname, '__charts__');
@@ -32,7 +32,6 @@ describe('Basic Chart Generation Integration', () => {
           name: 'basic-test-app',
           version: '1.0.0',
           description: 'Basic integration test application',
-          appVersion: '1.0.0',
         },
         defaultValues: {
           image: {
@@ -99,9 +98,9 @@ describe('Basic Chart Generation Integration', () => {
       // Add Service
       rutter.addService({
         name: 'basic-test-service', // Use unique name
-        port: Number(valuesRef('service.port')),
+        port: 80,
         targetPort: 8080,
-        type: valuesRef('service.type'),
+        type: 'ClusterIP',
       });
 
       // Add ConfigMap
@@ -225,10 +224,9 @@ describe('Basic Chart Generation Integration', () => {
 
       rutter.addService({
         name: 'nodeport-service', // Use unique name
-        port: Number(valuesRef('service.port')),
+        port: 30080,
         targetPort: 80,
-        type: valuesRef('service.type'),
-        nodePort: Number(valuesRef('service.nodePort')),
+        type: 'NodePort',
       });
 
       const nodePortPath = path.join(testChartsDir, 'nodeport-chart');

@@ -6,6 +6,14 @@
 
 import * as path from 'path';
 
+import {
+  SECURITY_ERROR_MESSAGES,
+  SECURITY_WARNING_MESSAGES,
+  DANGEROUS_IMAGE_TAGS,
+  VALIDATION_PATTERNS,
+  LENGTH_LIMITS,
+} from './constants.js';
+
 /**
  * Security utilities for input validation and sanitization
  * Focused on CLI tool security concerns: path traversal, injection prevention
@@ -24,7 +32,7 @@ export class SecurityUtils {
    */
   static validatePath(inputPath: string, allowedBasePath: string): string {
     if (!inputPath || typeof inputPath !== 'string') {
-      throw new Error('Invalid path: path must be a non-empty string');
+      throw new Error(SECURITY_ERROR_MESSAGES.INVALID_PATH);
     }
 
     // Check for path traversal sequences
@@ -34,7 +42,7 @@ export class SecurityUtils {
       inputPath.includes('%2e%2e%2f') ||
       inputPath.includes('%2e%2e%5c')
     ) {
-      throw new Error('Invalid path: path traversal sequences detected');
+      throw new Error(SECURITY_ERROR_MESSAGES.PATH_TRAVERSAL);
     }
 
     // Resolve and normalize paths
@@ -43,7 +51,7 @@ export class SecurityUtils {
 
     // Ensure the resolved path is within the allowed base path
     if (!resolvedInput.startsWith(resolvedBase + path.sep) && resolvedInput !== resolvedBase) {
-      throw new Error(`Invalid path: path must be within ${resolvedBase}`);
+      throw new Error(SECURITY_ERROR_MESSAGES.PATH_OUTSIDE_BASE(resolvedBase));
     }
 
     return resolvedInput;
@@ -82,18 +90,20 @@ export class SecurityUtils {
    */
   static sanitizeEnvironmentName(env: string): string {
     if (!env || typeof env !== 'string') {
-      throw new Error('Environment name must be a non-empty string');
+      throw new Error(SECURITY_ERROR_MESSAGES.ENVIRONMENT_NAME_INVALID);
     }
 
     // Allow only alphanumeric, hyphens, and underscores
     const sanitized = env.replace(/[^a-zA-Z0-9-_]/g, '');
 
     if (sanitized !== env) {
-      throw new Error(`Invalid environment name: ${this.sanitizeLogMessage(env)}`);
+      throw new Error(
+        SECURITY_ERROR_MESSAGES.ENVIRONMENT_NAME_INVALID_FORMAT(this.sanitizeLogMessage(env)),
+      );
     }
 
-    if (sanitized.length === 0 || sanitized.length > 63) {
-      throw new Error('Environment name must be 1-63 characters long');
+    if (sanitized.length === 0 || sanitized.length > LENGTH_LIMITS.ENVIRONMENT_NAME) {
+      throw new Error(SECURITY_ERROR_MESSAGES.ENVIRONMENT_NAME_INVALID_LENGTH);
     }
 
     return sanitized;
@@ -124,9 +134,108 @@ export class SecurityUtils {
       return false;
     }
 
-    // Basic validation for dot notation and no special characters that could break Helm
-    const helmPathRegex = /^[a-zA-Z][a-zA-Z0-9._-]*$/;
-    return helmPathRegex.test(templatePath);
+    // Check for empty string or only whitespace
+    if (templatePath.trim().length === 0) {
+      return false;
+    }
+
+    // Check for template injection patterns
+    if (templatePath.includes('{{') || templatePath.includes('}}')) {
+      return false;
+    }
+
+    // Check for dangerous characters that could break Helm templates
+    if (this.hasDangerousCharacters(templatePath)) {
+      return false;
+    }
+
+    // Check for control characters
+    if (this.hasControlCharacters(templatePath)) {
+      return false;
+    }
+
+    // Validate dot notation path structure
+    return this.validatePathSegments(templatePath);
+  }
+
+  /**
+   * Checks for dangerous characters in template path
+   * @param path - Path to check
+   * @returns True if dangerous characters found
+   * @since 2.9.0
+   */
+  private static hasDangerousCharacters(path: string): boolean {
+    const dangerousChars = /[<>'"\\`${}()[\]|&;]/;
+    return dangerousChars.test(path);
+  }
+
+  /**
+   * Checks for control characters in template path
+   * @param path - Path to check
+   * @returns True if control characters found
+   * @since 2.9.0
+   */
+  private static hasControlCharacters(path: string): boolean {
+    for (let i = 0; i < path.length; i++) {
+      const code = path.charCodeAt(i);
+      if (code < 32 || code === 127) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Validates path segments in dot notation
+   * @param path - Path to validate
+   * @returns True if all segments are valid
+   * @since 2.9.0
+   */
+  private static validatePathSegments(path: string): boolean {
+    // Overall path length limit
+    if (path.length > 253) {
+      return false;
+    }
+
+    const pathSegments = path.split('.');
+
+    // Each segment must be valid
+    for (const segment of pathSegments) {
+      if (!this.isValidPathSegment(segment)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Validates individual path segment
+   * @param segment - Segment to validate
+   * @returns True if segment is valid
+   * @since 2.9.0
+   */
+  private static isValidPathSegment(segment: string): boolean {
+    if (!segment || segment.length === 0) {
+      return false;
+    }
+
+    // Segment can be numeric (for array indices) or start with letter/underscore
+    if (!/^[a-zA-Z_0-9]/.test(segment)) {
+      return false;
+    }
+
+    // Segment can only contain alphanumeric, underscore, and hyphen
+    if (!/^[a-zA-Z_0-9][a-zA-Z0-9_-]*$/.test(segment)) {
+      return false;
+    }
+
+    // Reasonable length limit per segment
+    if (segment.length > 63) {
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -142,9 +251,10 @@ export class SecurityUtils {
     }
 
     // Helm chart name validation (RFC 1123 subdomain) - safe regex
-    // eslint-disable-next-line security/detect-unsafe-regex -- Simple character class regex is safe
-    const chartNameRegex = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
-    return chartNameRegex.test(chartName) && chartName.length <= 63;
+    return (
+      VALIDATION_PATTERNS.KUBERNETES_NAME.test(chartName) &&
+      chartName.length <= LENGTH_LIMITS.KUBERNETES_NAME
+    );
   }
 
   /**
@@ -170,11 +280,11 @@ export class SecurityUtils {
    */
   static sanitizeEnvVar(name: string, value: string): { name: string; value: string } {
     if (!name || typeof name !== 'string') {
-      throw new Error('Environment variable name must be a non-empty string');
+      throw new Error(SECURITY_ERROR_MESSAGES.INVALID_ENV_NAME);
     }
 
     if (typeof value !== 'string') {
-      throw new Error('Environment variable value must be a string');
+      throw new Error(SECURITY_ERROR_MESSAGES.INVALID_ENV_VALUE);
     }
 
     // Kubernetes env var name validation (RFC 1123 compatible)
@@ -185,48 +295,183 @@ export class SecurityUtils {
       sanitizedName = `_${sanitizedName}`;
     }
 
-    const nameRegex = /^[A-Z_][A-Z0-9_]*$/;
-    if (!nameRegex.test(sanitizedName)) {
-      throw new Error(`Invalid environment variable name: ${this.sanitizeLogMessage(name)}`);
+    if (!VALIDATION_PATTERNS.ENV_VAR_NAME.test(sanitizedName)) {
+      throw new Error(
+        SECURITY_ERROR_MESSAGES.ENV_NAME_INVALID_FORMAT(this.sanitizeLogMessage(name)),
+      );
     }
 
-    // Check for dangerous patterns in value using safer string methods
-    const hasDangerousPattern = (val: string): string | null => {
-      if (val.includes('$(') && val.includes(')')) return 'command substitution';
-      if (val.includes('`')) return 'backtick execution';
-      if (val.includes('${') && val.includes('}')) return 'variable expansion';
-      // Check for control characters
-      for (let i = 0; i < val.length; i++) {
-        const code = val.charCodeAt(i);
-        if (
-          (code >= 0x00 && code <= 0x08) ||
-          code === 0x0b ||
-          code === 0x0c ||
-          (code >= 0x0e && code <= 0x1f) ||
-          code === 0x7f
-        ) {
-          return 'control characters';
-        }
-      }
-      return null;
-    };
-
-    const dangerousPattern = hasDangerousPattern(value);
+    // Enhanced dangerous pattern detection with nested command injection prevention
+    const dangerousPattern = this.detectDangerousPatterns(value);
     if (dangerousPattern) {
       throw new Error(
-        `Environment variable value contains dangerous pattern (${dangerousPattern}): ${this.sanitizeLogMessage(value)}`,
+        SECURITY_ERROR_MESSAGES.ENV_VALUE_DANGEROUS_PATTERN(
+          dangerousPattern,
+          this.sanitizeLogMessage(value),
+        ),
       );
     }
 
     // Limit value length to prevent DoS
-    if (value.length > 32768) {
-      throw new Error('Environment variable value exceeds maximum length (32KB)');
+    if (value.length > LENGTH_LIMITS.ENV_VAR_VALUE) {
+      throw new Error(SECURITY_ERROR_MESSAGES.ENV_VALUE_TOO_LONG);
     }
 
     return {
       name: sanitizedName,
       value: value.trim(),
     };
+  }
+
+  /**
+   * Enhanced dangerous pattern detection with nested command injection prevention
+   * @param value - String to check for dangerous patterns
+   * @returns Pattern name if dangerous pattern detected, null otherwise
+   * @since 2.9.0
+   */
+  private static detectDangerousPatterns(value: string): string | null {
+    // Check for nested command substitution patterns
+    if (this.hasNestedCommandSubstitution(value)) return 'nested command substitution';
+    if (this.hasNestedBacktickExecution(value)) return 'nested backtick execution';
+    if (this.hasNestedVariableExpansion(value)) return 'nested variable expansion';
+
+    // Basic patterns
+    if (value.includes('$(') && value.includes(')')) return 'command substitution';
+    if (value.includes('`')) return 'backtick execution';
+    if (value.includes('${') && value.includes('}')) return 'variable expansion';
+
+    // Check for control characters
+    for (let i = 0; i < value.length; i++) {
+      const code = value.charCodeAt(i);
+      if (
+        (code >= 0x00 && code <= 0x08) ||
+        code === 0x0b ||
+        code === 0x0c ||
+        (code >= 0x0e && code <= 0x1f) ||
+        code === 0x7f
+      ) {
+        return 'control characters';
+      }
+    }
+
+    // Check for shell metacharacters that could enable injection
+    if (this.hasShellMetacharacters(value)) return 'shell metacharacters';
+
+    return null;
+  }
+
+  /**
+   * Detects shell metacharacters that could enable command injection
+   * @param value - String to check
+   * @returns True if shell metacharacters found
+   * @since 2.9.0
+   */
+  private static hasShellMetacharacters(value: string): boolean {
+    const shellMetachars = ['|', '&', ';', '(', ')', '<', '>', '?', '*', '[', ']', '{', '}'];
+    return shellMetachars.some((char) => value.includes(char));
+  }
+
+  /**
+   * Detects nested command substitution patterns like $(command $(nested))
+   * @param value - String to check for nested patterns
+   * @returns True if nested command substitution is detected
+   * @since 2.9.0
+   */
+  private static hasNestedCommandSubstitution(value: string): boolean {
+    let depth = 0;
+    let inSubstitution = false;
+
+    for (let i = 0; i < value.length - 1; i++) {
+      // eslint-disable-next-line security/detect-object-injection
+      if (value[i] === '$' && value[i + 1] === '(') {
+        if (inSubstitution) return true; // Nested pattern detected
+        inSubstitution = true;
+        depth = 1;
+        i++; // Skip the '('
+        // eslint-disable-next-line security/detect-object-injection
+      } else if (inSubstitution && value[i] === '(') {
+        depth++;
+        // eslint-disable-next-line security/detect-object-injection
+      } else if (inSubstitution && value[i] === ')') {
+        depth--;
+        if (depth === 0) inSubstitution = false;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Detects nested backtick execution patterns like `command `nested` `
+   * @param value - String to check for nested patterns
+   * @returns True if nested backtick execution is detected
+   * @since 2.9.0
+   */
+  private static hasNestedBacktickExecution(value: string): boolean {
+    let inBacktick = false;
+
+    for (let i = 0; i < value.length; i++) {
+      // eslint-disable-next-line security/detect-object-injection
+      if (value[i] === '`') {
+        if (inBacktick) {
+          inBacktick = false;
+        } else {
+          // Check for nested pattern in remaining string
+          if (this.hasNestedBacktickInSubstring(value, i)) {
+            return true;
+          }
+          inBacktick = true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Helper method to check for nested backticks in substring
+   * @param value - Full string
+   * @param startIndex - Starting index to check from
+   * @returns True if nested backtick found
+   * @since 2.9.0
+   */
+  private static hasNestedBacktickInSubstring(value: string, startIndex: number): boolean {
+    for (let j = startIndex + 1; j < value.length; j++) {
+      // eslint-disable-next-line security/detect-object-injection
+      if (value[j] === '`') {
+        // Found potential nested pattern
+        const inner = value.substring(startIndex + 1, j);
+        return inner.includes('`');
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Detects nested variable expansion patterns like ${var${nested}}
+   * @param value - String to check for nested patterns
+   * @returns True if nested variable expansion is detected
+   * @since 2.9.0
+   */
+  private static hasNestedVariableExpansion(value: string): boolean {
+    let depth = 0;
+    let inExpansion = false;
+
+    for (let i = 0; i < value.length - 1; i++) {
+      // eslint-disable-next-line security/detect-object-injection
+      if (value[i] === '$' && value[i + 1] === '{') {
+        if (inExpansion) return true; // Nested pattern detected
+        inExpansion = true;
+        depth = 1;
+        i++; // Skip the '{'
+        // eslint-disable-next-line security/detect-object-injection
+      } else if (inExpansion && value[i] === '{') {
+        depth++;
+        // eslint-disable-next-line security/detect-object-injection
+      } else if (inExpansion && value[i] === '}') {
+        depth--;
+        if (depth === 0) inExpansion = false;
+      }
+    }
+    return false;
   }
 
   /**
@@ -240,46 +485,40 @@ export class SecurityUtils {
    */
   static validateImageTag(tag: string): boolean {
     if (!tag || typeof tag !== 'string') {
-      throw new Error('Image tag must be a non-empty string');
+      throw new Error(SECURITY_ERROR_MESSAGES.INVALID_IMAGE_TAG);
     }
 
     const trimmedTag = tag.trim();
 
-    // Reject dangerous or non-specific tags
-    const dangerousTags = ['latest', 'master', 'main', 'dev', 'development', 'test', 'staging'];
-    if (dangerousTags.includes(trimmedTag.toLowerCase())) {
-      throw new Error(
-        `Insecure image tag detected: '${trimmedTag}'. Use specific version tags for security.`,
-      );
+    // Check against expanded list of dangerous or non-specific tags
+    if (
+      DANGEROUS_IMAGE_TAGS.includes(
+        trimmedTag.toLowerCase() as (typeof DANGEROUS_IMAGE_TAGS)[number],
+      )
+    ) {
+      console.warn(SECURITY_WARNING_MESSAGES.DANGEROUS_IMAGE_TAG(trimmedTag));
     }
 
     // Validate tag format (Docker tag rules)
-    const tagRegex = /^[a-zA-Z0-9._-]+$/;
-    if (!tagRegex.test(trimmedTag)) {
-      throw new Error(`Invalid image tag format: ${this.sanitizeLogMessage(trimmedTag)}`);
+    if (!VALIDATION_PATTERNS.DOCKER_TAG.test(trimmedTag)) {
+      throw new Error(
+        SECURITY_ERROR_MESSAGES.IMAGE_TAG_INVALID_FORMAT(this.sanitizeLogMessage(trimmedTag)),
+      );
     }
 
     // Check length limits
-    if (trimmedTag.length > 128) {
-      throw new Error('Image tag exceeds maximum length (128 characters)');
+    if (trimmedTag.length > LENGTH_LIMITS.IMAGE_TAG) {
+      throw new Error(SECURITY_ERROR_MESSAGES.IMAGE_TAG_TOO_LONG);
     }
 
     // Prefer semantic versioning patterns
-    // eslint-disable-next-line security/detect-unsafe-regex -- Simple regex patterns are safe for validation
-    const semverPattern = /^v?\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/;
-    const hashPattern = /^[a-f0-9]{7,64}$/;
-    // eslint-disable-next-line security/detect-unsafe-regex -- Simple date pattern is safe for validation
-    const datePattern = /^\d{4}-\d{2}-\d{2}(-[a-zA-Z0-9.-]+)?$/;
-
     if (
-      !semverPattern.test(trimmedTag) &&
-      !hashPattern.test(trimmedTag) &&
-      !datePattern.test(trimmedTag)
+      !VALIDATION_PATTERNS.SEMVER.test(trimmedTag) &&
+      !VALIDATION_PATTERNS.HASH.test(trimmedTag) &&
+      !VALIDATION_PATTERNS.DATE.test(trimmedTag)
     ) {
       // Warning for non-standard tags but don't fail
-      console.warn(
-        `Warning: Image tag '${trimmedTag}' doesn't follow recommended patterns (semver, hash, or date)`,
-      );
+      console.warn(SECURITY_WARNING_MESSAGES.NON_STANDARD_IMAGE_TAG(trimmedTag));
     }
 
     return true;

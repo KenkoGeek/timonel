@@ -883,6 +883,50 @@ export class Rutter {
   }
 
   /**
+   * Creates a NetworkPolicy from a predefined template
+   * @param templateName - Name of the predefined template
+   * @param name - Policy name
+   * @param podSelector - Pod selector to apply policy to
+   * @param labels - Optional labels
+   * @param annotations - Optional annotations
+   * @returns Created NetworkPolicy ApiObject
+   * @example
+   * ```typescript
+   * // Create a deny-all policy
+   * rutter.addNetworkPolicyFromTemplate(
+   *   'deny-all',
+   *   'default-deny',
+   *   { matchLabels: { app: 'web' } }
+   * );
+   * ```
+   * @since 2.9.0
+   */
+  addNetworkPolicyFromTemplate(
+    templateName: string,
+    name: string,
+    podSelector: NetworkPolicySpec['podSelector'],
+    labels?: Record<string, string>,
+    annotations?: Record<string, string>,
+  ): ApiObject {
+    return this.networkResources.addNetworkPolicyFromTemplate(
+      templateName,
+      name,
+      podSelector,
+      labels,
+      annotations,
+    );
+  }
+
+  /**
+   * Gets predefined NetworkPolicy templates for common security patterns
+   * @returns Array of predefined NetworkPolicy templates
+   * @since 2.9.0
+   */
+  static getNetworkPolicyTemplates() {
+    return NetworkResources.getNetworkPolicyTemplates();
+  }
+
+  /**
    * Creates a deny-all NetworkPolicy that blocks all traffic
    * @param name - Policy name
    * @param podSelector - Pod selector to apply policy to
