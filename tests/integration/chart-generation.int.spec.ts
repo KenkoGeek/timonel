@@ -4,7 +4,7 @@ import { execSync } from 'child_process';
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-import { valuesRef } from '../../dist/lib/helm.js';
+import { valuesRef, numberRef } from '../../dist/lib/helm.js';
 import { Rutter } from '../../dist/lib/rutter.js';
 
 describe('Chart Generation Integration', () => {
@@ -32,7 +32,6 @@ describe('Chart Generation Integration', () => {
           name: 'integration-test-app',
           version: '1.0.0',
           description: 'Integration test application',
-          appVersion: '1.0.0',
         },
         defaultValues: {
           image: {
@@ -98,7 +97,7 @@ describe('Chart Generation Integration', () => {
             name: 'integration-test-app',
           },
           spec: {
-            replicas: valuesRef('replicas'),
+            replicas: numberRef('replicas'),
             selector: {
               matchLabels: {
                 app: 'integration-test-app',
@@ -157,7 +156,7 @@ describe('Chart Generation Integration', () => {
             },
             ports: [
               {
-                port: valuesRef('service.port'),
+                port: numberRef('service.port'),
                 targetPort: 8080,
               },
             ],
@@ -192,8 +191,8 @@ describe('Chart Generation Integration', () => {
             name: 'integration-test-secret',
           },
           stringData: {
-            'database-url': 'postgresql://user:pass@localhost:5432/db',
-            'api-key': 'secret-api-key',
+            'database-url': 'postgresql://testuser:testpass@localhost:5432/testdb',
+            'api-key': 'test-api-key-placeholder',
           },
         },
         'integration-secret',
@@ -449,7 +448,7 @@ describe('Chart Generation Integration', () => {
             name: 'zero-replica-app',
           },
           spec: {
-            replicas: valuesRef('replicas'),
+            replicas: Number(valuesRef('replicas')),
             selector: {
               matchLabels: {
                 app: 'zero-replica-app',
@@ -559,9 +558,9 @@ describe('Chart Generation Integration', () => {
             },
             ports: [
               {
-                port: valuesRef('service.port'),
+                port: numberRef('service.port'),
                 targetPort: 80,
-                nodePort: valuesRef('service.nodePort'),
+                nodePort: numberRef('service.nodePort'),
               },
             ],
             type: valuesRef('service.type'),
