@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+echo "Running lint-staged..."
+pnpm exec lint-staged || npx --no-install lint-staged || exit 1
+
+echo "Running type check..."
+pnpm run typecheck || exit 1
+
+echo "Running security checks..."
+pnpm run security:check || exit 1
+
+echo "Running markdownlint (fix) for Markdown..."
+pnpm exec markdownlint --fix "**/*.md" || npx --no-install markdownlint --fix "**/*.md" || exit 1
