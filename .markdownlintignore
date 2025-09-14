@@ -1,9 +1,0 @@
-CHANGELOG.md
-node_modules/
-**/node_modules/
-dist/
-coverage/
-.git/
-CHANGELOG.md
-examples/node_modules/
-amazonq/
