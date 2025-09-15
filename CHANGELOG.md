@@ -1,3 +1,9 @@
+## [2.8.3](https://github.com/KenkoGeek/timonel/compare/v2.8.2...v2.8.3) (2025-09-15)
+
+### Bug Fixes
+
+- **cli:** resolve incorrect syntax in conditional Helm templates, ensuring namespace and ingress conditions work correctly ([20363b8](https://github.com/KenkoGeek/timonel/commit/20363b8a997a87114b78cf3b4118f9d05eda0686))
+
 ## [2.8.1](https://github.com/KenkoGeek/timonel/compare/v2.8.0...v2.8.1) (2025-09-15)
 
 ### Bug Fixes
