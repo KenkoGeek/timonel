@@ -1,12 +1,12 @@
 /**
  * @fileoverview Helm chart helpers and templates
- * @since 2.5.0
+ * @since 2.8.0+
  */
 
 /**
  * Helper definition for Helm templates
  * @interface HelperDefinition
- * @since 2.5.0
+ * @since 2.8.0+
  */
 export interface HelperDefinition {
   /** Helper name (without quotes or hyphens) */
@@ -17,7 +17,7 @@ export interface HelperDefinition {
 
 /**
  * Standard Helm chart helpers following best practices
- * @since 2.5.0
+ * @since 2.8.0+
  */
 export const STANDARD_HELPERS: HelperDefinition[] = [
   {
@@ -59,7 +59,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}`,
 
 /**
  * AWS-specific Helm helpers
- * @since 2.5.0
+ * @since 2.8.0+
  */
 export const AWS_HELPERS: HelperDefinition[] = [
   {
@@ -84,7 +84,7 @@ export const AWS_HELPERS: HelperDefinition[] = [
  * Converts helper definitions to Helm template format
  * @param helpers - Array of helper definitions
  * @returns Formatted Helm template string
- * @since 2.5.0
+ * @since 2.8.0+
  */
 export function formatHelpers(helpers: HelperDefinition[]): string {
   return helpers
@@ -103,7 +103,7 @@ ${helper.template}
  * Gets default helpers based on cloud provider
  * @param cloudProvider - Target cloud provider
  * @returns Combined standard and cloud-specific helpers
- * @since 2.5.0
+ * @since 2.8.0+
  */
 export function getDefaultHelpers(cloudProvider?: 'aws'): HelperDefinition[] {
   const helpers = [...STANDARD_HELPERS];
@@ -120,7 +120,7 @@ export function getDefaultHelpers(cloudProvider?: 'aws'): HelperDefinition[] {
  * @param cloudProvider - Optional cloud provider for specific helpers
  * @param customHelpers - Additional custom helpers
  * @returns Complete helpers template content
- * @since 2.5.0
+ * @since 2.8.0+
  */
 export function generateHelpersTemplate(
   cloudProvider?: 'aws',

@@ -28,7 +28,7 @@ import type { HelperDefinition } from './utils/helmHelpers.js';
  * Provides a clean API while delegating to specialized resource providers
  * Maintains full backward compatibility with the original Rutter class
  *
- * @since 2.4.0
+ * @since 2.8.0+
  */
 export class Rutter {
   // Constants for labels
@@ -83,7 +83,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   addAWSEBSStorageClass(spec: AWSEBSStorageClassSpec): ApiObject {
     return this.awsResources.addEBSStorageClass(spec);
@@ -103,7 +103,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   addAWSEFSStorageClass(spec: AWSEFSStorageClassSpec): ApiObject {
     return this.awsResources.addEFSStorageClass(spec);
@@ -122,7 +122,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   addAWSIRSAServiceAccount(spec: AWSIRSAServiceAccountSpec): ServiceAccount {
     return this.awsResources.addIRSAServiceAccount(spec);
@@ -148,7 +148,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   addAWSALBIngress(spec: AWSALBIngressSpec): Ingress {
     return this.awsResources.addALBIngress(spec);
@@ -176,7 +176,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 2.7.0
+   * @since 2.8.0+
    */
   addKarpenterNodePool(spec: KarpenterNodePoolSpec): ApiObject {
     return this.karpenterResources.addKarpenterNodePool(spec);
@@ -199,7 +199,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 2.7.0
+   * @since 2.8.0+
    */
   addKarpenterNodeClaim(spec: KarpenterNodeClaimSpec): ApiObject {
     return this.karpenterResources.addKarpenterNodeClaim(spec);
@@ -220,7 +220,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 2.7.0
+   * @since 2.8.0+
    */
   addKarpenterEC2NodeClass(spec: KarpenterEC2NodeClassSpec): ApiObject {
     return this.karpenterResources.addKarpenterEC2NodeClass(spec);
@@ -250,7 +250,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 2.7.1
+   * @since 2.8.0+
    */
   addKarpenterNodePoolWithDisruption(spec: {
     name: string;
@@ -297,7 +297,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 2.7.1
+   * @since 2.8.0+
    */
   addKarpenterNodePoolWithScheduling(spec: {
     name: string;
@@ -340,7 +340,7 @@ export class Rutter {
    * });
    * ```
    *
-   * @since 2.7.0
+   * @since 2.8.0+
    */
   addAWSECRServiceAccount(spec: AWSECRServiceAccountSpec): ServiceAccount {
     return this.awsResources.addECRServiceAccount(spec);
@@ -379,7 +379,7 @@ export class Rutter {
    * }, 'my-configmap');
    * ```
    *
-   * @since 3.0.0
+   * @since 2.8.0+
    * @note Consider using cdk8s-plus constructs for better type safety when available
    */
   addManifest(yamlOrObject: string | Record<string, unknown>, id: string): ApiObject {
@@ -444,7 +444,7 @@ export class Rutter {
    * );
    * ```
    *
-   * @since 2.7.4
+   * @since 2.8.0+
    */
   addConditionalManifest(
     manifestObject: Record<string, unknown>,
@@ -459,10 +459,21 @@ export class Rutter {
     // Validate basic Kubernetes manifest structure
     this.validateManifestStructure(manifestObject);
 
+    // Handle condition - if it's already a Helm expression, use it directly
+    // Otherwise, treat it as a path and wrap it with .Values.
+    let helmCondition: string;
+    if (condition.startsWith('{{') && condition.endsWith('}}')) {
+      // Already a Helm expression, extract the inner part and use as-is
+      helmCondition = condition.slice(2, -2).trim();
+    } else {
+      // Plain path, wrap with .Values.
+      helmCondition = `.Values.${condition}`;
+    }
+
     // Store the manifest as a conditional asset that will be processed during write
     const conditionalAsset = {
       id,
-      yaml: `{{- if .Values.${condition} }}\n${YAML.stringify(manifestObject)}{{- end }}`,
+      yaml: `{{- if ${helmCondition} }}\n${YAML.stringify(manifestObject)}{{- end }}`,
       target: 'templates',
     };
 
@@ -490,7 +501,7 @@ export class Rutter {
    * Validates the structure of a Kubernetes manifest object
    * @param manifest - The manifest object to validate
    * @private
-   * @since 3.0.0
+   * @since 2.8.0+
    */
   private validateManifestStructure(manifest: Record<string, unknown>): void {
     if (!manifest['apiVersion'] || typeof manifest['apiVersion'] !== 'string') {
@@ -536,7 +547,7 @@ export class Rutter {
    * Gets chart metadata
    * @returns Chart metadata
    *
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   getMeta(): ChartMetadata {
     return { ...this.meta };
@@ -576,7 +587,7 @@ export class Rutter {
    * Converts the chart to SynthAsset array for HelmChartWriter
    * @returns Array of synthesized assets
    *
-   * @since 2.4.0
+   * @since 2.8.0+
    */
   private toSynthArray(): SynthAsset[] {
     // Get ApiObject IDs before synthesis

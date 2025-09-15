@@ -1,6 +1,6 @@
 /**
  * @fileoverview Main entry point for Timonel - TypeScript library for programmatic Helm chart generation
- * @since 1.0.0
+ * @since 2.8.0+
  */
 
 export * from './lib/helm.js';

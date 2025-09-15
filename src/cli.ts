@@ -1,19 +1,21 @@
 #!/usr/bin/env node
-import * as cp from 'child_process';
+import { spawnSync, execSync } from 'child_process';
+import { mkdirSync, existsSync, writeFileSync, rmSync, unlinkSync } from 'fs';
+import { join, dirname, isAbsolute, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 
 import { SecurityUtils } from './lib/security.js';
 
 // ES modules equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
 const HELM_INSTALL_URL = 'https://helm.sh/docs/intro/install/';
 const HELM_ENV_VAR_MSG = 'Or set HELM_BIN environment variable to helm binary path.';
 
-function usageAndExit(msg?: string): never {
+function usageAndExit(msg?: string): void {
   if (msg) console.error(SecurityUtils.sanitizeLogMessage(msg));
   console.log(
     [
@@ -55,43 +57,44 @@ function usageAndExit(msg?: string): never {
 
 async function cmdInit(name?: string, silent = false) {
   if (!name) usageAndExit('Missing <chart-name>');
+  const validName = name as string; // Now guaranteed to be defined
 
-  // Validate chart name for security using centralized validation
-  if (!SecurityUtils.isValidChartName(name)) {
+  // Validate chart name for security
+  if (!SecurityUtils.isValidChartName(validName)) {
     usageAndExit(
       'Invalid chart name: must be RFC 1123 compliant (lowercase alphanumeric with hyphens)',
     );
   }
-  const sanitizedName = name; // Already validated by SecurityUtils
+  const sanitizedName = validName; // Already validated by SecurityUtils
 
   const base = SecurityUtils.validatePath(
-    path.join(process.cwd(), 'charts', sanitizedName),
+    join(process.cwd(), 'charts', sanitizedName),
     process.cwd(),
   );
-  const file = path.join(base, 'chart.ts');
+  const file = join(base, 'chart.ts');
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  fs.mkdirSync(base, { recursive: true });
+  mkdirSync(base, { recursive: true });
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  if (fs.existsSync(file)) {
+  if (existsSync(file)) {
     console.error(`File already exists: ${file}`);
     process.exit(1);
   }
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  fs.writeFileSync(file, exampleChartTs(name));
+  writeFileSync(file, exampleChartTs(validName));
   log(SecurityUtils.sanitizeLogMessage(`Scaffold created at ${file}`), silent);
 }
 
 async function cmdValidate(projectDir?: string, silent = false) {
   if (!projectDir) usageAndExit('Missing <projectDir>');
-  const proj = projectDir as string;
+  const proj = projectDir as string; // Now guaranteed to be defined
 
   // Validate and secure the project directory path
-  const basePath = path.isAbsolute(proj) ? path.dirname(proj) : process.cwd();
-  const chartTs = path.isAbsolute(proj)
-    ? SecurityUtils.validatePath(path.join(proj, 'chart.ts'), basePath)
-    : SecurityUtils.validatePath(path.join(process.cwd(), proj, 'chart.ts'), process.cwd());
+  const basePath = isAbsolute(proj) ? dirname(proj) : process.cwd();
+  const chartTs = isAbsolute(proj)
+    ? SecurityUtils.validatePath(join(proj, 'chart.ts'), basePath)
+    : SecurityUtils.validatePath(join(process.cwd(), proj, 'chart.ts'), process.cwd());
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  if (!fs.existsSync(chartTs)) {
+  if (!existsSync(chartTs)) {
     console.error(SecurityUtils.sanitizeLogMessage(`chart.ts not found at ${chartTs}`));
     process.exit(1);
   }
@@ -99,7 +102,7 @@ async function cmdValidate(projectDir?: string, silent = false) {
   // Check if helm is available
   const helm = process.env['HELM_BIN'] || 'helm';
   try {
-    cp.execSync(`${helm} version --short`, { stdio: 'ignore' });
+    execSync(`${helm} version --short`, { stdio: 'ignore' });
   } catch {
     console.error('✗ Helm not found. Install Helm to enable chart validation.');
     console.error(`  Install: ${HELM_INSTALL_URL}`);
@@ -107,13 +110,13 @@ async function cmdValidate(projectDir?: string, silent = false) {
     process.exit(1);
   }
 
-  const tempDir = path.join(process.cwd(), '.timonel-validate');
+  const tempDir = join(process.cwd(), '.timonel-validate');
   try {
     // Generate chart to temp directory for validation
     await cmdSynth(projectDir, tempDir, { dryRun: false, silent: true, set: {} });
 
     // Run helm lint on generated chart
-    const lintResult = cp.spawnSync(helm, ['lint', tempDir], {
+    const lintResult = spawnSync(helm, ['lint', tempDir], {
       stdio: silent ? 'pipe' : 'inherit',
       encoding: 'utf8',
     });
@@ -134,8 +137,8 @@ async function cmdValidate(projectDir?: string, silent = false) {
   } finally {
     // Cleanup temp directory
 
-    if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+    if (existsSync(tempDir)) {
+      rmSync(tempDir, { recursive: true, force: true });
     }
   }
 }
@@ -145,7 +148,7 @@ async function cmdValidate(projectDir?: string, silent = false) {
  * @param resolvedPath - Resolved path to the TypeScript file
  * @param outDir - Output directory for the chart
  * @param flags - CLI flags
- * @since 2.7.3
+ * @since 2.8.0+
  */
 async function executeTypeScriptChart(resolvedPath: string, outDir: string, flags?: CliFlags) {
   const wrapperScript = `
@@ -176,12 +179,12 @@ await Promise.resolve(runner(outDir));
 console.log('Chart written to ' + outDir);
 `;
 
-  const wrapperFile = path.join(process.cwd(), '.timonel-wrapper.mjs');
+  const wrapperFile = join(process.cwd(), '.timonel-wrapper.mjs');
 
   try {
-    fs.writeFileSync(wrapperFile, wrapperScript);
+    writeFileSync(wrapperFile, wrapperScript);
 
-    const result = cp.spawnSync('npx', ['tsx', wrapperFile], {
+    const result = spawnSync('npx', ['tsx', wrapperFile], {
       stdio: flags?.silent ? 'pipe' : 'inherit',
       encoding: 'utf8',
     });
@@ -194,8 +197,8 @@ console.log('Chart written to ' + outDir);
     }
   } finally {
     // Cleanup wrapper file
-    if (fs.existsSync(wrapperFile)) {
-      fs.unlinkSync(wrapperFile);
+    if (existsSync(wrapperFile)) {
+      unlinkSync(wrapperFile);
     }
   }
 }
@@ -205,12 +208,12 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
   const proj = projectDir as string;
 
   // Validate and secure the project directory path
-  const basePath = path.isAbsolute(proj) ? path.dirname(proj) : process.cwd();
-  const chartTs = path.isAbsolute(proj)
-    ? SecurityUtils.validatePath(path.join(proj, 'chart.ts'), basePath)
-    : SecurityUtils.validatePath(path.join(process.cwd(), proj, 'chart.ts'), process.cwd());
+  const basePath = isAbsolute(proj) ? dirname(proj) : process.cwd();
+  const chartTs = isAbsolute(proj)
+    ? SecurityUtils.validatePath(join(proj, 'chart.ts'), basePath)
+    : SecurityUtils.validatePath(join(process.cwd(), proj, 'chart.ts'), process.cwd());
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  if (!fs.existsSync(chartTs)) {
+  if (!existsSync(chartTs)) {
     console.error(SecurityUtils.sanitizeLogMessage(`chart.ts not found at ${chartTs}`));
     process.exit(1);
   }
@@ -222,8 +225,8 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
   }
 
   // Additional path validation is already done by SecurityUtils.validatePath above
-  const resolvedPath = path.resolve(chartTs);
-  const outDir = out || path.join(path.dirname(chartTs), 'dist');
+  const resolvedPath = resolve(chartTs);
+  const outDir = out || join(dirname(chartTs), 'dist');
 
   if (flags?.dryRun) {
     log(`[DRY RUN] Would write chart to ${outDir}`, flags.silent);
@@ -241,19 +244,23 @@ async function cmdSynth(projectDir?: string, out?: string, flags?: CliFlags) {
 
 async function cmdDiff(projectDir?: string, chartDir?: string, silent = false) {
   if (!projectDir || !chartDir) usageAndExit('Missing <projectDir> or <chartDir>');
+  const validProjectDir = projectDir as string; // Now guaranteed to be defined
+  const validChartDir = chartDir as string; // Now guaranteed to be defined
 
-  const tempDir = path.join(process.cwd(), '.timonel-temp');
+  const tempDir = join(process.cwd(), '.timonel-temp');
   try {
     // Generate chart to temp directory
-    await cmdSynth(projectDir, tempDir);
+    await cmdSynth(validProjectDir, tempDir);
 
     // Compare with existing chart
     const diffCmd = process.platform === 'win32' ? 'fc' : 'diff';
     const args =
-      process.platform === 'win32' ? ['/N', chartDir, tempDir] : ['-r', chartDir, tempDir];
+      process.platform === 'win32'
+        ? ['/N', validChartDir, tempDir]
+        : ['-r', validChartDir, tempDir];
 
     log(`> ${diffCmd} ${args.join(' ')}`, silent);
-    const res = cp.spawnSync(diffCmd, args, { stdio: 'inherit' });
+    const res = spawnSync(diffCmd, args, { stdio: 'inherit' });
 
     if (res.status === 0) {
       log('✓ No differences found', silent);
@@ -264,19 +271,21 @@ async function cmdDiff(projectDir?: string, chartDir?: string, silent = false) {
   } finally {
     // Cleanup temp directory
 
-    if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+    if (existsSync(tempDir)) {
+      rmSync(tempDir, { recursive: true, force: true });
     }
   }
 }
 
 async function cmdDeploy(projectDir?: string, releaseName?: string, flags?: CliFlags) {
   if (!projectDir || !releaseName) usageAndExit('Missing <projectDir> or <release>');
+  const validProjectDir = projectDir as string; // Now guaranteed to be defined
+  const validReleaseName = releaseName as string; // Now guaranteed to be defined
 
   // Check if helm is available
   const helm = process.env['HELM_BIN'] || 'helm';
   try {
-    cp.execSync(`${helm} version --short`, { stdio: 'ignore' });
+    execSync(`${helm} version --short`, { stdio: 'ignore' });
   } catch {
     console.error('✗ Helm not found. Install Helm to enable deployment.');
     console.error(`  Install: ${HELM_INSTALL_URL}`);
@@ -284,24 +293,24 @@ async function cmdDeploy(projectDir?: string, releaseName?: string, flags?: CliF
     process.exit(1);
   }
 
-  const tempDir = path.join(process.cwd(), '.timonel-deploy');
+  const tempDir = join(process.cwd(), '.timonel-deploy');
   try {
     // Generate chart
-    await cmdSynth(projectDir, tempDir, flags);
+    await cmdSynth(validProjectDir, tempDir, flags);
 
     // Check if release exists
     const checkCmd = `${helm} status ${releaseName}`;
-    const releaseExists = cp.spawnSync('sh', ['-c', checkCmd], { stdio: 'ignore' }).status === 0;
+    const releaseExists = spawnSync('sh', ['-c', checkCmd], { stdio: 'ignore' }).status === 0;
 
     // Build helm command
     const action = releaseExists ? 'upgrade' : 'install';
-    const args = [action, releaseName, tempDir];
+    const args = [action, validReleaseName, tempDir];
 
     // Add environment-specific values if specified
     if (flags?.env) {
-      const valuesFile = path.join(tempDir, `values-${flags.env}.yaml`);
+      const valuesFile = join(tempDir, `values-${flags.env}.yaml`);
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-      if (fs.existsSync(valuesFile)) {
+      if (existsSync(valuesFile)) {
         args.push('-f', valuesFile);
       }
     }
@@ -311,18 +320,21 @@ async function cmdDeploy(projectDir?: string, releaseName?: string, flags?: CliF
     }
 
     log(`> ${helm} ${args.join(' ')}`, flags?.silent);
-    const res = cp.spawnSync(helm, args, { stdio: 'inherit' });
+    const res = spawnSync(helm, args, { stdio: 'inherit' });
 
     if (res.status !== 0) {
       process.exit(res.status ?? 1);
     }
 
-    log(`✓ ${action === 'install' ? 'Deployed' : 'Updated'} release ${releaseName}`, flags?.silent);
+    log(
+      `✓ ${action === 'install' ? 'Deployed' : 'Updated'} release ${validReleaseName}`,
+      flags?.silent,
+    );
   } finally {
     // Cleanup temp directory
 
-    if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+    if (existsSync(tempDir)) {
+      rmSync(tempDir, { recursive: true, force: true });
     }
   }
 }
@@ -347,13 +359,15 @@ async function cmdUmbrella(subcommand?: string, args?: string[], flags?: CliFlag
 }
 
 const UMBRELLA_CONFIG_FILE = 'umbrella.config.json';
+const UMBRELLA_FILE_NAME = 'umbrella.ts';
 
 async function cmdUmbrellaInit(name?: string, silent = false) {
   const MISSING_NAME_MSG = 'Missing umbrella chart name';
   if (!name) usageAndExit(MISSING_NAME_MSG);
+  const validName = name as string; // Now guaranteed to be defined
 
-  const base = path.join(process.cwd(), name);
-  const umbrellaFile = path.join(base, 'umbrella.ts');
+  const base = path.join(process.cwd(), validName);
+  const umbrellaFile = path.join(base, UMBRELLA_FILE_NAME);
   const configFile = path.join(base, UMBRELLA_CONFIG_FILE);
 
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
@@ -363,11 +377,11 @@ async function cmdUmbrellaInit(name?: string, silent = false) {
 
   // Create umbrella.ts
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  fs.writeFileSync(umbrellaFile, exampleUmbrellaTs(name));
+  fs.writeFileSync(umbrellaFile, exampleUmbrellaTs(validName));
 
   // Create config file
   const config = {
-    name,
+    name: validName,
     version: '0.1.0',
     description: `${name} umbrella chart`,
     subcharts: [],
@@ -379,9 +393,85 @@ async function cmdUmbrellaInit(name?: string, silent = false) {
   log(`Add subcharts with: tl umbrella add <subchart-name>`, silent);
 }
 
-async function cmdUmbrellaAdd(subchartName?: string, silent = false) {
-  const MISSING_SUBCHART_MSG = 'Missing subchart name';
-  if (!subchartName) usageAndExit(MISSING_SUBCHART_MSG);
+/**
+ * Update umbrella.ts file to include the new subchart import and add it to subcharts array
+ */
+function updateUmbrellaTs(subchartPath: string, subchartName?: string) {
+  const umbrellaFile = path.join(process.cwd(), UMBRELLA_FILE_NAME);
+
+  if (!fs.existsSync(umbrellaFile)) {
+    console.error('umbrella.ts not found.');
+    return;
+  }
+
+  let content = fs.readFileSync(umbrellaFile, 'utf8');
+
+  // Use provided name or extract from path
+  const chartName = subchartName || path.basename(subchartPath);
+
+  // Convert subchart name to camelCase for import
+  const camelCaseName = chartName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+
+  // Add import statement after existing imports - using named export { rutter }
+  const importStatement = `import { rutter as ${camelCaseName} } from './charts/${subchartPath}/chart';`;
+
+  // Find the last import statement and add our import after it
+  const importRegex = /import\s+.*?from\s+['"].*?['"];?/g;
+  const imports = content.match(importRegex) || [];
+
+  if (imports.length > 0) {
+    const lastImport = imports[imports.length - 1];
+    if (!lastImport) {
+      throw new Error('No valid import statements found');
+    }
+    const lastImportIndex = content.lastIndexOf(lastImport);
+    const insertIndex = lastImportIndex + lastImport.length;
+
+    // Check if import already exists
+    if (!content.includes(importStatement)) {
+      content = content.slice(0, insertIndex) + '\n' + importStatement + content.slice(insertIndex);
+    }
+  }
+
+  // Add subchart to subcharts array with correct structure
+  // Find the subcharts array and add the new subchart
+  const subchartsRegex = /subcharts:\s*\[([\s\S]*?)\]/;
+  const match = content.match(subchartsRegex);
+
+  if (match) {
+    const subchartsContent = match[1];
+    if (subchartsContent === undefined) {
+      throw new Error('Unable to parse subcharts content');
+    }
+
+    // Check if subchart is already in the array
+    if (!subchartsContent.includes(`name: '${chartName}'`)) {
+      let newSubchartsContent;
+      const subchartEntry = `{ name: '${chartName}', rutter: ${camelCaseName} }`;
+
+      // Check if array is empty or only has comments
+      const hasExistingEntries = /\{\s*name:\s*['"]/.test(subchartsContent);
+
+      if (!hasExistingEntries) {
+        // Empty array or only comments - replace with comment and first entry
+        newSubchartsContent = `\n    // Add your subcharts here:\n    ${subchartEntry},\n  `;
+      } else {
+        // Add to existing entries - find the last entry and add after it
+        const trimmedContent = subchartsContent.trimEnd();
+        newSubchartsContent = trimmedContent + `,\n    ${subchartEntry}`;
+      }
+
+      content = content.replace(subchartsRegex, `subcharts: [${newSubchartsContent}\n  ]`);
+    }
+  }
+
+  fs.writeFileSync(umbrellaFile, content);
+}
+
+async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
+  const MISSING_SUBCHART_MSG = 'Missing subchart name or path';
+  if (!subchartPath) usageAndExit(MISSING_SUBCHART_MSG);
+  const validSubchartPath = subchartPath as string; // Now guaranteed to be defined
 
   const configFile = path.join(process.cwd(), UMBRELLA_CONFIG_FILE);
 
@@ -392,8 +482,11 @@ async function cmdUmbrellaAdd(subchartName?: string, silent = false) {
 
   const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
 
-  // Create subchart directory and scaffold
-  const subchartDir = path.join(process.cwd(), 'charts', subchartName);
+  // Extract subchart name from path (last segment)
+  const subchartName = path.basename(validSubchartPath);
+
+  // Create full subchart directory path
+  const subchartDir = path.join(process.cwd(), 'charts', validSubchartPath);
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.mkdirSync(subchartDir, { recursive: true });
 
@@ -405,12 +498,15 @@ async function cmdUmbrellaAdd(subchartName?: string, silent = false) {
   config.subcharts.push({
     name: subchartName,
     version: '0.1.0',
-    path: `./charts/${subchartName}/chart.ts`,
+    path: `./charts/${validSubchartPath}/chart.ts`,
   });
 
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
 
-  log(`Subchart ${subchartName} added to umbrella`, silent);
+  // Update umbrella.ts file automatically with the path
+  updateUmbrellaTs(validSubchartPath, subchartName);
+
+  log(`Subchart ${subchartName} added to umbrella at path '${validSubchartPath}'`, silent);
 }
 
 /**
@@ -418,7 +514,7 @@ async function cmdUmbrellaAdd(subchartName?: string, silent = false) {
  * @param resolvedPath - Resolved path to the TypeScript file
  * @param outDir - Output directory for the chart
  * @param flags - CLI flags
- * @since 2.7.3
+ * @since 2.8.0+
  */
 async function executeTypeScriptUmbrella(resolvedPath: string, outDir: string, flags?: CliFlags) {
   const wrapperScript = `
@@ -443,7 +539,7 @@ console.log('Umbrella chart written to ' + output);
   try {
     fs.writeFileSync(wrapperFile, wrapperScript);
 
-    const result = cp.spawnSync('npx', ['tsx', wrapperFile], {
+    const result = spawnSync('npx', ['tsx', wrapperFile], {
       stdio: flags?.silent ? 'pipe' : 'inherit',
       encoding: 'utf8',
     });
@@ -470,7 +566,7 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
     process.exit(1);
   }
 
-  const umbrellaFile = path.join(process.cwd(), 'umbrella.ts');
+  const umbrellaFile = path.join(process.cwd(), UMBRELLA_FILE_NAME);
 
   if (!fs.existsSync(umbrellaFile)) {
     console.error('umbrella.ts not found.');
@@ -504,7 +600,10 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
 
 async function cmdPackage(chartDir?: string, out?: string, silent = false) {
   if (!chartDir) usageAndExit('Missing <chartDir>');
-  const src = path.isAbsolute(chartDir) ? chartDir : path.join(process.cwd(), chartDir);
+  const validChartDir = chartDir as string; // Now guaranteed to be defined
+  const src = path.isAbsolute(validChartDir)
+    ? validChartDir
+    : path.join(process.cwd(), validChartDir);
   const chartYaml = path.join(src, 'Chart.yaml');
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   if (!fs.existsSync(chartYaml)) {
@@ -517,7 +616,7 @@ async function cmdPackage(chartDir?: string, out?: string, silent = false) {
   const helm = process.env['HELM_BIN'] || 'helm';
   const args = ['package', src, '-d', outDir];
   log(`> ${helm} ${args.join(' ')}`, silent);
-  const res = cp.spawnSync(helm, args, { stdio: 'inherit' });
+  const res = spawnSync(helm, args, { stdio: 'inherit' });
   if (res.error) {
     console.error(`✗ Failed to execute Helm: ${res.error.message}`);
     console.error(`  Install: ${HELM_INSTALL_URL}`);
@@ -576,13 +675,13 @@ export default function run(outDir: string) {
  * Uses published package imports instead of relative development paths.
  * @param name - The name of the subchart
  * @returns TypeScript code string for the subchart
- * @since 2.7.3
+ * @since 2.8.0+
  */
 function exampleSubchartTs(name: string): string {
   return `import { Rutter } from 'timonel';
-import { valuesRef } from 'timonel/lib/helm';
+import { valuesRef, helm } from 'timonel/lib/helm';
 
-// Define subchart
+// Create a new Rutter instance
 const rutter = new Rutter({
   meta: {
     name: '${name}',
@@ -597,19 +696,73 @@ const rutter = new Rutter({
   },
 });
 
-// Add resources
-rutter.addDeployment({
-  name: '${name}-deployment',
-  image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
-  replicas: 1,
-  containerPort: 80,
-});
+// Add Deployment using addManifest with native Kubernetes object
+rutter.addManifest({
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: {
+      name: '${name}',
+      labels: {
+        app: '${name}'
+      }
+    },
+    spec: {
+      replicas: valuesRef('replicas'),
+      selector: {
+        matchLabels: {
+          app: '${name}'
+        }
+      },
+      template: {
+        metadata: {
+          labels: {
+            app: '${name}'
+          }
+        },
+        spec: {
+          containers: [
+            {
+              name: '${name}',
+              image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
+              ports: [
+                {
+                  name: 'http',
+                  containerPort: 80,
+                  protocol: 'TCP'
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }, '${name}-deployment');
 
-rutter.addService({
-  name: '${name}-service',
-  ports: [{ port: 80, targetPort: 80 }],
-  selector: { app: '${name}' },
-});
+// Add Service using addManifest with native Kubernetes object
+rutter.addManifest({
+    apiVersion: 'v1',
+    kind: 'Service',
+    metadata: {
+      name: '${name}',
+      labels: {
+        app: '${name}'
+      }
+    },
+    spec: {
+      type: 'ClusterIP',
+      ports: [
+        {
+          port: valuesRef('service.port'),
+          targetPort: 'http',
+          protocol: 'TCP',
+          name: 'http'
+        }
+      ],
+      selector: {
+        app: '${name}'
+      }
+    }
+  }, '${name}-service');
 
 export default function run(outDir: string) {
   rutter.write(outDir);
@@ -625,7 +778,7 @@ export { rutter };
  * Uses published package imports instead of relative development paths.
  * @param name - The name of the chart
  * @returns TypeScript code string for the chart
- * @since 2.7.3
+ * @since 2.8.0+
  */
 function exampleChartTs(name: string): string {
   return `import { Rutter } from 'timonel';
@@ -644,6 +797,7 @@ const rutter = new Rutter({
     replicas: 1,
     service: { port: 80 },
     ingress: { enabled: false, host: 'example.com', className: 'nginx' },
+    namespace: { create: false, name: '${name}' },
   },
   envValues: {
     dev: { replicas: 1 },
@@ -651,45 +805,133 @@ const rutter = new Rutter({
   },
 });
 
-// Use Helm placeholders in strings passed to cdk8s constructs
-rutter.addDeployment({
-  name: '${name}-deployment',
-  image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
-  replicas: valuesRef('replicas'),
-  containerPort: 80,
-  env: {
-    APP_NAME: '${name}',
-    RELEASE: helm.releaseName,
+// Add Deployment using addManifest with native Kubernetes object
+rutter.addManifest({
+  apiVersion: 'apps/v1',
+  kind: 'Deployment',
+  metadata: {
+    name: '${name}',
+    labels: {
+      app: '${name}'
+    }
   },
-});
-
-rutter.addService({
-  name: '${name}-service',
-  ports: [{ port: valuesRef('service.port'), targetPort: 80 }],
-  type: 'ClusterIP',
-  selector: { app: '${name}' },
-});
-
-// Optional ingress with advanced path routing and TLS support
-// Helm conditionals can be embedded as comments; template users can wrap templates with if blocks
-// Here we just generate an ingress; for real conditional generation you could split assets yourself.
-rutter.addIngress({
-  name: '${name}-ingress',
-  ingressClassName: String(valuesRef('ingress.className')),
-  rules: [{
-    host: String(valuesRef('ingress.host')),
-    paths: [{
-      path: '/',
-      pathType: 'Prefix',
-      backend: {
-        service: {
-          name: '${name}',
-          port: { number: valuesRef('service.port') },
-        },
+  spec: {
+    replicas: valuesRef('replicas'),
+    selector: {
+      matchLabels: {
+        app: '${name}'
+      }
+    },
+    template: {
+      metadata: {
+        labels: {
+          app: '${name}'
+        }
       },
-    }],
-  }],
-});
+      spec: {
+        containers: [
+          {
+            name: '${name}',
+            image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
+            ports: [
+              {
+                name: 'http',
+                containerPort: 80,
+                protocol: 'TCP'
+              }
+            ],
+            env: [
+              {
+                name: 'APP_NAME',
+                value: '${name}'
+              },
+              {
+                name: 'RELEASE',
+                value: helm.releaseName
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}, '${name}-deployment');
+
+// Add Service using addManifest with native Kubernetes object
+rutter.addManifest({
+  apiVersion: 'v1',
+  kind: 'Service',
+  metadata: {
+    name: '${name}',
+    labels: {
+      app: '${name}'
+    }
+  },
+  spec: {
+    type: 'ClusterIP',
+    ports: [
+      {
+        port: valuesRef('service.port'),
+        targetPort: 'http',
+        protocol: 'TCP',
+        name: 'http'
+      }
+    ],
+    selector: {
+      app: '${name}'
+    }
+  }
+}, '${name}-service');
+
+// Add Ingress using addConditionalManifest with native Kubernetes object
+rutter.addConditionalManifest({
+  apiVersion: 'networking.k8s.io/v1',
+  kind: 'Ingress',
+  metadata: {
+    name: '${name}',
+    labels: {
+      app: '${name}'
+    }
+  },
+  spec: {
+    ingressClassName: String(valuesRef('ingress.className')),
+    rules: [
+      {
+        host: String(valuesRef('ingress.host')),
+        http: {
+          paths: [
+            {
+              path: '/',
+              pathType: 'Prefix',
+              backend: {
+                service: {
+                  name: '${name}',
+                  port: {
+                    number: valuesRef('service.port')
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}, valuesRef('ingress.enabled'), '${name}-ingress');
+
+// Add Namespace using addConditionalManifest
+rutter.addConditionalManifest({
+  apiVersion: 'v1',
+  kind: 'Namespace',
+  metadata: {
+    name: String(valuesRef('namespace.name')),
+    labels: {
+      app: '${name}',
+      'app.kubernetes.io/name': '${name}',
+      'app.kubernetes.io/instance': helm.releaseName
+    }
+  }
+}, valuesRef('namespace.create'), '${name}-namespace');
 
 export default function run(outDir: string) {
   rutter.write(outDir);
@@ -755,7 +997,7 @@ function parseArgs(): { cmd: string; args: string[]; flags: CliFlags } {
 /**
  * Display the current version of Timonel CLI.
  * Reads version from package.json using ES modules compatible path resolution.
- * @since 2.7.3
+ * @since 2.8.0+
  */
 function showVersion() {
   const packagePath = path.join(__dirname, '..', 'package.json');
