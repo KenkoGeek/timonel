@@ -147,7 +147,11 @@ async function cmdValidate(projectDir?: string, silent = false) {
  * @param flags - CLI flags
  * @since 2.7.3
  */
-async function executeTypeScriptChart(resolvedPath: string, outDir: string, flags?: CliFlags) {
+async function executeTypeScriptChart(
+  resolvedPath: string,
+  outDir: string,
+  flags?: CliFlags,
+): Promise<void> {
   const wrapperScript = `
 import { pathToFileURL } from 'url';
 
@@ -580,7 +584,7 @@ export default function run(outDir: string) {
  */
 function exampleSubchartTs(name: string): string {
   return `import { Rutter } from 'timonel';
-import { valuesRef } from 'timonel/lib/helm';
+import { valuesRef } from './lib/helm.js';
 
 // Define subchart
 const rutter = new Rutter({
@@ -597,19 +601,48 @@ const rutter = new Rutter({
   },
 });
 
-// Add resources
-rutter.addDeployment({
-  name: '${name}-deployment',
-  image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
-  replicas: 1,
-  containerPort: 80,
-});
+// Add Deployment manifest
+rutter.addManifest({
+  apiVersion: 'apps/v1',
+  kind: 'Deployment',
+  metadata: {
+    name: '${name}-deployment',
+    labels: { app: '${name}' },
+  },
+  spec: {
+    replicas: valuesRef('replicas'),
+    selector: {
+      matchLabels: { app: '${name}' },
+    },
+    template: {
+      metadata: {
+        labels: { app: '${name}' },
+      },
+      spec: {
+        containers: [{
+          name: '${name}',
+          image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
+          ports: [{ containerPort: 80 }],
+        }],
+      },
+    },
+  },
+}, 'deployment');
 
-rutter.addService({
-  name: '${name}-service',
-  ports: [{ port: 80, targetPort: 80 }],
-  selector: { app: '${name}' },
-});
+// Add Service manifest
+rutter.addManifest({
+  apiVersion: 'v1',
+  kind: 'Service',
+  metadata: {
+    name: '${name}-service',
+    labels: { app: '${name}' },
+  },
+  spec: {
+    type: 'ClusterIP',
+    ports: [{ port: valuesRef('service.port'), targetPort: 80 }],
+    selector: { app: '${name}' },
+  },
+}, 'service');
 
 export default function run(outDir: string) {
   rutter.write(outDir);
@@ -651,45 +684,80 @@ const rutter = new Rutter({
   },
 });
 
-// Use Helm placeholders in strings passed to cdk8s constructs
-rutter.addDeployment({
-  name: '${name}-deployment',
-  image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
-  replicas: valuesRef('replicas'),
-  containerPort: 80,
-  env: {
-    APP_NAME: '${name}',
-    RELEASE: helm.releaseName,
+// Add Deployment manifest
+rutter.addManifest({
+  apiVersion: 'apps/v1',
+  kind: 'Deployment',
+  metadata: {
+    name: '${name}-deployment',
+    labels: { app: '${name}' },
   },
-});
-
-rutter.addService({
-  name: '${name}-service',
-  ports: [{ port: valuesRef('service.port'), targetPort: 80 }],
-  type: 'ClusterIP',
-  selector: { app: '${name}' },
-});
-
-// Optional ingress with advanced path routing and TLS support
-// Helm conditionals can be embedded as comments; template users can wrap templates with if blocks
-// Here we just generate an ingress; for real conditional generation you could split assets yourself.
-rutter.addIngress({
-  name: '${name}-ingress',
-  ingressClassName: String(valuesRef('ingress.className')),
-  rules: [{
-    host: String(valuesRef('ingress.host')),
-    paths: [{
-      path: '/',
-      pathType: 'Prefix',
-      backend: {
-        service: {
+  spec: {
+    replicas: valuesRef('replicas'),
+    selector: {
+      matchLabels: { app: '${name}' },
+    },
+    template: {
+      metadata: {
+        labels: { app: '${name}' },
+      },
+      spec: {
+        containers: [{
           name: '${name}',
-          port: { number: valuesRef('service.port') },
-        },
+          image: String(valuesRef('image.repository')) + ':' + String(valuesRef('image.tag')),
+          ports: [{ containerPort: 80 }],
+          env: [
+            { name: 'APP_NAME', value: '${name}' },
+            { name: 'RELEASE', value: helm.releaseName },
+          ],
+        }],
+      },
+    },
+  },
+}, 'deployment');
+
+// Add Service manifest
+rutter.addManifest({
+  apiVersion: 'v1',
+  kind: 'Service',
+  metadata: {
+    name: '${name}-service',
+    labels: { app: '${name}' },
+  },
+  spec: {
+    type: 'ClusterIP',
+    ports: [{ port: valuesRef('service.port'), targetPort: 80 }],
+    selector: { app: '${name}' },
+  },
+}, 'service');
+
+// Add Ingress manifest
+rutter.addManifest({
+  apiVersion: 'networking.k8s.io/v1',
+  kind: 'Ingress',
+  metadata: {
+    name: '${name}-ingress',
+    labels: { app: '${name}' },
+  },
+  spec: {
+    ingressClassName: String(valuesRef('ingress.className')),
+    rules: [{
+      host: String(valuesRef('ingress.host')),
+      http: {
+        paths: [{
+          path: '/',
+          pathType: 'Prefix',
+          backend: {
+            service: {
+              name: '${name}-service',
+              port: { number: valuesRef('service.port') },
+            },
+          },
+        }],
       },
     }],
-  }],
-});
+  },
+}, 'ingress');
 
 export default function run(outDir: string) {
   rutter.write(outDir);
