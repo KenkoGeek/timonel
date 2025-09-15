@@ -5,7 +5,7 @@ import type { Chart } from 'cdk8s';
  * Base interface for all resource providers
  * Provides common functionality and ensures consistent patterns across providers
  *
- * @since 2.4.0
+ * @since 2.8.0+
  */
 export interface IResourceProvider {
   /** Reference to the CDK8s chart */
@@ -117,7 +117,7 @@ export abstract class BaseResourceProvider implements IResourceProvider {
    * @param labels - Optional labels
    * @param annotations - Optional annotations
    * @returns Created ApiObject
-   * @since 2.5.0
+   * @since 2.8.0+
    */
   protected createRootLevelApiObject(
     name: string,

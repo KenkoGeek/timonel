@@ -1,6 +1,6 @@
 /**
  * @fileoverview Umbrella chart utilities for managing multiple subcharts as a single unit
- * @since 0.2.0
+ * @since 2.8.0+
  */
 
 import type { UmbrellaRutter, UmbrellaRutterProps } from './umbrellaRutter.js';
@@ -23,7 +23,7 @@ import { UmbrellaRutter as UmbrellaRutterClass } from './umbrellaRutter.js';
  * });
  * ```
  *
- * @since 0.2.0
+ * @since 2.8.0+
  */
 export function createUmbrella(props: UmbrellaRutterProps): UmbrellaRutter {
   return new UmbrellaRutterClass(props);

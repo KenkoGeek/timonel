@@ -1,6 +1,6 @@
 /**
  * @fileoverview Karpenter resources for AWS EKS node management
- * @since 2.7.0
+ * @since 2.8.0+
  */
 
 import type { ApiObject } from 'cdk8s';
@@ -9,7 +9,7 @@ import { BaseResourceProvider } from '../../baseResourceProvider.js';
 
 /**
  * Karpenter version compatibility utilities
- * @since 2.7.1
+ * @since 2.8.0+
  */
 export class KarpenterVersionUtils {
   /**
@@ -41,7 +41,7 @@ export class KarpenterVersionUtils {
 
 /**
  * Karpenter Disruption Budget specification
- * @since 2.7.1
+ * @since 2.8.0+
  */
 export interface KarpenterDisruptionBudget {
   /** Number or percentage of nodes that can be disrupted */
@@ -56,7 +56,7 @@ export interface KarpenterDisruptionBudget {
  * Validates a KarpenterDisruptionBudget configuration
  * @param budget - The budget to validate
  * @returns true if valid, false otherwise
- * @since 2.7.1
+ * @since 2.8.0+
  */
 export function isValidDisruptionBudget(budget: KarpenterDisruptionBudget): boolean {
   const nodePattern = /^(\d+%|\d+)$/;
@@ -98,7 +98,7 @@ export interface KarpenterDisruption {
 
 /**
  * Karpenter NodePool specification
- * @since 2.7.0
+ * @since 2.8.0+
  */
 export interface KarpenterNodePoolSpec {
   /** Resource name */
@@ -152,7 +152,7 @@ export interface KarpenterNodePoolSpec {
 
 /**
  * Karpenter NodeClaim specification
- * @since 2.7.0
+ * @since 2.8.0+
  */
 export interface KarpenterNodeClaimSpec {
   /** Resource name */
@@ -267,7 +267,7 @@ export class KarpenterResources extends BaseResourceProvider {
    * Creates a Karpenter NodePool resource
    * @param spec - NodePool specification
    * @returns Created NodePool ApiObject
-   * @since 2.7.0
+   * @since 2.8.0+
    */
   addKarpenterNodePool(spec: KarpenterNodePoolSpec): ApiObject {
     const nodePoolSpec: Record<string, unknown> = {
@@ -396,7 +396,7 @@ export class KarpenterResources extends BaseResourceProvider {
    * Creates a Karpenter NodePool with optimized disruption settings for cost efficiency
    * @param spec - NodePool specification with disruption optimization
    * @returns Created NodePool ApiObject
-   * @since 2.7.1
+   * @since 2.8.0+
    */
   addKarpenterNodePoolWithDisruption(spec: {
     name: string;
@@ -472,7 +472,7 @@ export class KarpenterResources extends BaseResourceProvider {
    * Creates a Karpenter NodePool with scheduling constraints and priorities
    * @param spec - NodePool specification with scheduling optimization
    * @returns Created NodePool ApiObject
-   * @since 2.7.1
+   * @since 2.8.0+
    */
   addKarpenterNodePoolWithScheduling(spec: {
     name: string;
