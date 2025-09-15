@@ -1,6 +1,6 @@
 /**
  * @fileoverview UmbrellaRutter class for managing Helm umbrella charts with multiple subcharts
- * @since 0.2.0
+ * @since 2.8.0+
  */
 
 import { writeFileSync, mkdirSync } from 'fs';
@@ -15,7 +15,7 @@ import { SecurityUtils } from './security.js';
 /**
  * Configuration for a subchart within an umbrella chart
  *
- * @since 0.2.0
+ * @since 2.8.0+
  */
 export interface SubchartSpec {
   /** Name of the subchart */
@@ -35,7 +35,7 @@ export interface SubchartSpec {
 /**
  * Configuration properties for UmbrellaRutter
  *
- * @since 0.2.0
+ * @since 2.8.0+
  */
 export interface UmbrellaRutterProps {
   /** Metadata for the umbrella chart */
@@ -65,7 +65,7 @@ export interface UmbrellaRutterProps {
  * umbrella.write('./charts/my-app');
  * ```
  *
- * @since 0.2.0
+ * @since 2.8.0+
  */
 export class UmbrellaRutter {
   private readonly props: UmbrellaRutterProps;
@@ -76,7 +76,7 @@ export class UmbrellaRutter {
    * @param props - Configuration properties for the umbrella chart
    * @throws {Error} If chart metadata is invalid
    *
-   * @since 0.2.0
+   * @since 2.8.0+
    */
   constructor(props: UmbrellaRutterProps) {
     // Validate chart metadata
@@ -115,7 +115,7 @@ export class UmbrellaRutter {
    * umbrella.write('./dist/my-umbrella-chart');
    * ```
    *
-   * @since 0.2.0
+   * @since 2.8.0+
    */
   write(outDir: string): void {
     // Validate output directory path

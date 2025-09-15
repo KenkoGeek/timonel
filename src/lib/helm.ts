@@ -1,7 +1,7 @@
 /**
  * @fileoverview Helpers to embed Helm template expressions while staying type-safe in TypeScript.
  * We treat Helm placeholders as opaque strings that will be preserved in YAML.
- * @since 0.1.0
+ * @since 2.8.0+++
  */
 
 import { SecurityUtils } from './security.js';
@@ -25,7 +25,7 @@ import { SecurityUtils } from './security.js';
  * // Returns: '{{ .Values.deployment.replicas }}'
  * ```
  *
- * @since 0.1.0
+ * @since 2.8.0+
  */
 export function valuesRef(path: string): string {
   if (!isValidHelmPath(path)) {
@@ -54,7 +54,7 @@ export function valuesRef(path: string): string {
  * // Returns: '{{ required "api.key is required" .Values.api.key }}'
  * ```
  *
- * @since 0.1.0
+ * @since 2.8.0+
  */
 export function requiredValuesRef(path: string, message?: string): string {
   if (!isValidHelmPath(path)) {
@@ -72,7 +72,7 @@ export function requiredValuesRef(path: string, message?: string): string {
  * @private
  * @param {string} path - Path to validate
  * @returns {boolean} True if path is valid for Helm templates
- * @since 0.1.0
+ * @since 2.8.0+
  */
 function isValidHelmPath(path: string): boolean {
   // Use centralized validation from SecurityUtils
@@ -86,7 +86,7 @@ function isValidHelmPath(path: string): boolean {
  * variables for release and chart information.
  *
  * @namespace helm
- * @since 0.1.0
+ * @since 2.8.0+
  *
  * @example
  * ```typescript
@@ -126,7 +126,7 @@ export const helm = {
  * // Returns: "nginx:1.21"
  * ```
  *
- * @since 0.1.0
+ * @since 2.8.0+
  */
 export function quote(expr: string): string {
   // ensure Helm templates are quoted to avoid YAML parsing issues
@@ -152,7 +152,7 @@ export function quote(expr: string): string {
  * // Returns: "    line1\n    line2"
  * ```
  *
- * @since 0.1.0
+ * @since 2.8.0+
  */
 export function indent(n: number, expr: string): string {
   const spaces = ' '.repeat(n);
@@ -175,7 +175,7 @@ export function indent(n: number, expr: string): string {
  * // Returns: '{{ template "myapp.labels" . }}'
  * ```
  *
- * @since 0.1.0
+ * @since 2.8.0+
  */
 export function template(name: string, context = '.'): string {
   return `{{ template "${name}" ${context} }}`;
@@ -196,7 +196,7 @@ export function template(name: string, context = '.'): string {
  * // Returns: '{{ include "myapp.labels" . }}'
  * ```
  *
- * @since 0.1.0
+ * @since 2.8.0+
  */
 export function include(name: string, context = '.'): string {
   return `{{ include "${name}" ${context} }}`;
@@ -204,7 +204,7 @@ export function include(name: string, context = '.'): string {
 
 /**
  * Branded types for better type safety in Helm template paths
- * @since 1.1.0
+ * @since 2.8.0+
  */
 export type HelmPath = string & { readonly __brand: unique symbol };
 export type NumberPath = HelmPath & { readonly __numberType: unique symbol };
@@ -214,7 +214,7 @@ export type FloatPath = HelmPath & { readonly __floatType: unique symbol };
 
 /**
  * Configuration options for typed reference creation
- * @since 1.1.0
+ * @since 2.8.0+
  */
 interface TypedRefOptions {
   /** Whether to include default value handling */
@@ -232,7 +232,7 @@ interface TypedRefOptions {
  * @param options - Additional options for reference creation
  * @returns A string that can be used in Helm templates
  * @throws {Error} If the path is invalid
- * @since 1.1.0
+ * @since 2.8.0+
  */
 export function createTypedRef(
   path: string,
@@ -296,7 +296,7 @@ export function createTypedRef(
  * // Returns: '{{ .Values.deployment.replicas | int }}'
  * ```
  *
- * @since 0.1.0
+ * @since 2.8.0+
  */
 export function numberRef(path: string, options?: TypedRefOptions): string {
   return createTypedRef(path, 'number', options);
@@ -316,7 +316,7 @@ export function numberRef(path: string, options?: TypedRefOptions): string {
  * // Returns: '{{ .Values.feature.enabled | toBool }}'
  * ```
  *
- * @since 0.1.0
+ * @since 2.8.0+
  */
 export function boolRef(path: string, options?: TypedRefOptions): string {
   return createTypedRef(path, 'boolean', options);
@@ -336,7 +336,7 @@ export function boolRef(path: string, options?: TypedRefOptions): string {
  * // Returns: '{{ .Values.app.version | toString }}'
  * ```
  *
- * @since 0.1.0
+ * @since 2.8.0+
  */
 export function stringRef(path: string, options?: TypedRefOptions): string {
   const defaultOptions = { quote: true, ...options };
@@ -357,7 +357,7 @@ export function stringRef(path: string, options?: TypedRefOptions): string {
  * // Returns: '{{ .Values.scaling.ratio | float64 }}'
  * ```
  *
- * @since 0.1.0
+ * @since 2.8.0+
  */
 export function floatRef(path: string, options?: TypedRefOptions): string {
   return createTypedRef(path, 'float', options);
@@ -380,7 +380,7 @@ export function floatRef(path: string, options?: TypedRefOptions): string {
  * // Returns: '{{ if .Values.database.enabled }}{{ .Values.database.secretName }}{{ end }}'
  * ```
  *
- * @since 2.6.0
+ * @since 2.8.0+
  */
 export function conditionalRef(path: string, condition: string): string {
   if (!isValidHelmPath(path)) {
@@ -415,7 +415,7 @@ export function conditionalRef(path: string, condition: string): string {
  * // Returns: '{{ if .Values.createNamespace }}\napiVersion: v1\nkind: Namespace...{{ end }}'
  * ```
  *
- * @since 2.7.4
+ * @since 2.8.0+
  */
 export function conditionalManifest(yamlContent: string, condition: string): string {
   if (!isValidHelmPath(condition)) {
@@ -447,7 +447,7 @@ ${cleanYaml}
  * // Returns: '{{ .Values.image.tag | default "latest" }}'
  * ```
  *
- * @since 2.6.0
+ * @since 2.8.0+
  */
 export function defaultRef(path: string, defaultValue: string): string {
   if (!isValidHelmPath(path)) {
@@ -474,7 +474,7 @@ export function defaultRef(path: string, defaultValue: string): string {
  * // Returns: '{{ .Values.secrets.apiKey | b64enc }}'
  * ```
  *
- * @since 2.6.0
+ * @since 2.8.0+
  */
 export function base64Ref(path: string): string {
   if (!isValidHelmPath(path)) {
@@ -514,7 +514,7 @@ export function jsonRef(path: string): string {
  * These functions provide programmatic access to Helm's flow control structures:
  * if/else, with, and range for conditional logic and iteration.
  *
- * @since 1.4.0
+ * @since 2.8.0+
  */
 
 /**

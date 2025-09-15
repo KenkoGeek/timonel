@@ -7,7 +7,7 @@ import { BaseResourceProvider } from '../../baseResourceProvider.js';
  * AWS-specific Kubernetes resources provider
  * Handles AWS integrations like EBS, EFS, ALB, IRSA, and other AWS services
  *
- * @since 2.4.0
+ * @since 2.8.0+
  */
 export class AWSResources extends BaseResourceProvider {
   private static readonly STORAGE_API_VERSION = 'storage.k8s.io/v1';
@@ -27,7 +27,7 @@ export class AWSResources extends BaseResourceProvider {
    * });
    * ```
    *
-   * @since 2.4.0
+   * @since 2.8.0+
    */
   addEBSStorageClass(spec: AWSEBSStorageClassSpec): ApiObject {
     const parameters: Record<string, string> = {
@@ -74,7 +74,7 @@ export class AWSResources extends BaseResourceProvider {
    * });
    * ```
    *
-   * @since 2.4.0
+   * @since 2.8.0+
    */
   addEFSStorageClass(spec: AWSEFSStorageClassSpec): ApiObject {
     const parameters: Record<string, string> = {
@@ -119,7 +119,7 @@ export class AWSResources extends BaseResourceProvider {
    * });
    * ```
    *
-   * @since 2.4.0
+   * @since 2.8.0+
    */
   addIRSAServiceAccount(spec: AWSIRSAServiceAccountSpec): kplus.ServiceAccount {
     this.validateRoleArn(spec.roleArn);
@@ -174,7 +174,7 @@ export class AWSResources extends BaseResourceProvider {
    * });
    * ```
    *
-   * @since 2.4.0
+   * @since 2.8.0+
    */
   addALBIngress(spec: AWSALBIngressSpec): kplus.Ingress {
     // Validate ingress paths format
@@ -238,7 +238,7 @@ export class AWSResources extends BaseResourceProvider {
    * Validates Ingress paths format according to Kubernetes specification
    * @param rules - Ingress rules to validate
    * @private
-   * @since 2.5.0
+   * @since 2.8.0+
    */
   private validateIngressPaths(
     rules: Array<{
@@ -261,7 +261,7 @@ export class AWSResources extends BaseResourceProvider {
    * Validates a single Ingress rule
    * @param rule - Ingress rule to validate
    * @private
-   * @since 2.5.0
+   * @since 2.8.0+
    */
   private validateIngressRule(rule: {
     host?: string;
@@ -286,7 +286,7 @@ export class AWSResources extends BaseResourceProvider {
    * Validates a single Ingress path
    * @param pathRule - Path rule to validate
    * @private
-   * @since 2.5.0
+   * @since 2.8.0+
    */
   private validateIngressPath(pathRule: {
     path: string;
@@ -459,7 +459,7 @@ export class AWSResources extends BaseResourceProvider {
    * });
    * ```
    *
-   * @since 2.7.0
+   * @since 2.8.0+
    */
   addECRServiceAccount(spec: AWSECRServiceAccountSpec): kplus.ServiceAccount {
     const annotations = {

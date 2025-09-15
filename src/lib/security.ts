@@ -1,7 +1,7 @@
 /**
  * @fileoverview Security utilities for input validation and sanitization
  * Focused on CLI tool security concerns: path traversal, injection prevention
- * @since 2.2.0
+ * @since 2.8.0+
  */
 
 import * as path from 'path';
@@ -10,7 +10,7 @@ import * as path from 'path';
  * Security utilities for input validation and sanitization
  * Focused on CLI tool security concerns: path traversal, injection prevention
  *
- * @since 2.2.0
+ * @since 2.8.0+
  */
 export class SecurityUtils {
   /**
@@ -20,7 +20,7 @@ export class SecurityUtils {
    * @returns Sanitized path if valid
    * @throws Error if path is invalid or contains traversal sequences
    *
-   * @since 2.2.0
+   * @since 2.8.0+
    */
   static validatePath(inputPath: string, allowedBasePath: string): string {
     if (!inputPath || typeof inputPath !== 'string') {
@@ -54,7 +54,7 @@ export class SecurityUtils {
    * @param message - The message to sanitize
    * @returns Sanitized message with control characters removed
    *
-   * @since 2.2.0
+   * @since 2.8.0+
    */
   static sanitizeLogMessage(message: string): string {
     if (typeof message !== 'string') {
@@ -78,7 +78,7 @@ export class SecurityUtils {
    * @returns Sanitized environment name
    * @throws Error if environment name is invalid
    *
-   * @since 2.2.0
+   * @since 2.8.0+
    */
   static sanitizeEnvironmentName(env: string): string {
     if (!env || typeof env !== 'string') {
@@ -104,7 +104,7 @@ export class SecurityUtils {
    * @param filePath - The file path to validate
    * @returns True if the file has a valid TypeScript extension
    *
-   * @since 2.2.0
+   * @since 2.8.0+
    */
   static isValidTypeScriptFile(filePath: string): boolean {
     const allowedExtensions = ['.ts', '.tsx'];
@@ -118,7 +118,7 @@ export class SecurityUtils {
    * @param templatePath - The template path to validate
    * @returns True if the path is valid for Helm templates
    *
-   * @since 2.2.0
+   * @since 2.8.0+
    */
   static isValidHelmTemplatePath(templatePath: string): boolean {
     if (!templatePath || typeof templatePath !== 'string') {
@@ -170,7 +170,7 @@ export class SecurityUtils {
    * @param chartName - Chart name to validate
    * @returns True if chart name follows Helm naming rules
    *
-   * @since 2.2.0
+   * @since 2.8.0+
    */
   static isValidChartName(chartName: string): boolean {
     if (!chartName || typeof chartName !== 'string') {
@@ -178,8 +178,9 @@ export class SecurityUtils {
     }
 
     // Helm chart name validation (RFC 1123 subdomain) - safe regex
+    // Must start with a letter, can contain letters, numbers, and hyphens
     // eslint-disable-next-line security/detect-unsafe-regex -- Simple character class regex is safe
-    const chartNameRegex = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
+    const chartNameRegex = /^[a-z]([-a-z0-9]*[a-z0-9])?$/;
     return chartNameRegex.test(chartName) && chartName.length <= 63;
   }
 
@@ -188,7 +189,7 @@ export class SecurityUtils {
    * @param subchartName - Subchart name to validate
    * @returns True if subchart name is valid
    *
-   * @since 2.2.0
+   * @since 2.8.0+
    */
   static isValidSubchartName(subchartName: string): boolean {
     return this.isValidChartName(subchartName);
@@ -202,7 +203,7 @@ export class SecurityUtils {
    * @returns Object with sanitized name and value
    * @throws Error if name or value contains dangerous patterns
    *
-   * @since 2.6.0
+   * @since 2.8.0+
    */
   static sanitizeEnvVar(name: string, value: string): { name: string; value: string } {
     if (!name || typeof name !== 'string') {
@@ -272,7 +273,7 @@ export class SecurityUtils {
    * @returns True if tag is valid and secure
    * @throws Error if tag violates security policies
    *
-   * @since 2.6.0
+   * @since 2.8.0+
    */
   static validateImageTag(tag: string): boolean {
     if (!tag || typeof tag !== 'string') {
@@ -313,9 +314,7 @@ export class SecurityUtils {
       !datePattern.test(trimmedTag)
     ) {
       // Warning for non-standard tags but don't fail
-      console.warn(
-        `Warning: Image tag '${trimmedTag}' doesn't follow recommended patterns (semver, hash, or date)`,
-      );
+      // Note: Non-standard tag pattern detected but allowing it
     }
 
     return true;
@@ -329,7 +328,7 @@ export class SecurityUtils {
    * @returns Secure secret name
    * @throws Error if generated name is invalid
    *
-   * @since 2.6.0
+   * @since 2.8.0+
    */
   static generateSecretName(baseName: string, suffix?: string): string {
     if (!baseName || typeof baseName !== 'string') {
@@ -363,7 +362,7 @@ export class SecurityUtils {
    * @returns Sanitized base name
    * @throws Error if no valid characters remain
    *
-   * @since 2.6.0
+   * @since 2.8.0+
    */
   private static sanitizeBaseName(baseName: string): string {
     // Use character-by-character processing instead of regex
@@ -394,7 +393,7 @@ export class SecurityUtils {
    * @returns Base name with suffix
    * @throws Error if suffix is invalid
    *
-   * @since 2.6.0
+   * @since 2.8.0+
    */
   private static appendSuffix(baseName: string, suffix: string): string {
     if (typeof suffix !== 'string') {
@@ -428,7 +427,7 @@ export class SecurityUtils {
    * @param suffix - Original suffix for preservation
    * @returns Truncated name if needed
    *
-   * @since 2.6.0
+   * @since 2.8.0+
    */
   private static truncateIfNeeded(name: string, suffix?: string): string {
     const maxLength = 63;

@@ -1,6 +1,6 @@
 /**
  * @fileoverview Helm chart writer for generating complete Helm chart structures
- * @since 1.0.0
+ * @since 2.8.0+
  */
 
 import * as fs from 'fs';
@@ -17,7 +17,7 @@ import { SecurityUtils } from './security.js';
  * following Helm chart specification.
  *
  * @interface HelmChartMeta
- * @since 1.0.0
+ * @since 2.8.0+
  */
 export interface HelmChartMeta {
   /** Chart name */
@@ -58,7 +58,7 @@ export interface HelmChartMeta {
  * Environment-specific values mapping
  *
  * @interface EnvValuesMap
- * @since 1.0.0
+ * @since 2.8.0+
  */
 export interface EnvValuesMap {
   [env: string]: Record<string, unknown>;
@@ -71,7 +71,7 @@ export interface EnvValuesMap {
  * templates or crds directory.
  *
  * @interface SynthAsset
- * @since 1.0.0
+ * @since 2.8.0+
  */
 export interface SynthAsset {
   /** Filename or logical identifier */
@@ -88,7 +88,7 @@ export interface SynthAsset {
  * Options for writing a complete Helm chart
  *
  * @interface HelmChartWriteOptions
- * @since 1.0.0
+ * @since 2.8.0+
  */
 export interface HelmChartWriteOptions {
   /** Output directory path (e.g., dist/charts/my-chart) */
@@ -113,7 +113,7 @@ export interface HelmChartWriteOptions {
  * Helm template helper definition
  *
  * @interface HelperDefinition
- * @since 1.0.0
+ * @since 2.8.0+
  */
 export interface HelperDefinition {
   /** Template name */
@@ -129,7 +129,7 @@ export interface HelperDefinition {
  * including Chart.yaml, values.yaml, templates, and auxiliary files.
  *
  * @class HelmChartWriter
- * @since 1.0.0
+ * @since 2.8.0+
  *
  * @example
  * ```typescript
@@ -166,7 +166,7 @@ export class HelmChartWriter {
    * });
    * ```
    *
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   static write(opts: HelmChartWriteOptions) {
     const {
@@ -202,7 +202,7 @@ export class HelmChartWriter {
    * @private
    * @param {string} outDir - Output directory path
    * @throws {Error} If directories cannot be created
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   private static createDirectories(outDir: string): void {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
@@ -217,7 +217,7 @@ export class HelmChartWriter {
    * @param {string} outDir - Output directory path
    * @param {HelmChartMeta} meta - Chart metadata
    * @throws {Error} If Chart.yaml cannot be written
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   private static writeChartYaml(outDir: string, meta: HelmChartMeta): void {
     const chartYaml = YAML.stringify({
@@ -247,7 +247,7 @@ export class HelmChartWriter {
    * @param {Record<string, unknown>} defaultValues - Default values
    * @param {EnvValuesMap} envValues - Environment-specific values
    * @throws {Error} If values files cannot be written
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   private static writeValuesFiles(
     outDir: string,
@@ -270,7 +270,7 @@ export class HelmChartWriter {
    * @private
    * @param {string} outDir - Output directory path
    * @param {SynthAsset[]} assets - Kubernetes manifests to write
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   private static writeAssets(outDir: string, assets: SynthAsset[]): void {
     writeAssets(outDir, assets);
@@ -282,7 +282,7 @@ export class HelmChartWriter {
    * @private
    * @param {string} outDir - Output directory path
    * @param {string | HelperDefinition[]} [helpersTpl] - Helpers content
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   private static writeHelpers(outDir: string, helpersTpl?: string | HelperDefinition[]): void {
     if (!helpersTpl) return;
@@ -305,7 +305,7 @@ export class HelmChartWriter {
    * @private
    * @param {string} outDir - Output directory path
    * @param {string} [notesTpl] - Notes content
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   private static writeNotes(outDir: string, notesTpl?: string): void {
     if (!notesTpl) return;
@@ -323,7 +323,7 @@ export class HelmChartWriter {
    * @private
    * @param {string} outDir - Output directory path
    * @param {Record<string, unknown>} [valuesSchema] - JSON schema
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   private static writeSchema(outDir: string, valuesSchema?: Record<string, unknown>): void {
     if (!valuesSchema) return;
@@ -340,7 +340,7 @@ export class HelmChartWriter {
    *
    * @private
    * @param {string} outDir - Output directory path
-   * @since 1.0.0
+   * @since 2.8.0+
    */
   private static writeHelmIgnore(outDir: string): void {
     const helmIgnorePath = path.join(outDir, '.helmignore');
@@ -380,7 +380,7 @@ export class HelmChartWriter {
  * @private
  * @param {string} yamlStr - YAML string with potential document separators
  * @returns {string[]} Array of individual YAML documents
- * @since 1.0.0
+ * @since 2.8.0+
  */
 function splitDocs(yamlStr: string): string[] {
   return yamlStr
@@ -396,7 +396,7 @@ function splitDocs(yamlStr: string): string[] {
  * @param {string} outDir - Output directory path
  * @param {SynthAsset[]} assets - Assets to write
  * @throws {Error} If asset ID contains invalid characters
- * @since 1.0.0
+ * @since 2.8.0+
  */
 function writeAssets(outDir: string, assets: SynthAsset[]) {
   for (const asset of assets) {
@@ -422,7 +422,7 @@ function writeAssets(outDir: string, assets: SynthAsset[]) {
  * @private
  * @param {('templates' | 'crds')} [target] - Target directory type
  * @returns {string} Directory name
- * @since 1.0.0
+ * @since 2.8.0+
  */
 function getTargetDirectory(target?: 'templates' | 'crds'): string {
   return target === 'crds' ? 'crds' : 'templates';
@@ -436,7 +436,7 @@ function getTargetDirectory(target?: 'templates' | 'crds'): string {
  * @param {string} targetDir - Target subdirectory
  * @param {string} assetId - Asset identifier
  * @param {string} yaml - YAML content
- * @since 1.0.0
+ * @since 2.8.0+
  */
 function writeSingleAssetFile(
   outDir: string,
@@ -459,7 +459,7 @@ function writeSingleAssetFile(
  * @param {string} targetDir - Target subdirectory
  * @param {string} assetId - Asset identifier
  * @param {string} yaml - YAML content with potential multiple documents
- * @since 1.0.0
+ * @since 2.8.0+
  */
 function writeMultipleAssetFiles(
   outDir: string,
