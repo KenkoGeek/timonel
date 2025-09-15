@@ -580,7 +580,7 @@ export default function run(outDir: string) {
  */
 function exampleSubchartTs(name: string): string {
   return `import { Rutter } from 'timonel';
-import { valuesRef } from 'timonel/lib/helm';
+import { valuesRef } from './lib/helm.js';
 
 // Define subchart
 const rutter = new Rutter({
@@ -629,7 +629,7 @@ export { rutter };
  */
 function exampleChartTs(name: string): string {
   return `import { Rutter } from 'timonel';
-import { valuesRef, helm } from 'timonel/lib/helm';
+import { valuesRef, helm } from './lib/helm.js';
 
 // Define chart metadata and default/env values
 const rutter = new Rutter({
