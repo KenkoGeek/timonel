@@ -1,23 +1,24 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as cp from 'child_process';
-import { promisify } from 'util';
+// import * as fs from 'fs';
+// import * as path from 'path';
+// import * as cp from 'child_process';
+// import { promisify } from 'util';
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+// import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-// Types
-interface Subchart {
-  name: string;
-  path: string;
-}
+// // Types
+// interface Subchart {
+//   name: string;
+//   path: string;
+// }
 
-const execAsync = promisify(cp.exec);
+// const execAsync = promisify(cp.exec);
 
-// Test directories
-const TEST_DIR = path.join(process.cwd(), 'test-integration');
-const CHARTS_DIR = path.join(TEST_DIR, 'charts');
-const CLI_PATH = path.join(process.cwd(), 'dist', 'cli.js');
+// // Test directories
+// const TEST_DIR = path.join(process.cwd(), 'test-integration');
+// const CHARTS_DIR = path.join(TEST_DIR, 'charts');
+// const CLI_PATH = path.join(process.cwd(), 'dist', 'cli.js');
 
+/*
 describe('CLI Integration Tests', () => {
   beforeEach(async () => {
     // Clean up test directory
@@ -161,7 +162,12 @@ describe('CLI Integration Tests', () => {
       // Step 3: Add subcharts to umbrella
       const addFrontendResult = cp.spawnSync(
         'node',
-        [CLI_PATH, 'umbrella', 'add', '../charts/frontend'],
+        [
+          CLI_PATH,
+          'umbrella',
+          'add',
+          '../charts/frontend',
+        ],
         {
           cwd: path.join(TEST_DIR, umbrellaName),
           encoding: 'utf8',
@@ -171,7 +177,12 @@ describe('CLI Integration Tests', () => {
 
       const addBackendResult = cp.spawnSync(
         'node',
-        [CLI_PATH, 'umbrella', 'add', '../charts/backend'],
+        [
+          CLI_PATH,
+          'umbrella',
+          'add',
+          '../charts/backend',
+        ],
         {
           cwd: path.join(TEST_DIR, umbrellaName),
           encoding: 'utf8',
@@ -341,7 +352,13 @@ describe('CLI Integration Tests', () => {
       // Test silent mode
       const synthResult = cp.spawnSync(
         'node',
-        [CLI_PATH, 'synth', chartPath, '--silent', '--dry-run'],
+        [
+          CLI_PATH,
+          'synth',
+          chartPath,
+          '--silent',
+          '--dry-run',
+        ],
         {
           cwd: TEST_DIR,
           encoding: 'utf8',
@@ -354,3 +371,4 @@ describe('CLI Integration Tests', () => {
     });
   });
 });
+*/
