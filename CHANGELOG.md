@@ -1,3 +1,9 @@
+## [2.8.1](https://github.com/KenkoGeek/timonel/compare/v2.8.0...v2.8.1) (2025-09-15)
+
+### Bug Fixes
+
+- **cli:** resolve timonel module not found error in umbrella.ts ([2dfb19c](https://github.com/KenkoGeek/timonel/commit/2dfb19c7dd4fcc2de9a342c6953133e6601cf74e))
+
 # [2.8.0](https://github.com/KenkoGeek/timonel/compare/v2.7.3...v2.8.0) (2025-09-14)
 
 ### Bug Fixes
