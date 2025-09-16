@@ -1,12 +1,18 @@
+import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { join } from 'path';
+
 import type { App } from 'cdk8s';
 import { Chart, ApiObject } from 'cdk8s';
+import YAML from 'yaml';
 
 import type { ChartProps } from '../types.js';
+import type { UmbrellaRutter } from '../umbrellaRutter.js';
 
 /**
  * Generate an umbrella chart template
  * @param name Chart name
  * @returns Template string for umbrella.ts
+ * @since 2.8.4
  */
 export function generateUmbrellaChart(name: string): string {
   return `import { App } from 'cdk8s';
@@ -27,6 +33,10 @@ export function synth(outDir: string) {
     subcharts: []
   });
 
+  // Generate Helm chart files
+  chart.writeHelmChart(outDir);
+  
+  // Also generate CDK8s YAML files
   app.synth();
 }
 
@@ -40,8 +50,11 @@ export default synth;`;
 
 /**
  * UmbrellaChart class for managing multiple subcharts
+ * @since 2.8.4
  */
 export class UmbrellaChartTemplate extends Chart {
+  private _umbrellaRutter?: UmbrellaRutter;
+
   constructor(
     scope: App,
     id: string,
@@ -51,6 +64,11 @@ export class UmbrellaChartTemplate extends Chart {
     this.configure();
   }
 
+  /**
+   * Configure the umbrella chart with basic resources and prepare UmbrellaRutter
+   * @since 2.8.4
+   * @private
+   */
   private configure() {
     // Create a basic ConfigMap to indicate the umbrella chart is working
     new ApiObject(this, 'umbrella-info', {
@@ -71,6 +89,8 @@ export class UmbrellaChartTemplate extends Chart {
         'subcharts.count': String(this.config.subcharts?.length || 0),
       },
     });
+
+    // Note: Namespace is handled by writeHelmChart() method in templates/namespace.yaml
 
     // Add services
     this.config.services?.forEach((svc, index) => {
@@ -114,11 +134,133 @@ export class UmbrellaChartTemplate extends Chart {
   }
 
   /**
-   * Write the Helm chart to disk
-   * @param _outDir Output directory
+   * Write Helm chart files using basic Helm structure
+   * @since 2.8.4
+   * @param outputDir - Directory to write the Helm chart files
    */
-  public writeHelmChart(_outDir: string) {
-    // This method is for future Helm chart generation
-    // Currently, cdk8s handles the YAML generation
+  writeHelmChart(outputDir: string): void {
+    // Ensure output directory exists
+    if (!existsSync(outputDir)) {
+      mkdirSync(outputDir, { recursive: true });
+    }
+
+    // Create Chart.yaml
+    const chartYaml = {
+      apiVersion: 'v2',
+      name: this.config.name,
+      description: this.config.description || 'A Helm umbrella chart',
+      type: 'application',
+      version: this.config.version,
+      appVersion: this.config.version,
+      dependencies:
+        this.config.subcharts?.map((subchart) => ({
+          name: subchart.name,
+          version: '1.0.0',
+          repository: 'file://./charts/' + subchart.name,
+        })) || [],
+    };
+
+    writeFileSync(join(outputDir, 'Chart.yaml'), YAML.stringify(chartYaml));
+
+    // Create values.yaml
+    const valuesYaml = {
+      global: {
+        namespace: this.config.name,
+      },
+      // Add subchart values
+      ...Object.fromEntries(
+        this.config.subcharts?.map((subchart) => [
+          subchart.name,
+          {
+            enabled: true,
+          },
+        ]) || [],
+      ),
+    };
+
+    writeFileSync(join(outputDir, 'values.yaml'), YAML.stringify(valuesYaml));
+
+    // Create charts directory
+    const chartsDir = join(outputDir, 'charts');
+    if (!existsSync(chartsDir)) {
+      mkdirSync(chartsDir, { recursive: true });
+    }
+
+    // Create templates directory
+    const templatesDir = join(outputDir, 'templates');
+    if (!existsSync(templatesDir)) {
+      mkdirSync(templatesDir, { recursive: true });
+    }
+
+    // Create shared namespace.yaml in templates
+    const namespaceYaml = {
+      apiVersion: 'v1',
+      kind: 'Namespace',
+      metadata: {
+        name: '{{ .Values.global.namespace | default .Release.Name }}',
+        labels: {
+          'app.kubernetes.io/name': '{{ include "chart.name" . }}',
+          'app.kubernetes.io/instance': '{{ .Release.Name }}',
+          'app.kubernetes.io/version': '{{ .Chart.AppVersion }}',
+          'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
+        },
+      },
+    };
+
+    writeFileSync(join(templatesDir, 'namespace.yaml'), YAML.stringify(namespaceYaml));
+
+    // Create _helpers.tpl
+    const helpersTpl = `{{/*
+Expand the name of the chart.
+*/}}
+{{- define "chart.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Create a default fully qualified app name.
+*/}}
+{{- define "chart.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "chart.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Common labels
+*/}}
+{{- define "chart.labels" -}}
+helm.sh/chart: {{ include "chart.chart" . }}
+{{ include "chart.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Selector labels
+*/}}
+{{- define "chart.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "chart.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+`;
+
+    writeFileSync(join(templatesDir, '_helpers.tpl'), helpersTpl);
   }
 }
