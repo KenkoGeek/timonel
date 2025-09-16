@@ -63,9 +63,9 @@ function usageAndExit(msg?: string) {
 }
 
 /**
- * Initializes a new basic chart with Helm files.
- * Creates chart.ts file and generates Chart.yaml and values.yaml.
- *
+ * Initialize a new chart with the given name.
+ * Creates only the chart.ts file following CDK8s best practices.
+ * Helm files (Chart.yaml, values.yaml) are generated during synth command.
  * @param name - Chart name
  * @param silent - Whether to suppress output
  * @since 2.8.4
@@ -88,30 +88,16 @@ async function cmdInit(name?: string, silent = false) {
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.mkdirSync(base, { recursive: true });
 
-  // Import template generator and BasicChart
-  const { generateBasicChart, BasicChart } = await import('./lib/templates/basic-chart.js');
-  const { App } = await import('cdk8s');
+  // Import template generator
+  const { generateBasicChart } = await import('./lib/templates/basic-chart.js');
 
-  // Write chart file
+  // Write chart file only - following CDK8s best practices
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.writeFileSync(chartFile, generateBasicChart(validName));
 
-  // Generate Helm files (Chart.yaml and values.yaml)
-  const app = new App();
-  const chart = new BasicChart(app, validName, {
-    appName: validName,
-    image: 'nginx:latest',
-    port: 80,
-    replicas: 1,
-    createNamespace: false,
-  });
-
-  // Write Helm chart files to the chart directory
-  chart.writeHelmChart(base);
-
   log(`Chart created at ${base}`, silent);
-  log(`Generated Chart.yaml and values.yaml`, silent);
-  log(`Run 'tl synth ${validName}' to generate Kubernetes manifests`, silent);
+  log(`Generated chart.ts file`, silent);
+  log(`Run 'tl synth ${validName}' to generate Kubernetes manifests and Helm files`, silent);
 }
 
 /**

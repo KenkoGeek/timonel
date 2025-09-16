@@ -14,20 +14,43 @@ export interface BasicChartProps extends ChartProps {
 }
 
 export class BasicChart extends Chart {
-  private rutter: Rutter;
+  private rutter!: Rutter;
   private props: BasicChartProps;
 
+  /**
+   * Creates a new BasicChart instance.
+   * Following CDK8s best practices, only generates CDK8s manifests in constructor.
+   * Helm files are generated separately via writeHelmChart() method during synth.
+   * @param scope - The scope in which to define this construct
+   * @param id - The scoped construct ID
+   * @param props - Chart configuration properties
+   * @since 2.8.4
+   */
   constructor(scope: Construct, id: string, props: BasicChartProps = {}) {
     super(scope, id, props);
     this.props = props;
 
+    // Initialize Rutter for potential Helm template generation (lazy initialization)
+    this.initializeRutter();
+
+    // Generate Kubernetes manifests for CDK8s synthesis
+    this.generateKubernetesManifests();
+  }
+
+  /**
+   * Initialize Rutter for Helm template generation.
+   * This is called lazily to prepare Helm templates without generating files.
+   * @since 2.8.4
+   * @private
+   */
+  private initializeRutter(): void {
     const {
       appName = 'my-app',
       image = 'nginx:latest',
       port = 80,
       replicas = 1,
       createNamespace = false,
-    } = props;
+    } = this.props;
 
     // Initialize Rutter for Helm template generation
     const meta: ChartMetadata = {
@@ -131,12 +154,14 @@ export class BasicChart extends Chart {
       },
       'service',
     );
-
-    // Generate Kubernetes manifests for CDK8s
-    this.generateKubernetesManifests();
   }
 
-  // Method to write Helm chart
+  /**
+   * Write Helm chart files (Chart.yaml and values.yaml) to the specified directory.
+   * This method should only be called during synth command, not during init.
+   * @param outDir - Output directory for Helm files
+   * @since 2.8.4
+   */
   writeHelmChart(outDir: string): void {
     this.rutter.write(outDir);
   }
@@ -234,7 +259,8 @@ export class BasicChart extends Chart {
 }
 
 /**
- * Generates a basic chart template for CLI usage
+ * Generates a basic chart template for CLI usage.
+ * Following CDK8s best practices, generates both CDK8s manifests and Helm files during synth.
  * @param appName - The name of the application
  * @returns TypeScript code string for the chart
  * @since 2.8.4
@@ -249,7 +275,7 @@ const app = new App({
   yamlOutputType: YamlOutputType.FILE_PER_RESOURCE
 });
 
-new BasicChart(app, '${appName}', {
+const chart = new BasicChart(app, '${appName}', {
   appName: '${appName}',
   image: 'nginx:latest',
   port: 80,
@@ -257,6 +283,10 @@ new BasicChart(app, '${appName}', {
   createNamespace: true // Set to true to create namespace, false to skip
 });
 
+// Synthesize CDK8s manifests
 app.synth();
+
+// Generate Helm files (Chart.yaml and values.yaml) following CDK8s best practices
+chart.writeHelmChart('.');
 `;
 }
