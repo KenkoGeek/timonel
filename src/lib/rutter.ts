@@ -1,7 +1,7 @@
 import { ApiObject, App, Chart, Testing } from 'cdk8s';
 import type { ChartProps } from 'cdk8s';
+import type { Ingress, ServiceAccount } from 'cdk8s-plus-33';
 import type { Construct } from 'constructs';
-import type { ServiceAccount, Ingress } from 'cdk8s-plus-33';
 import Handlebars from 'handlebars';
 import YAML from 'yaml';
 
@@ -37,24 +37,20 @@ export class Rutter {
 
   // CDK8s infrastructure
   private readonly app: App;
-  private readonly chart: Chart;
-
-  // Resource providers
+  private readonly assets: Array<{ id: string; yaml: string; target: string }> = [];
   private readonly awsResources: AWSResources;
-  private readonly karpenterResources: KarpenterResources;
-
-  // Chart metadata and configuration
-  private readonly meta: ChartMetadata;
+  private readonly chart: Chart;
   private readonly defaultValues: Record<string, unknown>;
   private readonly envValues: Record<string, Record<string, unknown>>;
+  private readonly karpenterResources: KarpenterResources;
+  private readonly meta: ChartMetadata;
   private readonly props: RutterProps;
-  private readonly assets: Array<{ id: string; yaml: string; target: string }> = [];
 
   constructor(props: RutterProps) {
-    this.props = props;
-    this.meta = props.meta;
     this.defaultValues = props.defaultValues ?? {};
     this.envValues = props.envValues ?? {};
+    this.meta = props.meta;
+    this.props = props;
 
     // Create CDK8s infrastructure
     this.app = new App();
@@ -347,6 +343,7 @@ export class Rutter {
     return this.awsResources.addECRServiceAccount(spec);
   }
 
+  // Manifest Helpers
   // Utility methods
   /**
    * Adds a Kubernetes manifest to the chart using CDK8S
@@ -489,19 +486,18 @@ export class Rutter {
     }
 
     try {
-      // Create Handlebars template for conditional manifest
-      const conditionalTemplate = `{{- if ${helmCondition} }}
-{{manifestYaml}}
-{{- end }}`;
+      // Convert the manifest to YAML
+      const yamlContent = YAML.stringify(manifestObject);
+
+      // Create Handlebars template with escaped Helm syntax
+      const conditionalTemplate = `\\{{- if ${helmCondition} }}
+{{{manifestYaml}}}
+\\{{- end }}`;
 
       // Compile the Handlebars template
       const template = Handlebars.compile(conditionalTemplate, {
         noEscape: true, // Preserve YAML formatting
-        strict: true, // Strict mode for better error handling
       });
-
-      // Convert the manifest to YAML
-      const yamlContent = YAML.stringify(manifestObject);
 
       // Generate the conditional YAML using Handlebars
       const conditionalYaml = template({
@@ -705,19 +701,178 @@ export class Rutter {
   }
 
   /**
-   * Process YAML content to remove quotes from Helm templates
-   * This fixes the issue where YAML.stringify adds quotes around Helm template expressions
-   * Removes quotes from all Helm template expressions
+   * Processes Helm template expressions in YAML content
+   * @param yaml - YAML content to process
+   * @returns Processed YAML with proper Helm template syntax
+   *
+   * @since 2.8.0+
    */
   private processHelmTemplates(yaml: string): string {
-    // Remove quotes from Helm template expressions
-    // Match patterns like "{{ .Values.replicas | int }}", "{{ .Release.Name }}", etc.
-    // Handle both key-value pairs and standalone values
-    return yaml
-      .replace(/": "\{\{([^}]+)\}\}"/g, ': {{ $1 }}')
-      .replace(/: "\{\{([^}]+)\}\}"/g, ': {{ $1 }}')
-      .replace(/"\{\{([^}]+)\}\}"/g, '{{ $1 }}')
-      .replace(/": "\.nan"/g, ': .nan');
+    let processed = this.fixCharacterMappingIssues(yaml);
+    processed = this.applyHelmTemplateReplacements(processed);
+    return processed;
+  }
+
+  private fixCharacterMappingIssues(yaml: string): string {
+    const lines = yaml.split('\n');
+    const fixedLines: string[] = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      // eslint-disable-next-line security/detect-object-injection
+      const line = lines[i];
+
+      if (!line) {
+        i++;
+        continue;
+      }
+
+      const charKeyMatch = line.match(/^(\s*)"(\d+)":\s*(.+)$/);
+      if (charKeyMatch && charKeyMatch[2] && parseInt(charKeyMatch[2]) === 0) {
+        const indent = charKeyMatch[1] || '';
+        const result = this.processCharacterMapping(lines, i, indent);
+        if (result.reconstructed) {
+          fixedLines.push(result.reconstructed);
+          i = result.nextIndex;
+          continue;
+        }
+      }
+
+      if (line) {
+        fixedLines.push(line);
+      }
+      i++;
+    }
+
+    return fixedLines.join('\n');
+  }
+
+  private processCharacterMapping(
+    lines: string[],
+    startIndex: number,
+    indent: string,
+  ): { reconstructed?: string; nextIndex: number } {
+    const charMappings: Array<{ index: number; char: string }> = [];
+    let j = startIndex;
+
+    while (j < lines.length) {
+      // eslint-disable-next-line security/detect-object-injection
+      const currentLine = lines[j];
+      if (!currentLine) {
+        break;
+      }
+
+      const currentMatch = currentLine.match(/^(\s*)"(\d+)":\s*(.+)$/);
+      if (currentMatch && currentMatch[1] === indent && currentMatch[2] && currentMatch[3]) {
+        const index = parseInt(currentMatch[2]);
+        let char = currentMatch[3];
+
+        if (char && char.startsWith('"') && char.endsWith('"')) {
+          char = char.slice(1, -1);
+        }
+
+        charMappings.push({ index, char });
+        j++;
+      } else {
+        break;
+      }
+    }
+
+    if (charMappings.length > 3) {
+      charMappings.sort((a, b) => a.index - b.index);
+      const reconstructed = charMappings.map((m) => m.char).join('');
+
+      if (reconstructed.includes('{{') && reconstructed.includes('}}')) {
+        return { reconstructed: `${indent}${reconstructed}`, nextIndex: j };
+      }
+    }
+
+    return { nextIndex: j };
+  }
+
+  private applyHelmTemplateReplacements(processed: string): string {
+    // Fix escaped quotes in include statements
+    processed = this.fixIncludeStatements(processed);
+
+    // Fix escaped quotes in function calls
+    processed = this.fixFunctionCalls(processed);
+
+    // Fix Chart object references
+    processed = this.fixChartReferences(processed);
+
+    // Remove quotes around Helm expressions
+    processed = this.removeHelmExpressionQuotes(processed);
+
+    // Handle complex multi-line expressions
+    processed = this.fixConditionalBlocks(processed);
+
+    // Handle expressions with pipes
+    processed = this.fixPipeExpressions(processed);
+
+    // Fix nested quotes
+    processed = this.fixNestedQuotes(processed);
+
+    // Clean up artifacts
+    processed = this.cleanupArtifacts(processed);
+
+    return processed;
+  }
+
+  private fixIncludeStatements(processed: string): string {
+    processed = processed.replace(
+      /\{\{ include \\"([^"]+)\\" \. \| nindent (\d+) \}\}/g,
+      '{{ include "$1" . | nindent $2 }}',
+    );
+    processed = processed.replace(/\{\{ include \\"([^"]+)\\" \. \}\}/g, '{{ include "$1" . }}');
+    return processed;
+  }
+
+  private fixFunctionCalls(processed: string): string {
+    return processed.replace(/\{\{ (\w+) \\"([^"]*)\\" ([^}]*) \}\}/g, '{{ $1 "$2" $3 }}');
+  }
+
+  private fixChartReferences(processed: string): string {
+    return processed.replace(
+      /\{\{ \.Chart\.(\w+) \| replace \\"([^"]*)\\" \\"([^"]*)\\" ([^}]*) \}\}/g,
+      '{{ .Chart.$1 | replace "$2" "$3" $4 }}',
+    );
+  }
+
+  private removeHelmExpressionQuotes(processed: string): string {
+    // Complex expressions spanning multiple template parts
+    processed = processed.replace(/:\s*"([^"]*\{\{[^}]+\}\}[^"]*)"/g, ': $1');
+
+    // Key-value pairs with quoted Helm expressions
+    processed = processed.replace(/^(\s*)([^:\s]+):\s*"\{\{([^}]*)\}\}"/gm, '$1$2: {{$3}}');
+
+    // Standalone quoted Helm expressions
+    processed = processed.replace(/"\{\{([^}]*)\}\}"/g, '{{$1}}');
+
+    // Array/list items with quoted Helm expressions
+    processed = processed.replace(/^(\s*)-\s*"\{\{([^}]*)\}\}"/gm, '$1- {{$2}}');
+
+    return processed;
+  }
+
+  private fixConditionalBlocks(processed: string): string {
+    return processed.replace(
+      /"\{\{-\s*(if|with|range)([^}]*)\}\}([^"]*)\{\{-\s*end\s*\}\}"/g,
+      '{{- $1$2}}$3{{- end }}',
+    );
+  }
+
+  private fixPipeExpressions(processed: string): string {
+    return processed.replace(/"\{\{([^}]*\|[^}]*)\}\}"/g, '{{$1}}');
+  }
+
+  private fixNestedQuotes(processed: string): string {
+    return processed.replace(/\{\{([^}]*)\\"([^"]*)\\"([^}]*)\}\}/g, '{{$1"$2"$3}}');
+  }
+
+  private cleanupArtifacts(processed: string): string {
+    processed = processed.replace(/": "\.nan"/g, ': .nan');
+    processed = processed.replace(/: \{\{([^}]+)\}\}$/gm, ': {{$1}}');
+    return processed;
   }
 
   /**
@@ -762,40 +917,40 @@ ${helper.template}
 
 // Type definitions
 export interface ChartMetadata {
-  name: string;
-  version: string;
   description?: string;
-  keywords?: string[];
   home?: string;
-  sources?: string[];
+  keywords?: string[];
   maintainers?: Array<{
-    name: string;
     email?: string;
+    name: string;
     url?: string;
   }>;
+  name: string;
+  sources?: string[];
+  version: string;
 }
 
 export interface RutterProps {
-  scope?: Construct;
-  meta: ChartMetadata;
-  defaultValues?: Record<string, unknown>;
-  envValues?: Record<string, Record<string, unknown>>;
-  namespace?: string;
   chartProps?: ChartProps;
-  /** Custom Helm helpers content or definitions */
-  helpersTpl?: string | HelperDefinition[];
   /** Cloud provider for default helpers */
   cloudProvider?: 'aws';
+  defaultValues?: Record<string, unknown>;
+  envValues?: Record<string, Record<string, unknown>>;
+  /** Custom Helm helpers content or definitions */
+  helpersTpl?: string | HelperDefinition[];
   /** Custom prefix for manifest files */
   manifestPrefix?: string;
+  meta: ChartMetadata;
+  namespace?: string;
+  scope?: Construct;
   /** Combine all resources into single manifest file */
   singleManifestFile?: boolean;
 }
 
 // Re-export types for backward compatibility
 export type {
+  AWSALBIngressSpec,
   AWSEBSStorageClassSpec,
   AWSEFSStorageClassSpec,
   AWSIRSAServiceAccountSpec,
-  AWSALBIngressSpec,
 } from './resources/cloud/aws/awsResources.js';

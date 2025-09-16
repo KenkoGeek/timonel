@@ -8,6 +8,8 @@ export * from './lib/helmChartWriter.js';
 export * from './lib/rutter.js';
 export * from './lib/security.js';
 export * from './lib/umbrella.js';
+export { UmbrellaChartTemplate as UmbrellaChart } from './lib/templates/umbrella-chart.js';
+export { Subchart } from './lib/templates/subchart.js';
 
 export type {
   AWSALBIngressSpec,
@@ -34,9 +36,15 @@ export {
 // Re-export specific items from new modules to avoid conflicts
 export {
   AWS_HELPERS,
+  createHelper,
+  FILE_ACCESS_HELPERS,
   formatHelpers,
   generateHelpersTemplate,
   getDefaultHelpers,
+  getHelpersByCategory,
+  KUBERNETES_HELPERS,
+  SPRIG_HELPERS,
   STANDARD_HELPERS,
+  TEMPLATE_FUNCTION_HELPERS,
   type HelperDefinition,
 } from './lib/utils/helmHelpers.js';
