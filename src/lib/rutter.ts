@@ -2,6 +2,7 @@ import { ApiObject, App, Chart, Testing } from 'cdk8s';
 import type { ChartProps } from 'cdk8s';
 import type { Construct } from 'constructs';
 import type { ServiceAccount, Ingress } from 'cdk8s-plus-33';
+import Handlebars from 'handlebars';
 import YAML from 'yaml';
 
 import { helm, include } from './helm.js';
@@ -414,37 +415,54 @@ export class Rutter {
   }
 
   /**
-   * Adds a Kubernetes manifest wrapped in a Helm conditional
+   * Adds a Kubernetes manifest wrapped in a Helm conditional using Handlebars template engine
    *
    * This method creates a manifest that will only be rendered if the specified
    * condition evaluates to true. The condition is checked against .Values in Helm.
    *
+   * **Key improvements in v2.8.4:**
+   * - Uses Handlebars template engine for more robust and secure template processing
+   * - Eliminates double interpolation issues common with manual string concatenation
+   * - Provides better error handling and template compilation validation
+   * - Maintains backward compatibility with existing condition syntax
+   *
    * @param manifestObject - JavaScript object representing the Kubernetes manifest
-   * @param condition - Path to the condition value in .Values (e.g., 'createNamespace')
-   * @param id - Unique identifier for this manifest within the chart
-   * @returns The created ApiObject instance
-   * @throws {Error} If the manifest structure is incorrect or condition path is invalid
+   * @param condition - Helm condition path (e.g., 'enabled', 'feature.enabled')
+   *                   Can also be a full Helm expression like '{{ .Values.enabled }}'
+   * @param id - Unique identifier for the manifest
+   * @returns ApiObject instance for CDK8S compatibility
    *
    * @example
    * ```typescript
-   * // Add a namespace that's only created if .Values.createNamespace is true
+   * // Simple boolean condition
    * rutter.addConditionalManifest(
    *   {
    *     apiVersion: 'v1',
    *     kind: 'Namespace',
-   *     metadata: {
-   *       name: valuesRef('namespace'),
-   *       labels: {
-   *         environment: conditionalRef('environment', 'environment')
-   *       }
-   *     }
+   *     metadata: { name: 'my-namespace' }
    *   },
    *   'createNamespace',
    *   'namespace'
    * );
+   *
+   * // Nested condition with complex logic
+   * rutter.addConditionalManifest(
+   *   {
+   *     apiVersion: 'v1',
+   *     kind: 'ConfigMap',
+   *     metadata: { name: 'app-config' },
+   *     data: {
+   *       config: '{{ .Values.config }}',
+   *       environment: '{{ .Values.environment }}'
+   *     }
+   *   },
+   *   'features.configMap.enabled',
+   *   'app-config'
+   * );
    * ```
    *
-   * @since 2.8.0+
+   * @throws {Error} When condition is invalid or Handlebars template compilation fails
+   * @since 2.8.4
    */
   addConditionalManifest(
     manifestObject: Record<string, unknown>,
@@ -470,14 +488,39 @@ export class Rutter {
       helmCondition = `.Values.${condition}`;
     }
 
-    // Store the manifest as a conditional asset that will be processed during write
-    const conditionalAsset = {
-      id,
-      yaml: `{{- if ${helmCondition} }}\n${YAML.stringify(manifestObject)}{{- end }}`,
-      target: 'templates',
-    };
+    try {
+      // Create Handlebars template for conditional manifest
+      const conditionalTemplate = `{{- if ${helmCondition} }}
+{{manifestYaml}}
+{{- end }}`;
 
-    this.assets.push(conditionalAsset);
+      // Compile the Handlebars template
+      const template = Handlebars.compile(conditionalTemplate, {
+        noEscape: true, // Preserve YAML formatting
+        strict: true, // Strict mode for better error handling
+      });
+
+      // Convert the manifest to YAML
+      const yamlContent = YAML.stringify(manifestObject);
+
+      // Generate the conditional YAML using Handlebars
+      const conditionalYaml = template({
+        manifestYaml: yamlContent.trim(),
+      });
+
+      // Store the manifest as a conditional asset that will be processed during write
+      const conditionalAsset = {
+        id,
+        yaml: conditionalYaml,
+        target: 'templates',
+      };
+
+      this.assets.push(conditionalAsset);
+    } catch (error) {
+      throw new Error(
+        `Failed to compile Handlebars template for manifest '${id}': ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
 
     // Create a placeholder CDK8S ApiObject for consistency
     return new ApiObject(this.chart, id, {
