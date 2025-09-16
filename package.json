@@ -84,7 +84,6 @@
     ]
   },
   "dependencies": {
-    "@types/handlebars": "^4.1.0",
     "cdk8s": "^2.70.11",
     "cdk8s-plus-33": "^2.3.5",
     "constructs": "^10.4.2",
