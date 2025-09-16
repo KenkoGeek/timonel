@@ -8,6 +8,11 @@ import YAML from 'yaml';
 import type { ChartProps } from '../types.js';
 import type { UmbrellaRutter } from '../umbrellaRutter.js';
 
+// Interface for charts that support Helm generation
+interface HelmChart extends Chart {
+  writeHelmChart(outputDir: string): void;
+}
+
 /**
  * Generate an umbrella chart template
  * @param name Chart name
@@ -128,7 +133,7 @@ export class UmbrellaChartTemplate extends Chart {
     });
   }
 
-  private _addSubchart(_subchart: { name: string; chart: Chart }, _index: number) {
+  private _addSubchart(_subchart: { name: string; chart: Chart | (() => Chart) }, _index: number) {
     // Subchart integration will be implemented in future versions
     // For now, we just acknowledge their existence in the ConfigMap
   }
@@ -185,6 +190,35 @@ export class UmbrellaChartTemplate extends Chart {
     if (!existsSync(chartsDir)) {
       mkdirSync(chartsDir, { recursive: true });
     }
+
+    // Generate Helm charts for each subchart
+    this.config.subcharts?.forEach((subchart) => {
+      const subchartDir = join(chartsDir, subchart.name);
+      if (!existsSync(subchartDir)) {
+        mkdirSync(subchartDir, { recursive: true });
+      }
+
+      // Handle both function exports and direct chart instances
+      let subchartInstance: HelmChart | null = null;
+
+      if (typeof subchart.chart === 'function') {
+        // If it's a function (createChart), call it to get the instance
+        try {
+          subchartInstance = subchart.chart() as HelmChart;
+        } catch (error) {
+          console.warn(`Failed to create subchart ${subchart.name}:`, error);
+          return;
+        }
+      } else {
+        // If it's already an instance, use it directly
+        subchartInstance = subchart.chart as HelmChart;
+      }
+
+      // Call writeHelmChart on the subchart instance
+      if (subchartInstance && typeof subchartInstance.writeHelmChart === 'function') {
+        subchartInstance.writeHelmChart(subchartDir);
+      }
+    });
 
     // Create templates directory
     const templatesDir = join(outputDir, 'templates');

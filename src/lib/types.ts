@@ -11,7 +11,7 @@ export interface ChartProps {
   }>;
   subcharts?: Array<{
     name: string;
-    chart: Chart;
+    chart: Chart | (() => Chart);
   }>;
 }
 
