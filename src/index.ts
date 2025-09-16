@@ -10,6 +10,7 @@ export * from './lib/security.js';
 export * from './lib/umbrella.js';
 export { UmbrellaChartTemplate as UmbrellaChart } from './lib/templates/umbrella-chart.js';
 export { Subchart } from './lib/templates/subchart.js';
+export { BasicChart } from './lib/templates/basic-chart.js';
 
 export type {
   AWSALBIngressSpec,

@@ -91,9 +91,34 @@ async function cmdInit(name?: string, silent = false) {
   log(`Run 'tl synth ${validName}' to generate Helm chart`, silent);
 }
 
-async function cmdSynth(outDir?: string, flags?: CliFlags) {
-  const chartFile = path.join(process.cwd(), 'chart.ts');
-  const defaultOutDir = path.join(process.cwd(), 'dist');
+/**
+ * Synthesizes a chart to Kubernetes YAML files.
+ * @param chartDirOrOutDir - Chart directory path or output directory (for backward compatibility)
+ * @param flags - CLI flags
+ * @since 2.8.4
+ */
+/**
+ * Synthesize a chart to generate Kubernetes YAML files.
+ * Supports both chart directory and output directory parameters.
+ *
+ * @param chartDirOrOutDir - Either the chart directory path or output directory path
+ * @param flags - CLI flags for controlling synthesis behavior
+ * @since 2.8.4
+ */
+async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags) {
+  let chartDir = process.cwd();
+  let outDir: string | undefined;
+
+  // If the parameter is a directory containing chart.ts, use it as chart directory
+  if (chartDirOrOutDir && fs.existsSync(path.join(chartDirOrOutDir, 'chart.ts'))) {
+    chartDir = path.resolve(chartDirOrOutDir);
+  } else {
+    // Otherwise, treat it as output directory for backward compatibility
+    outDir = chartDirOrOutDir;
+  }
+
+  const chartFile = path.join(chartDir, 'chart.ts');
+  const defaultOutDir = path.join(chartDir, 'dist');
 
   if (!fs.existsSync(chartFile)) {
     console.error('chart.ts not found. Run `tl init` first.');
@@ -102,25 +127,26 @@ async function cmdSynth(outDir?: string, flags?: CliFlags) {
 
   const resolvedOutDir = outDir ? path.resolve(outDir) : defaultOutDir;
 
+  // Read the original chart file and modify the output directory
+  const originalContent = fs.readFileSync(chartFile, 'utf8');
+  const modifiedContent = originalContent.replace(
+    /outdir:\s*['"][^'"]*['"]/,
+    `outdir: '${resolvedOutDir}'`,
+  );
+
+  // Create a temporary modified chart file
+  const tempChartFile = path.join(chartDir, '.timonel-temp-chart.ts');
+  fs.writeFileSync(tempChartFile, modifiedContent);
+
   // Create wrapper script for tsx execution
   const wrapperScript = `
 import { pathToFileURL } from 'url';
-import { App } from 'cdk8s';
 
-const mod = await import(pathToFileURL('${chartFile}').href);
-const Chart = mod.default;
-
-const app = new App({
-  outdir: '${resolvedOutDir}',
-  outputFileExtension: '.yaml',
-  yamlOutputType: 'FILE_PER_RESOURCE'
-});
-
-new Chart(app, 'chart');
-app.synth();
+// Import the modified chart file which should execute the synthesis directly
+await import(pathToFileURL('${tempChartFile}').href);
 `;
 
-  const wrapperFile = path.join(process.cwd(), '.timonel-wrapper.mjs');
+  const wrapperFile = path.join(chartDir, '.timonel-wrapper.mjs');
 
   try {
     fs.writeFileSync(wrapperFile, wrapperScript);
@@ -128,6 +154,7 @@ app.synth();
     const result = spawnSync('npx', ['tsx', wrapperFile].filter(Boolean), {
       stdio: flags?.silent ? 'pipe' : 'inherit',
       encoding: 'utf8',
+      cwd: chartDir,
     });
 
     if (result.status !== 0) {
@@ -137,9 +164,13 @@ app.synth();
       process.exit(result.status ?? 1);
     }
   } finally {
-    // Cleanup wrapper file
+    // Clean up wrapper file
     if (fs.existsSync(wrapperFile)) {
       fs.unlinkSync(wrapperFile);
+    }
+    // Clean up temporary chart file
+    if (fs.existsSync(tempChartFile)) {
+      fs.unlinkSync(tempChartFile);
     }
   }
 }

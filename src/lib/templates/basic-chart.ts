@@ -1,4 +1,4 @@
-import { Chart } from 'cdk8s';
+import { Chart, ApiObject } from 'cdk8s';
 import type { ChartProps } from 'cdk8s';
 import type { Construct } from 'constructs';
 
@@ -15,9 +15,11 @@ export interface BasicChartProps extends ChartProps {
 
 export class BasicChart extends Chart {
   private rutter: Rutter;
+  private props: BasicChartProps;
 
   constructor(scope: Construct, id: string, props: BasicChartProps = {}) {
     super(scope, id, props);
+    this.props = props;
 
     const {
       appName = 'my-app',
@@ -129,18 +131,117 @@ export class BasicChart extends Chart {
       },
       'service',
     );
+
+    // Generate Kubernetes manifests for CDK8s
+    this.generateKubernetesManifests();
   }
 
   // Method to write Helm chart
   writeHelmChart(outDir: string): void {
     this.rutter.write(outDir);
   }
+
+  /**
+   * Generate Kubernetes manifests directly for CDK8s synthesis.
+   * Creates deployment, service, and optionally namespace resources.
+   *
+   * @since 2.8.4
+   * @private
+   */
+  private generateKubernetesManifests(): void {
+    const {
+      appName = 'my-app',
+      image = 'nginx:latest',
+      port = 80,
+      replicas = 1,
+      createNamespace = false,
+    } = this.props;
+
+    // Create namespace if requested
+    if (createNamespace) {
+      new ApiObject(this, 'namespace', {
+        apiVersion: 'v1',
+        kind: 'Namespace',
+        metadata: {
+          name: appName,
+        },
+      });
+    }
+
+    // Create deployment
+    new ApiObject(this, 'deployment', {
+      apiVersion: 'apps/v1',
+      kind: 'Deployment',
+      metadata: {
+        name: appName,
+        labels: {
+          app: appName,
+        },
+      },
+      spec: {
+        replicas,
+        selector: {
+          matchLabels: {
+            app: appName,
+          },
+        },
+        template: {
+          metadata: {
+            labels: {
+              app: appName,
+            },
+          },
+          spec: {
+            containers: [
+              {
+                name: 'app',
+                image,
+                ports: [
+                  {
+                    containerPort: port,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    // Create service
+    new ApiObject(this, 'service', {
+      apiVersion: 'v1',
+      kind: 'Service',
+      metadata: {
+        name: appName,
+        labels: {
+          app: appName,
+        },
+      },
+      spec: {
+        ports: [
+          {
+            port,
+            targetPort: port,
+          },
+        ],
+        selector: {
+          app: appName,
+        },
+      },
+    });
+  }
 }
 
-// Template function for CLI usage
+/**
+ * Generates a basic chart template for CLI usage
+ * @param appName - The name of the application
+ * @returns TypeScript code string for the chart
+ * @since 2.8.4
+ */
 export function generateBasicChart(appName: string = 'my-app'): string {
   return `import { App, YamlOutputType } from 'cdk8s';
-import { BasicChart } from './lib/templates/basic-chart';
+import { BasicChart } from 'timonel';
 
 const app = new App({
   outdir: 'dist',
