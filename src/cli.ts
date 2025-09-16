@@ -63,12 +63,8 @@ function usageAndExit(msg?: string) {
 }
 
 /**
- * Initialize a new chart with the given name.
- * Creates only the chart.ts file following CDK8s best practices.
- * Helm files (Chart.yaml, values.yaml) are generated during synth command.
- * @param name - Chart name
- * @param silent - Whether to suppress output
- * @since 2.8.4
+ * Initialize a new chart
+ * @since 2.8.4 Updated to mention Helm chart generation instead of Kubernetes manifests
  */
 async function cmdInit(name?: string, silent = false) {
   if (!name) usageAndExit('Missing <chart-name>');
@@ -97,17 +93,12 @@ async function cmdInit(name?: string, silent = false) {
 
   log(`Chart created at ${base}`, silent);
   log(`Generated chart.ts file`, silent);
-  log(`Run 'tl synth ${validName}' to generate Kubernetes manifests and Helm files`, silent);
+  log(`Run 'tl synth ${validName}' to generate complete Helm chart`, silent);
 }
 
 /**
- * Synthesizes a chart to Kubernetes YAML files.
- * @param chartDirOrOutDir - Chart directory path or output directory (for backward compatibility)
- * @param flags - CLI flags
- * @since 2.8.4
- */
-/**
- * Synthesize a chart to generate Kubernetes YAML files.
+ * Synthesizes a chart to generate a complete Helm chart structure.
+ * Creates Chart.yaml, values.yaml, templates/, and _helpers.tpl files.
  * Supports both chart directory and output directory parameters.
  *
  * @param chartDirOrOutDir - Either the chart directory path or output directory path
@@ -136,11 +127,11 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags) {
 
   const resolvedOutDir = outDir ? path.resolve(outDir) : defaultOutDir;
 
-  // Read the original chart file and modify the output directory
+  // Read the original chart file and modify the writeHelmChart output directory
   const originalContent = fs.readFileSync(chartFile, 'utf8');
   const modifiedContent = originalContent.replace(
-    /outdir:\s*['"][^'"]*['"]/,
-    `outdir: '${resolvedOutDir}'`,
+    /chart\.writeHelmChart\(['"][^'"]*['"]\)/,
+    `chart.writeHelmChart('${resolvedOutDir}')`,
   );
 
   // Create a temporary modified chart file
@@ -184,6 +175,13 @@ await import(pathToFileURL('${tempChartFile}').href);
   }
 }
 
+/**
+ * Validates a Helm chart using helm lint command.
+ * Runs helm lint on the current directory to check chart validity.
+ *
+ * @param flags - CLI flags for controlling validation behavior
+ * @since 2.8.4
+ */
 async function cmdValidate(flags?: CliFlags) {
   const result = spawnSync('helm', ['lint', '.'], {
     stdio: flags?.silent ? 'pipe' : 'inherit',
@@ -198,6 +196,15 @@ async function cmdValidate(flags?: CliFlags) {
   }
 }
 
+/**
+ * Deploys a Helm chart to a Kubernetes cluster.
+ * Uses helm upgrade --install to deploy or update a release.
+ *
+ * @param release - The release name for the deployment
+ * @param namespace - Optional namespace for the deployment
+ * @param flags - CLI flags for controlling deployment behavior
+ * @since 2.8.4
+ */
 async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags) {
   if (!release) usageAndExit('Missing <release>');
 
@@ -223,6 +230,13 @@ async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags)
   }
 }
 
+/**
+ * Lists available chart templates.
+ * Shows all available templates that can be used with tl init.
+ *
+ * @param flags - CLI flags for controlling output format
+ * @since 2.8.4
+ */
 async function cmdTemplates(flags?: CliFlags) {
   const templates = [
     {
@@ -261,6 +275,15 @@ interface CliFlags {
   set?: string[];
 }
 
+/**
+ * Handles umbrella chart commands (init, add, synth).
+ * Routes to appropriate umbrella subcommand handlers.
+ *
+ * @param subcommand - The umbrella subcommand to execute
+ * @param args - Arguments for the subcommand
+ * @param flags - CLI flags for controlling behavior
+ * @since 2.8.4
+ */
 async function cmdUmbrella(subcommand?: string, args?: string[], flags?: CliFlags) {
   if (!subcommand) usageAndExit('Missing umbrella subcommand');
 
@@ -279,6 +302,14 @@ async function cmdUmbrella(subcommand?: string, args?: string[], flags?: CliFlag
   }
 }
 
+/**
+ * Initializes a new umbrella chart.
+ * Creates an umbrella chart structure for managing multiple subcharts.
+ *
+ * @param name - The name of the umbrella chart
+ * @param silent - Whether to suppress output messages
+ * @since 2.8.4
+ */
 async function cmdUmbrellaInit(name?: string, silent = false) {
   const MISSING_NAME_MSG = 'Missing umbrella chart name';
   if (!name) usageAndExit(MISSING_NAME_MSG);
@@ -423,6 +454,14 @@ function createImportData(subchartPath: string, chartName: string) {
   return { importPath, camelCaseName, importStatement };
 }
 
+/**
+ * Adds a subchart to an existing umbrella chart.
+ * Creates a new subchart and updates the umbrella configuration.
+ *
+ * @param subchartPath - The path/name for the new subchart
+ * @param silent - Whether to suppress output messages
+ * @since 2.8.4
+ */
 async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
   const MISSING_SUBCHART_MSG = 'Missing subchart name or path';
   if (!subchartPath) usageAndExit(MISSING_SUBCHART_MSG);
@@ -466,6 +505,14 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
   log(`Subchart ${subchartName} added to umbrella at path '${validSubchartPath}'`, silent);
 }
 
+/**
+ * Synthesizes an umbrella chart to generate Helm charts for all subcharts.
+ * Executes the umbrella.ts file to generate charts for all configured subcharts.
+ *
+ * @param outDir - Optional output directory for generated charts
+ * @param flags - CLI flags for controlling synthesis behavior
+ * @since 2.8.4
+ */
 async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
   const umbrellaFile = path.join(process.cwd(), UMBRELLA_FILE_NAME);
   const defaultOutDir = path.join(process.cwd(), 'dist');

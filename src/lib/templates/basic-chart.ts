@@ -260,20 +260,16 @@ export class BasicChart extends Chart {
 
 /**
  * Generates a basic chart template for CLI usage.
- * Following CDK8s best practices, generates both CDK8s manifests and Helm files during synth.
+ * Generates a complete Helm chart structure with Chart.yaml, values.yaml, templates/, and _helpers.tpl.
  * @param appName - The name of the application
  * @returns TypeScript code string for the chart
  * @since 2.8.4
  */
 export function generateBasicChart(appName: string = 'my-app'): string {
-  return `import { App, YamlOutputType } from 'cdk8s';
+  return `import { App } from 'cdk8s';
 import { BasicChart } from 'timonel';
 
-const app = new App({
-  outdir: 'dist',
-  outputFileExtension: '.yaml',
-  yamlOutputType: YamlOutputType.FILE_PER_RESOURCE
-});
+const app = new App();
 
 const chart = new BasicChart(app, '${appName}', {
   appName: '${appName}',
@@ -283,10 +279,7 @@ const chart = new BasicChart(app, '${appName}', {
   createNamespace: true // Set to true to create namespace, false to skip
 });
 
-// Synthesize CDK8s manifests
-app.synth();
-
-// Generate Helm files (Chart.yaml and values.yaml) following CDK8s best practices
-chart.writeHelmChart('.');
+// Generate complete Helm chart structure (Chart.yaml, values.yaml, templates/, _helpers.tpl)
+chart.writeHelmChart('dist');
 `;
 }
