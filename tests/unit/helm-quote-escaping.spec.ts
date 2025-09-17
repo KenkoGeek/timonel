@@ -103,6 +103,90 @@ describe('Helm Quote Escaping - Global Solution Tests', () => {
     });
   });
 
+  describe('Numeric fields handling (Universal Solution)', () => {
+    it('should handle port numbers correctly', () => {
+      const input = `port: "{{ .Values.port }}"`;
+      const expected = `port: {{ .Values.port }}`;
+      expect(testProcessHelmTemplates(input)).toBe(expected);
+    });
+
+    it('should handle nested port.number correctly', () => {
+      const input = `number: "{{ .Values.port }}"`;
+      const expected = `number: {{ .Values.port }}`;
+      expect(testProcessHelmTemplates(input)).toBe(expected);
+    });
+
+    it('should handle replicas correctly', () => {
+      const input = `replicas: "{{ .Values.replicas }}"`;
+      const expected = `replicas: {{ .Values.replicas }}`;
+      expect(testProcessHelmTemplates(input)).toBe(expected);
+    });
+
+    it('should handle targetPort correctly', () => {
+      const input = `targetPort: "{{ .Values.targetPort }}"`;
+      const expected = `targetPort: {{ .Values.targetPort }}`;
+      expect(testProcessHelmTemplates(input)).toBe(expected);
+    });
+
+    it('should handle weight correctly', () => {
+      const input = `weight: "{{ .Values.weight }}"`;
+      const expected = `weight: {{ .Values.weight }}`;
+      expect(testProcessHelmTemplates(input)).toBe(expected);
+    });
+
+    it('should handle multiple numeric fields in same YAML', () => {
+      const input = `spec:
+  replicas: "{{ .Values.replicas }}"
+  template:
+    spec:
+      containers:
+      - name: app
+        ports:
+        - containerPort: "{{ .Values.port }}"
+          targetPort: "{{ .Values.targetPort }}"`;
+
+      const expected = `spec:
+  replicas: {{ .Values.replicas }}
+  template:
+    spec:
+      containers:
+      - name: app
+        ports:
+        - containerPort: {{ .Values.port }}
+          targetPort: {{ .Values.targetPort }}`;
+
+      expect(testProcessHelmTemplates(input)).toBe(expected);
+    });
+
+    it('should handle Ingress port.number specifically (the original issue)', () => {
+      const input = `backend:
+  service:
+    name: "{{ .Values.appName }}"
+    port:
+      number: "{{ .Values.port }}"`;
+
+      const expected = `backend:
+  service:
+    name: {{ .Values.appName }}
+    port:
+      number: {{ .Values.port }}`;
+
+      expect(testProcessHelmTemplates(input)).toBe(expected);
+    });
+
+    it('should not affect string fields that should remain quoted', () => {
+      const input = `name: "{{ .Values.appName }}"
+image: "{{ .Values.image }}"
+port: "{{ .Values.port }}"`;
+
+      const expected = `name: {{ .Values.appName }}
+image: {{ .Values.image }}
+port: {{ .Values.port }}`;
+
+      expect(testProcessHelmTemplates(input)).toBe(expected);
+    });
+  });
+
   describe('Built-in objects', () => {
     it('should handle Values object references', () => {
       const input = `replicas: "{{ .Values.replicas | int }}"`;
@@ -131,6 +215,146 @@ describe('Helm Quote Escaping - Global Solution Tests', () => {
     });
   });
 
+  describe('Primitive data types handling', () => {
+    describe('Boolean values', () => {
+      it('should handle boolean true values', () => {
+        const input = `enabled: "{{ .Values.enabled }}"`;
+        const expected = `enabled: {{ .Values.enabled }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle boolean false values', () => {
+        const input = `disabled: "{{ .Values.disabled }}"`;
+        const expected = `disabled: {{ .Values.disabled }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle literal true values', () => {
+        const input = `value: "true"`;
+        const expected = `value: true`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle literal false values', () => {
+        const input = `value: "false"`;
+        const expected = `value: false`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+    });
+
+    describe('Numeric values', () => {
+      it('should handle integer values', () => {
+        const input = `count: "{{ .Values.count }}"`;
+        const expected = `count: {{ .Values.count }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle float values', () => {
+        const input = `ratio: "{{ .Values.ratio }}"`;
+        const expected = `ratio: {{ .Values.ratio }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle literal integer values', () => {
+        const input = `value: "42"`;
+        const expected = `value: 42`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle literal float values', () => {
+        const input = `value: "3.14"`;
+        const expected = `value: 3.14`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle negative numbers', () => {
+        const input = `value: "-10"`;
+        const expected = `value: -10`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle scientific notation', () => {
+        const input = `value: "1.5e-3"`;
+        const expected = `value: 1.5e-3`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+    });
+
+    describe('Type conversion expressions', () => {
+      it('should handle int conversion', () => {
+        const input = `value: "{{ .Values.number | int }}"`;
+        const expected = `value: {{ .Values.number | int }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle float conversion', () => {
+        const input = `value: "{{ .Values.number | float64 }}"`;
+        const expected = `value: {{ .Values.number | float64 }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle bool conversion', () => {
+        const input = `value: "{{ .Values.flag | bool }}"`;
+        const expected = `value: {{ .Values.flag | bool }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+    });
+
+    describe('Arithmetic operations', () => {
+      it('should handle addition', () => {
+        const input = `value: "{{ add .Values.a .Values.b }}"`;
+        const expected = `value: {{ add .Values.a .Values.b }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle subtraction', () => {
+        const input = `value: "{{ sub .Values.a .Values.b }}"`;
+        const expected = `value: {{ sub .Values.a .Values.b }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle multiplication', () => {
+        const input = `value: "{{ mul .Values.a .Values.b }}"`;
+        const expected = `value: {{ mul .Values.a .Values.b }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle division', () => {
+        const input = `value: "{{ div .Values.a .Values.b }}"`;
+        const expected = `value: {{ div .Values.a .Values.b }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+
+      it('should handle modulo', () => {
+        const input = `value: "{{ mod .Values.a .Values.b }}"`;
+        const expected = `value: {{ mod .Values.a .Values.b }}`;
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+    });
+
+    describe('Complex primitive combinations', () => {
+      it('should handle multiple primitive types in same YAML', () => {
+        const input = `config:
+  enabled: "true"
+  count: "42"
+  ratio: "3.14"
+  disabled: "false"
+  replicas: "{{ .Values.replicas | int }}"
+  threshold: "{{ .Values.threshold | float64 }}"`;
+
+        const expected = `config:
+  enabled: true
+  count: 42
+  ratio: 3.14
+  disabled: false
+  replicas: {{ .Values.replicas | int }}
+  threshold: {{ .Values.threshold | float64 }}`;
+
+        expect(testProcessHelmTemplates(input)).toBe(expected);
+      });
+    });
+  });
+
   describe('Edge cases', () => {
     it('should handle empty Helm expressions', () => {
       const input = `value: "{{}}"`;
@@ -141,6 +365,16 @@ describe('Helm Quote Escaping - Global Solution Tests', () => {
     it('should not affect regular quoted strings', () => {
       const input = `message: "Hello World"`;
       const expected = `message: "Hello World"`;
+      expect(testProcessHelmTemplates(input)).toBe(expected);
+    });
+
+    it('should not affect strings that look like numbers but are actually strings', () => {
+      const input = `version: "1.2.3"
+id: "user-123"
+code: "ABC-456"`;
+      const expected = `version: "1.2.3"
+id: "user-123"
+code: "ABC-456"`;
       expect(testProcessHelmTemplates(input)).toBe(expected);
     });
   });

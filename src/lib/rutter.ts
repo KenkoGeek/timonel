@@ -839,16 +839,266 @@ export class Rutter {
   }
 
   private removeHelmExpressionQuotes(processed: string): string {
-    // Complex expressions spanning multiple template parts
+    // UNIVERSAL SOLUTION: Handle all primitive types (int, float, bool) that should not be quoted
+
+    // Define replacement pattern as constant
+    const HELM_EXPRESSION_REPLACEMENT = '$1$2: {{$3}}';
+
+    // 1. Handle expressions with type conversion functions (highest priority)
+    // These are explicit type conversions that should never be quoted
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\|\s*(?:int|float|bool|number)[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 2. Handle known numeric fields in Kubernetes manifests
+    processed = processed.replace(
+      /^(\s*)(port):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(number):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(replicas):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(targetPort):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(nodePort):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(containerPort):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(hostPort):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(weight):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(priority):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(timeoutSeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(periodSeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(successThreshold):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(failureThreshold):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(initialDelaySeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(terminationGracePeriodSeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(activeDeadlineSeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(backoffLimit):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(parallelism):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(completions):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(revisionHistoryLimit):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(progressDeadlineSeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(minReadySeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(maxUnavailable):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(maxSurge):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(cpu):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(memory):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 3. Handle known boolean fields in Kubernetes manifests
+    processed = processed.replace(
+      /^(\s*)(enabled):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(create):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(allow):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(disable):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(force):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(required):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(optional):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(readOnly):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(runAsNonRoot):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(privileged):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(allowPrivilegeEscalation):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(readOnlyRootFilesystem):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 4. Handle literal primitive values (true, false, numbers)
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*true[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*false[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\d+[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 5. Handle expressions that contain comparison operators
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\beq\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bne\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\blt\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\ble\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bgt\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bge\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\band\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bor\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bnot\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 6. Handle expressions that contain arithmetic operators
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*[+][^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*[-][^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*[*][^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 7. Complex expressions spanning multiple template parts
     processed = processed.replace(/:\s*"([^"]*\{\{[^}]+\}\}[^"]*)"/g, ': $1');
 
-    // Key-value pairs with quoted Helm expressions
-    processed = processed.replace(/^(\s*)([^:\s]+):\s*"\{\{([^}]*)\}\}"/gm, '$1$2: {{$3}}');
+    // 8. Handle literal primitive values (not in Helm expressions)
+    // Boolean literals
+    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(true|false)"$/gm, '$1$2: $3');
 
-    // Standalone quoted Helm expressions
+    // Integer literals
+    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(-?\d+)"$/gm, '$1$2: $3');
+
+    // Float literals (simple decimal numbers)
+    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(-?\d+\.\d+)"$/gm, '$1$2: $3');
+
+    // Scientific notation (e.g., 1.5e-3, 2E+5)
+    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(-?\d+\.?\d*[eE][+-]?\d+)"$/gm, '$1$2: $3');
+
+    // 9. Key-value pairs with quoted Helm expressions (general case)
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 10. Standalone quoted Helm expressions
     processed = processed.replace(/"\{\{([^}]*)\}\}"/g, '{{$1}}');
 
-    // Array/list items with quoted Helm expressions
+    // 11. Array/list items with quoted Helm expressions
     processed = processed.replace(/^(\s*)-\s*"\{\{([^}]*)\}\}"/gm, '$1- {{$2}}');
 
     return processed;
