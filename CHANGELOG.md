@@ -1,3 +1,9 @@
+# [2.9.0](https://github.com/KenkoGeek/timonel/compare/v2.8.3...v2.9.0) (2025-09-17)
+
+### Features
+
+- **core:** refactor addConditionalManifest to manage helm templates ([520aae1](https://github.com/KenkoGeek/timonel/commit/520aae10e634f40ecdbda5e4a87b7b40b9733053))
+
 ## [2.8.3](https://github.com/KenkoGeek/timonel/compare/v2.8.2...v2.8.3) (2025-09-15)
 
 ### Bug Fixes
