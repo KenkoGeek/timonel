@@ -182,18 +182,28 @@ export class HelmChartWriter {
 
     // Validate output directory path
     const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd());
+    console.log('📝 Validated outDir:', validatedOutDir);
 
     // Create directory structure
     this.createDirectories(validatedOutDir);
+    console.log('📝 Directories created');
 
     // Write chart files
     this.writeChartYaml(validatedOutDir, meta);
+    console.log('📝 Chart.yaml written');
+
     this.writeValuesFiles(validatedOutDir, defaultValues, envValues);
+    console.log('📝 Values files written');
+
     this.writeAssets(validatedOutDir, assets);
+    console.log('📝 Assets written');
+
     this.writeHelpers(validatedOutDir, helpersTpl);
     this.writeNotes(validatedOutDir, notesTpl);
     this.writeSchema(validatedOutDir, valuesSchema);
     this.writeHelmIgnore(validatedOutDir);
+
+    console.log('📝 HelmChartWriter.write completed');
   }
 
   /**
@@ -399,6 +409,7 @@ function splitDocs(yamlStr: string): string[] {
  * @since 2.8.0+
  */
 function writeAssets(outDir: string, assets: SynthAsset[]) {
+  console.log('🔍 writeAssets called with', assets.length, 'assets');
   for (const asset of assets) {
     // Sanitize asset ID to prevent path traversal
     const sanitizedId = asset.id.replace(/[^a-zA-Z0-9-_]/g, '');
@@ -407,6 +418,20 @@ function writeAssets(outDir: string, assets: SynthAsset[]) {
     }
 
     const targetDir = getTargetDirectory(asset.target);
+
+    console.log(
+      `🔍 Processing asset: ${asset.id} -> ${sanitizedId}, singleFile: ${asset.singleFile}, target: ${asset.target}`,
+    );
+
+    if (asset.id === 'ingress') {
+      console.log('🔍 Ingress asset YAML preview:', asset.yaml.substring(0, 200));
+      if (asset.yaml.includes('number:')) {
+        console.log(
+          '🔍 Ingress contains number field:',
+          asset.yaml.split('\n').filter((line) => line.includes('number:')),
+        );
+      }
+    }
 
     if (asset.singleFile) {
       writeSingleAssetFile(outDir, targetDir, sanitizedId, asset.yaml);
@@ -444,6 +469,13 @@ function writeSingleAssetFile(
   assetId: string,
   yaml: string,
 ): void {
+  // Debug: Log content being written for ingress files
+  if (assetId === 'ingress' && yaml.includes('number:')) {
+    console.log('🔍 Writing ingress file with content:');
+    const numberLines = yaml.split('\n').filter((line) => line.includes('number:'));
+    console.log('Number lines:', numberLines);
+  }
+
   const filename = `${assetId}.yaml`;
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
   fs.mkdirSync(path.join(outDir, targetDir), { recursive: true });
@@ -467,9 +499,25 @@ function writeMultipleAssetFiles(
   assetId: string,
   yaml: string,
 ): void {
+  // Debug: Log content being written for ingress files
+  if (assetId === 'ingress' && yaml.includes('number:')) {
+    console.log('🔍 Writing ingress file (multiple) with content:');
+    const numberLines = yaml.split('\n').filter((line) => line.includes('number:'));
+    console.log('Number lines:', numberLines);
+  }
+
   const parts = splitDocs(yaml);
   parts.forEach((doc, index) => {
     const filename = `${assetId}${parts.length > 1 ? `-${index + 1}` : ''}.yaml`;
+
+    // Debug: Log each document being written
+    if (assetId === 'ingress' && doc.includes('number:')) {
+      console.log(
+        `🔍 Writing document ${index + 1} for ingress:`,
+        doc.split('\n').filter((line) => line.includes('number:')),
+      );
+    }
+
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
     fs.mkdirSync(path.join(outDir, targetDir), { recursive: true });
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths

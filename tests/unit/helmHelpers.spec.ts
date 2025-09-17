@@ -78,7 +78,8 @@ describe('Helm Helpers', () => {
     it('should return standard helpers by default', () => {
       const helpers = getDefaultHelpers();
       expect(Array.isArray(helpers)).toBe(true);
-      expect(helpers.length).toBe(STANDARD_HELPERS.length);
+      // getDefaultHelpers includes all helper categories by default: 5 + 4 + 4 + 9 + 5 = 27
+      expect(helpers.length).toBe(27);
 
       const helperNames = helpers.map((h) => h.name);
       expect(helperNames).toContain('chart.name');
@@ -88,7 +89,8 @@ describe('Helm Helpers', () => {
     it('should return AWS helpers when specified', () => {
       const helpers = getDefaultHelpers('aws');
       expect(Array.isArray(helpers)).toBe(true);
-      expect(helpers.length).toBe(STANDARD_HELPERS.length + AWS_HELPERS.length);
+      // All default helpers + AWS helpers: 27 + 6 = 33
+      expect(helpers.length).toBe(33);
 
       const helperNames = helpers.map((h) => h.name);
       expect(helperNames).toContain('chart.name'); // Standard
@@ -99,7 +101,8 @@ describe('Helm Helpers', () => {
       // @ts-expect-error - Testing invalid input
       const helpers = getDefaultHelpers('invalid');
       expect(Array.isArray(helpers)).toBe(true);
-      expect(helpers.length).toBe(STANDARD_HELPERS.length);
+      // Should return all default helpers (no AWS): 27
+      expect(helpers.length).toBe(27);
     });
   });
 
