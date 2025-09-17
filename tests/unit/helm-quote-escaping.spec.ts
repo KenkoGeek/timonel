@@ -174,6 +174,22 @@ describe('Helm Quote Escaping - Global Solution Tests', () => {
       expect(testProcessHelmTemplates(input)).toBe(expected);
     });
 
+    it('should handle numberRef with int filter (numberRef function)', () => {
+      const input = `backend:
+  service:
+    name: "{{ .Values.appName }}"
+    port:
+      number: "{{ .Values.port | int }}"`;
+
+      const expected = `backend:
+  service:
+    name: {{ .Values.appName }}
+    port:
+      number: {{ .Values.port | int }}`;
+
+      expect(testProcessHelmTemplates(input)).toBe(expected);
+    });
+
     it('should not affect string fields that should remain quoted', () => {
       const input = `name: "{{ .Values.appName }}"
 image: "{{ .Values.image }}"

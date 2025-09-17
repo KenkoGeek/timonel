@@ -13,6 +13,12 @@ export interface SubchartProps extends ChartProps {
   serviceType?: string;
   enableIngress?: boolean;
   ingressHost?: string;
+  env?: Record<string, string>;
+  persistentVolume?: {
+    enabled: boolean;
+    size: string;
+    storageClass?: string;
+  };
 }
 
 export class Subchart extends Chart {
@@ -29,6 +35,8 @@ export class Subchart extends Chart {
       serviceType = 'ClusterIP',
       enableIngress = false,
       ingressHost = 'example.com',
+      env = {},
+      persistentVolume = { enabled: false, size: '1Gi' },
     } = props;
 
     // Initialize Rutter for Helm template generation
@@ -49,6 +57,24 @@ export class Subchart extends Chart {
         serviceType,
         enableIngress,
         ingressHost,
+        env,
+        persistentVolume,
+        ingress: {
+          annotations: {},
+          className: '',
+          hosts: [
+            {
+              host: ingressHost,
+              paths: [
+                {
+                  path: '/',
+                  pathType: 'Prefix',
+                },
+              ],
+            },
+          ],
+          tls: [],
+        },
       },
     });
 
@@ -163,42 +189,56 @@ export class Subchart extends Chart {
       'service',
     );
 
-    // Optionally create an Ingress
-    this.rutter.addConditionalManifest(
-      {
-        apiVersion: 'networking.k8s.io/v1',
-        kind: 'Ingress',
-        metadata: {
-          name: `{{ .Values.appName }}`,
-          labels: {
-            app: `{{ .Values.appName }}`,
-          },
-        },
-        spec: {
-          rules: [
-            {
-              host: `{{ .Values.ingressHost }}`,
-              http: {
-                paths: [
-                  {
-                    path: '/',
-                    pathType: 'Prefix',
-                    backend: {
-                      service: {
-                        name: `{{ .Values.appName }}`,
-                        port: {
-                          number: `{{ .Values.port }}`,
-                        },
-                      },
-                    },
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      },
-      'enableIngress',
+    // Add ingress
+    this.rutter.addTemplateManifest(
+      `{{- if .Values.enableIngress }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "chart.fullname" . }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if and .Values.ingress.className (not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class")) }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: {{ .pathType }}
+            {{- end }}
+            backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ include "chart.fullname" $ }}
+                port:
+                  number: {{ $.Values.port | int }}
+              {{- else }}
+              serviceName: {{ include "chart.fullname" $ }}
+              servicePort: {{ $.Values.port | int }}
+              {{- end }}
+          {{- end }}
+    {{- end }}
+{{- end }}`,
       'ingress',
     );
   }
@@ -210,7 +250,10 @@ export class Subchart extends Chart {
 
   // Method to write Helm chart
   writeHelmChart(outDir: string): void {
+    console.log('🔧 Subchart.writeHelmChart called with outDir:', outDir);
+    console.log('🔧 Rutter instance exists:', !!this.rutter);
     this.rutter.write(outDir);
+    console.log('🔧 Subchart.writeHelmChart completed');
   }
 }
 
