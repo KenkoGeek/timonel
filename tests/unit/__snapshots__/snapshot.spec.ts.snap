@@ -107,14 +107,14 @@ kind: Deployment
 metadata:
   name: snapshot-app
   labels:
-    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
     app.kubernetes.io/name: '{{ include "chart.name" . }}'
-    app.kubernetes.io/instance: {{  .Release.Name  }}
-    app.kubernetes.io/version: {{  .Chart.Version  }}
-    app.kubernetes.io/managed-by: {{  .Release.Service  }}
-    app.kubernetes.io/part-of: {{  .Chart.Name  }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.Version }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: {{ .Chart.Name }}
 spec:
-  replicas: {{  .Values.replicas | int  }}
+  replicas: {{ .Values.replicas | int }}
   selector:
     matchLabels:
       app: snapshot-app
@@ -124,7 +124,7 @@ spec:
         app: snapshot-app
     spec:
       containers:
-        - image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        - image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           name: snapshot-app
           ports:
             - containerPort: 80
@@ -137,12 +137,12 @@ kind: Service
 metadata:
   name: snapshot-service
   labels:
-    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
     app.kubernetes.io/name: '{{ include "chart.name" . }}'
-    app.kubernetes.io/instance: {{  .Release.Name  }}
-    app.kubernetes.io/version: {{  .Chart.Version  }}
-    app.kubernetes.io/managed-by: {{  .Release.Service  }}
-    app.kubernetes.io/part-of: {{  .Chart.Name  }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.Version }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: {{ .Chart.Name }}
 spec:
   ports:
     - port: 80

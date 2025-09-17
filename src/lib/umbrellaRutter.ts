@@ -62,7 +62,7 @@ export interface UmbrellaRutterProps {
  *   ]
  * });
  *
- * umbrella.write('./charts/my-app');
+ * umbrella.write('./my-app');
  * ```
  *
  * @since 2.8.0+

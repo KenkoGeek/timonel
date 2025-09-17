@@ -1,7 +1,8 @@
 import { ApiObject, App, Chart, Testing } from 'cdk8s';
 import type { ChartProps } from 'cdk8s';
+import type { Ingress, ServiceAccount } from 'cdk8s-plus-33';
 import type { Construct } from 'constructs';
-import type { ServiceAccount, Ingress } from 'cdk8s-plus-33';
+import Handlebars from 'handlebars';
 import YAML from 'yaml';
 
 import { helm, include } from './helm.js';
@@ -36,24 +37,20 @@ export class Rutter {
 
   // CDK8s infrastructure
   private readonly app: App;
-  private readonly chart: Chart;
-
-  // Resource providers
+  private readonly assets: Array<{ id: string; yaml: string; target: string }> = [];
   private readonly awsResources: AWSResources;
-  private readonly karpenterResources: KarpenterResources;
-
-  // Chart metadata and configuration
-  private readonly meta: ChartMetadata;
+  private readonly chart: Chart;
   private readonly defaultValues: Record<string, unknown>;
   private readonly envValues: Record<string, Record<string, unknown>>;
+  private readonly karpenterResources: KarpenterResources;
+  private readonly meta: ChartMetadata;
   private readonly props: RutterProps;
-  private readonly assets: Array<{ id: string; yaml: string; target: string }> = [];
 
   constructor(props: RutterProps) {
-    this.props = props;
-    this.meta = props.meta;
     this.defaultValues = props.defaultValues ?? {};
     this.envValues = props.envValues ?? {};
+    this.meta = props.meta;
+    this.props = props;
 
     // Create CDK8s infrastructure
     this.app = new App();
@@ -346,6 +343,7 @@ export class Rutter {
     return this.awsResources.addECRServiceAccount(spec);
   }
 
+  // Manifest Helpers
   // Utility methods
   /**
    * Adds a Kubernetes manifest to the chart using CDK8S
@@ -414,37 +412,80 @@ export class Rutter {
   }
 
   /**
-   * Adds a Kubernetes manifest wrapped in a Helm conditional
+   * Adds a template manifest to the chart with custom YAML content that preserves Helm expressions.
+   * This method allows you to provide raw YAML with Helm templates without serialization issues.
+   *
+   * @param yamlTemplate - The YAML template string with Helm expressions
+   * @param id - Unique identifier for the manifest
+   * @returns A placeholder ApiObject
+   */
+  addTemplateManifest(yamlTemplate: string, id: string): ApiObject {
+    // Store the template as an asset that will be processed during write
+    const templateAsset = {
+      id,
+      yaml: yamlTemplate,
+      target: 'templates',
+    };
+
+    this.assets.push(templateAsset);
+
+    // Return a placeholder ApiObject for compatibility
+    return new ApiObject(this.chart, id, {
+      apiVersion: 'v1',
+      kind: 'ConfigMap',
+      metadata: { name: id },
+    });
+  }
+
+  /**
+   * Adds a Kubernetes manifest wrapped in a Helm conditional using Handlebars template engine
    *
    * This method creates a manifest that will only be rendered if the specified
    * condition evaluates to true. The condition is checked against .Values in Helm.
    *
+   * **Key improvements in v2.8.4:**
+   * - Uses Handlebars template engine for more robust and secure template processing
+   * - Eliminates double interpolation issues common with manual string concatenation
+   * - Provides better error handling and template compilation validation
+   * - Maintains backward compatibility with existing condition syntax
+   *
    * @param manifestObject - JavaScript object representing the Kubernetes manifest
-   * @param condition - Path to the condition value in .Values (e.g., 'createNamespace')
-   * @param id - Unique identifier for this manifest within the chart
-   * @returns The created ApiObject instance
-   * @throws {Error} If the manifest structure is incorrect or condition path is invalid
+   * @param condition - Helm condition path (e.g., 'enabled', 'feature.enabled')
+   *                   Can also be a full Helm expression like '{{ .Values.enabled }}'
+   * @param id - Unique identifier for the manifest
+   * @returns ApiObject instance for CDK8S compatibility
    *
    * @example
    * ```typescript
-   * // Add a namespace that's only created if .Values.createNamespace is true
+   * // Simple boolean condition
    * rutter.addConditionalManifest(
    *   {
    *     apiVersion: 'v1',
    *     kind: 'Namespace',
-   *     metadata: {
-   *       name: valuesRef('namespace'),
-   *       labels: {
-   *         environment: conditionalRef('environment', 'environment')
-   *       }
-   *     }
+   *     metadata: { name: 'my-namespace' }
    *   },
    *   'createNamespace',
    *   'namespace'
    * );
+   *
+   * // Nested condition with complex logic
+   * rutter.addConditionalManifest(
+   *   {
+   *     apiVersion: 'v1',
+   *     kind: 'ConfigMap',
+   *     metadata: { name: 'app-config' },
+   *     data: {
+   *       config: '{{ .Values.config }}',
+   *       environment: '{{ .Values.environment }}'
+   *     }
+   *   },
+   *   'features.configMap.enabled',
+   *   'app-config'
+   * );
    * ```
    *
-   * @since 2.8.0+
+   * @throws {Error} When condition is invalid or Handlebars template compilation fails
+   * @since 2.8.4
    */
   addConditionalManifest(
     manifestObject: Record<string, unknown>,
@@ -470,17 +511,49 @@ export class Rutter {
       helmCondition = `.Values.${condition}`;
     }
 
-    // Store the manifest as a conditional asset that will be processed during write
-    const conditionalAsset = {
-      id,
-      yaml: `{{- if ${helmCondition} }}\n${YAML.stringify(manifestObject)}{{- end }}`,
-      target: 'templates',
-    };
+    try {
+      // Convert the manifest to YAML with options to minimize unnecessary quotes
+      const yamlContent = YAML.stringify(manifestObject, {
+        // Preserve formatting and minimize line wrapping
+        lineWidth: 0,
+        // Don't treat double-quoted strings as JSON
+        doubleQuotedAsJSON: false,
+        // Use simple keys when possible
+        simpleKeys: true,
+      });
 
-    this.assets.push(conditionalAsset);
+      // Create Handlebars template with escaped Helm syntax
+      const conditionalTemplate = `\\{{- if ${helmCondition} }}
+{{{manifestYaml}}}
+\\{{- end }}`;
 
-    // Create a placeholder CDK8S ApiObject for consistency
-    return new ApiObject(this.chart, id, {
+      // Compile the Handlebars template
+      const template = Handlebars.compile(conditionalTemplate, {
+        noEscape: true, // Preserve YAML formatting
+      });
+
+      // Generate the conditional YAML using Handlebars
+      const conditionalYaml = template({
+        manifestYaml: yamlContent.trim(),
+      });
+
+      // Store the manifest as a conditional asset that will be processed during write
+      const conditionalAsset = {
+        id,
+        yaml: conditionalYaml,
+        target: 'templates',
+      };
+
+      this.assets.push(conditionalAsset);
+    } catch (error) {
+      throw new Error(
+        `Failed to compile Handlebars template for manifest '${id}': ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+
+    // Create a placeholder CDK8S ApiObject for consistency, but mark it as conditional
+    // so it doesn't get processed as a separate asset
+    return new ApiObject(this.chart, `${id}-placeholder`, {
       apiVersion: manifestObject['apiVersion'] as string,
       kind: manifestObject['kind'] as string,
       metadata: {
@@ -491,6 +564,7 @@ export class Rutter {
             unknown
           >) || {}),
           'timonel.sh/conditional': condition,
+          'timonel.sh/placeholder': 'true', // Mark as placeholder to exclude from synthesis
         },
       },
       spec: manifestObject['spec'] as Record<string, unknown>,
@@ -590,16 +664,25 @@ export class Rutter {
    * @since 2.8.0+
    */
   private toSynthArray(): SynthAsset[] {
-    // Get ApiObject IDs before synthesis
+    console.log('🔍 toSynthArray called');
+    // Get ApiObject IDs before synthesis, excluding placeholders
     const apiObjectIds: string[] = [];
     for (const child of this.chart.node.children) {
-      if (child instanceof ApiObject) {
+      if (child instanceof ApiObject && !child.node.id.endsWith('-placeholder')) {
         apiObjectIds.push(child.node.id);
       }
     }
 
-    // Use cdk8s Testing.synth to obtain manifest objects
-    const manifestObjs = Testing.synth(this.chart) as unknown[];
+    // Use cdk8s Testing.synth to obtain manifest objects, but filter out placeholders
+    const allManifestObjs = Testing.synth(this.chart) as unknown[];
+    const manifestObjs = allManifestObjs.filter((obj) => {
+      if (obj && typeof obj === 'object') {
+        const o = obj as { metadata?: { annotations?: Record<string, string> } };
+        const annotations = o.metadata?.annotations || {};
+        return annotations['timonel.sh/placeholder'] !== 'true';
+      }
+      return true;
+    });
 
     // Enforce common labels best-practice on all rendered objects
     const enriched = manifestObjs.map((obj: unknown) => {
@@ -630,6 +713,7 @@ export class Rutter {
 
     const synthAssets: SynthAsset[] = [];
 
+    console.log('🔍 singleManifestFile:', this.props.singleManifestFile);
     if (this.props.singleManifestFile) {
       // Combine all resources into single manifest
       const combinedYaml = enriched
@@ -642,12 +726,14 @@ export class Rutter {
     } else {
       // Create separate files for each resource (default behavior)
       enriched.forEach((obj, index) => {
+        // eslint-disable-next-line security/detect-object-injection
+        const apiObjectId = apiObjectIds[index];
+        const manifestId = apiObjectId || `manifest-${index + 1}`;
+        console.log(`🔍 Processing asset ${manifestId} (index ${index})`);
+
         const yaml = this.processHelmTemplates(YAML.stringify(obj).trim());
         if (yaml) {
           // Use descriptive name from ApiObject ID if available, otherwise fallback to generic name
-          // eslint-disable-next-line security/detect-object-injection
-          const apiObjectId = apiObjectIds[index];
-          const manifestId = apiObjectId || `manifest-${index + 1}`;
           synthAssets.push({ id: manifestId, yaml });
         }
       });
@@ -662,19 +748,547 @@ export class Rutter {
   }
 
   /**
-   * Process YAML content to remove quotes from Helm templates
-   * This fixes the issue where YAML.stringify adds quotes around Helm template expressions
-   * Removes quotes from all Helm template expressions
+   * Processes Helm template expressions in YAML content
+   * @param yaml - YAML content to process
+   * @returns Processed YAML with proper Helm template syntax
+   *
+   * @since 2.8.0+
    */
   private processHelmTemplates(yaml: string): string {
-    // Remove quotes from Helm template expressions
-    // Match patterns like "{{ .Values.replicas | int }}", "{{ .Release.Name }}", etc.
-    // Handle both key-value pairs and standalone values
-    return yaml
-      .replace(/": "\{\{([^}]+)\}\}"/g, ': {{ $1 }}')
-      .replace(/: "\{\{([^}]+)\}\}"/g, ': {{ $1 }}')
-      .replace(/"\{\{([^}]+)\}\}"/g, '{{ $1 }}')
-      .replace(/": "\.nan"/g, ': .nan');
+    // Temporary debug logging for Ingress port issue
+    console.log('🔍 processHelmTemplates called with YAML length:', yaml.length);
+
+    if (yaml.includes('{{ .Values.port }}')) {
+      console.log('🎯 Found YAML with port template:');
+      const portIndex = yaml.indexOf('{{ .Values.port }}');
+      console.log(yaml.substring(Math.max(0, portIndex - 50), portIndex + 100));
+    }
+
+    let processed = this.fixCharacterMappingIssues(yaml);
+    processed = this.applyHelmTemplateReplacements(processed);
+
+    console.log('✅ processHelmTemplates completed');
+    return processed;
+  }
+
+  private fixCharacterMappingIssues(yaml: string): string {
+    const lines = yaml.split('\n');
+    const fixedLines: string[] = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      // eslint-disable-next-line security/detect-object-injection
+      const line = lines[i];
+
+      if (!line) {
+        i++;
+        continue;
+      }
+
+      const charKeyMatch = line.match(/^(\s*)"(\d+)":\s*(.+)$/);
+      if (charKeyMatch && charKeyMatch[2] && parseInt(charKeyMatch[2]) === 0) {
+        const indent = charKeyMatch[1] || '';
+        const result = this.processCharacterMapping(lines, i, indent);
+        if (result.reconstructed) {
+          fixedLines.push(result.reconstructed);
+          i = result.nextIndex;
+          continue;
+        }
+      }
+
+      if (line) {
+        fixedLines.push(line);
+      }
+      i++;
+    }
+
+    return fixedLines.join('\n');
+  }
+
+  private processCharacterMapping(
+    lines: string[],
+    startIndex: number,
+    indent: string,
+  ): { reconstructed?: string; nextIndex: number } {
+    const charMappings: Array<{ index: number; char: string }> = [];
+    let j = startIndex;
+
+    while (j < lines.length) {
+      // eslint-disable-next-line security/detect-object-injection
+      const currentLine = lines[j];
+      if (!currentLine) {
+        break;
+      }
+
+      const currentMatch = currentLine.match(/^(\s*)"(\d+)":\s*(.+)$/);
+      if (currentMatch && currentMatch[1] === indent && currentMatch[2] && currentMatch[3]) {
+        const index = parseInt(currentMatch[2]);
+        let char = currentMatch[3];
+
+        if (char && char.startsWith('"') && char.endsWith('"')) {
+          char = char.slice(1, -1);
+        }
+
+        charMappings.push({ index, char });
+        j++;
+      } else {
+        break;
+      }
+    }
+
+    if (charMappings.length > 3) {
+      charMappings.sort((a, b) => a.index - b.index);
+      const reconstructed = charMappings.map((m) => m.char).join('');
+
+      if (reconstructed.includes('{{') && reconstructed.includes('}}')) {
+        return { reconstructed: `${indent}${reconstructed}`, nextIndex: j };
+      }
+    }
+
+    return { nextIndex: j };
+  }
+
+  private applyHelmTemplateReplacements(processed: string): string {
+    // Fix escaped quotes in include statements
+    processed = this.fixIncludeStatements(processed);
+
+    // Fix escaped quotes in function calls
+    processed = this.fixFunctionCalls(processed);
+
+    // Fix Chart object references
+    processed = this.fixChartReferences(processed);
+
+    // Remove quotes around Helm expressions
+    processed = this.removeHelmExpressionQuotes(processed);
+
+    // Handle complex multi-line expressions
+    if (processed.includes('number:')) {
+      console.log(
+        'DEBUG: Before fixConditionalBlocks:',
+        processed.split('\n').filter((line) => line.includes('number:')),
+      );
+    }
+    processed = this.fixConditionalBlocks(processed);
+    if (processed.includes('number:')) {
+      console.log(
+        'DEBUG: After fixConditionalBlocks:',
+        processed.split('\n').filter((line) => line.includes('number:')),
+      );
+    }
+
+    // Handle expressions with pipes
+    if (processed.includes('number:')) {
+      console.log(
+        'DEBUG: Before fixPipeExpressions:',
+        processed.split('\n').filter((line) => line.includes('number:')),
+      );
+    }
+    processed = this.fixPipeExpressions(processed);
+    if (processed.includes('number:')) {
+      console.log(
+        'DEBUG: After fixPipeExpressions:',
+        processed.split('\n').filter((line) => line.includes('number:')),
+      );
+    }
+
+    // Fix nested quotes
+    if (processed.includes('number:')) {
+      console.log(
+        'DEBUG: Before fixNestedQuotes:',
+        processed.split('\n').filter((line) => line.includes('number:')),
+      );
+    }
+    processed = this.fixNestedQuotes(processed);
+    if (processed.includes('number:')) {
+      console.log(
+        'DEBUG: After fixNestedQuotes:',
+        processed.split('\n').filter((line) => line.includes('number:')),
+      );
+    }
+
+    // Clean up artifacts
+    if (processed.includes('number:')) {
+      console.log(
+        'DEBUG: Before cleanupArtifacts:',
+        processed.split('\n').filter((line) => line.includes('number:')),
+      );
+    }
+    processed = this.cleanupArtifacts(processed);
+    if (processed.includes('number:')) {
+      console.log(
+        'DEBUG: After cleanupArtifacts:',
+        processed.split('\n').filter((line) => line.includes('number:')),
+      );
+    }
+
+    return processed;
+  }
+
+  private fixIncludeStatements(processed: string): string {
+    processed = processed.replace(
+      /\{\{ include \\"([^"]+)\\" \. \| nindent (\d+) \}\}/g,
+      '{{ include "$1" . | nindent $2 }}',
+    );
+    processed = processed.replace(/\{\{ include \\"([^"]+)\\" \. \}\}/g, '{{ include "$1" . }}');
+    return processed;
+  }
+
+  private fixFunctionCalls(processed: string): string {
+    return processed.replace(/\{\{ (\w+) \\"([^"]*)\\" ([^}]*) \}\}/g, '{{ $1 "$2" $3 }}');
+  }
+
+  private fixChartReferences(processed: string): string {
+    return processed.replace(
+      /\{\{ \.Chart\.(\w+) \| replace \\"([^"]*)\\" \\"([^"]*)\\" ([^}]*) \}\}/g,
+      '{{ .Chart.$1 | replace "$2" "$3" $4 }}',
+    );
+  }
+
+  private removeHelmExpressionQuotes(processed: string): string {
+    // UNIVERSAL SOLUTION: Handle all primitive types (int, float, bool) that should not be quoted
+
+    // Define replacement pattern as constant
+    const HELM_EXPRESSION_REPLACEMENT = '$1$2: {{$3}}';
+
+    console.log('🔧 removeHelmExpressionQuotes called');
+    // Debug: Log input to see what we're processing
+    if (processed.includes('number:')) {
+      console.log(
+        'DEBUG: removeHelmExpressionQuotes input contains number:',
+        processed.split('\n').filter((line) => line.includes('number:')),
+      );
+    }
+
+    // 1. Handle expressions with type conversion functions (highest priority)
+    // These are explicit type conversions that should never be quoted
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\|\s*(?:int|float|bool|number)[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 2. Handle known numeric fields in Kubernetes manifests
+    processed = processed.replace(
+      /^(\s*)(port):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // Handle nested port fields (e.g., port.number)
+    processed = processed.replace(
+      /^(\s*)(port\.number):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // Handle other common nested numeric fields
+    processed = processed.replace(
+      /^(\s*)(service\.port):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(backend\.service\.port\.number):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(spec\.port):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // Handle any field ending with .number (general pattern)
+    processed = processed.replace(
+      /^(\s*)([^:\s]*\.number):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // Debug: Check if number pattern matches before replacement
+    const numberMatches = processed.match(/^(\s*)(number):\s*"\{\{([^}]*)\}\}"/gm);
+    if (numberMatches) {
+      console.log('DEBUG: Found number pattern matches:', numberMatches);
+    } else {
+      // Check if there are any number fields at all
+      const anyNumberFields = processed.match(/number:\s*"[^"]*"/gm);
+      if (anyNumberFields) {
+        console.log('DEBUG: Found number fields but regex did not match:', anyNumberFields);
+        // Show the exact lines with number fields
+        const lines = processed.split('\n');
+        const numberLines = lines.filter((line) => line.includes('number:'));
+        console.log('DEBUG: Number field lines:', numberLines);
+      }
+    }
+
+    processed = processed.replace(
+      /^(\s*)(number):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // Debug: Log output after number replacement
+    if (processed.includes('number:')) {
+      console.log(
+        'DEBUG: removeHelmExpressionQuotes after number replacement:',
+        processed.split('\n').filter((line) => line.includes('number:')),
+      );
+    }
+    processed = processed.replace(
+      /^(\s*)(replicas):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(targetPort):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(nodePort):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(containerPort):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(hostPort):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(weight):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(priority):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(timeoutSeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(periodSeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(successThreshold):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(failureThreshold):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(initialDelaySeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(terminationGracePeriodSeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(activeDeadlineSeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(backoffLimit):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(parallelism):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(completions):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(revisionHistoryLimit):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(progressDeadlineSeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(minReadySeconds):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(maxUnavailable):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(maxSurge):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(cpu):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(memory):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 3. Handle known boolean fields in Kubernetes manifests
+    processed = processed.replace(
+      /^(\s*)(enabled):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(create):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(allow):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(disable):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(force):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(required):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(optional):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(readOnly):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(runAsNonRoot):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(privileged):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(allowPrivilegeEscalation):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)(readOnlyRootFilesystem):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 4. Handle literal primitive values (true, false, numbers)
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*true[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*false[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\d+[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 5. Handle expressions that contain comparison operators
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\beq\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bne\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\blt\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\ble\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bgt\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bge\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\band\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bor\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bnot\b[^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 6. Handle expressions that contain arithmetic operators
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*[+][^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*[-][^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*[*][^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 7. Complex expressions spanning multiple template parts
+    processed = processed.replace(/:\s*"([^"]*\{\{[^}]+\}\}[^"]*)"/g, ': $1');
+
+    // 8. Handle literal primitive values (not in Helm expressions)
+    // Boolean literals
+    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(true|false)"$/gm, '$1$2: $3');
+
+    // Integer literals
+    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(-?\d+)"$/gm, '$1$2: $3');
+
+    // Float literals (simple decimal numbers)
+    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(-?\d+\.\d+)"$/gm, '$1$2: $3');
+
+    // Scientific notation (e.g., 1.5e-3, 2E+5)
+    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(-?\d+\.?\d*[eE][+-]?\d+)"$/gm, '$1$2: $3');
+
+    // 9. Key-value pairs with quoted Helm expressions (general case)
+    processed = processed.replace(
+      /^(\s*)([^:\s]+):\s*"\{\{([^}]*)\}\}"/gm,
+      HELM_EXPRESSION_REPLACEMENT,
+    );
+
+    // 10. Standalone quoted Helm expressions
+    processed = processed.replace(/"\{\{([^}]*)\}\}"/g, '{{$1}}');
+
+    // 11. Array/list items with quoted Helm expressions
+    processed = processed.replace(/^(\s*)-\s*"\{\{([^}]*)\}\}"/gm, '$1- {{$2}}');
+
+    return processed;
+  }
+
+  private fixConditionalBlocks(processed: string): string {
+    return processed.replace(
+      /"\{\{-\s*(if|with|range)([^}]*)\}\}([^"]*)\{\{-\s*end\s*\}\}"/g,
+      '{{- $1$2}}$3{{- end }}',
+    );
+  }
+
+  private fixPipeExpressions(processed: string): string {
+    return processed.replace(/"\{\{([^}]*\|[^}]*)\}\}"/g, '{{$1}}');
+  }
+
+  private fixNestedQuotes(processed: string): string {
+    return processed.replace(/\{\{([^}]*)\\"([^"]*)\\"([^}]*)\}\}/g, '{{$1"$2"$3}}');
+  }
+
+  private cleanupArtifacts(processed: string): string {
+    processed = processed.replace(/": "\.nan"/g, ': .nan');
+    processed = processed.replace(/: \{\{([^}]+)\}\}$/gm, ': {{$1}}');
+    return processed;
   }
 
   /**
@@ -684,6 +1298,9 @@ export class Rutter {
    * @since 1.0.0
    */
   write(outDir: string): void {
+    console.log('🚀 Rutter.write called with outDir:', outDir);
+    console.log('📊 Assets count:', this.assets.length);
+
     // Generate helpers template
     let helpersContent: string | undefined;
     if (this.props.helpersTpl) {
@@ -706,53 +1323,58 @@ ${helper.template}
       helpersContent = generateHelpersTemplate(this.props.cloudProvider);
     }
 
+    const synthAssets = this.toSynthArray();
+    console.log('📦 Generated synth assets:', synthAssets.length);
+
     HelmChartWriter.write({
       outDir,
       meta: this.meta,
       defaultValues: this.defaultValues,
       envValues: this.envValues,
-      assets: this.toSynthArray(),
+      assets: synthAssets,
       helpersTpl: helpersContent,
     });
+
+    console.log('✅ Rutter.write completed');
   }
 }
 
 // Type definitions
 export interface ChartMetadata {
-  name: string;
-  version: string;
   description?: string;
-  keywords?: string[];
   home?: string;
-  sources?: string[];
+  keywords?: string[];
   maintainers?: Array<{
-    name: string;
     email?: string;
+    name: string;
     url?: string;
   }>;
+  name: string;
+  sources?: string[];
+  version: string;
 }
 
 export interface RutterProps {
-  scope?: Construct;
-  meta: ChartMetadata;
-  defaultValues?: Record<string, unknown>;
-  envValues?: Record<string, Record<string, unknown>>;
-  namespace?: string;
   chartProps?: ChartProps;
-  /** Custom Helm helpers content or definitions */
-  helpersTpl?: string | HelperDefinition[];
   /** Cloud provider for default helpers */
   cloudProvider?: 'aws';
+  defaultValues?: Record<string, unknown>;
+  envValues?: Record<string, Record<string, unknown>>;
+  /** Custom Helm helpers content or definitions */
+  helpersTpl?: string | HelperDefinition[];
   /** Custom prefix for manifest files */
   manifestPrefix?: string;
+  meta: ChartMetadata;
+  namespace?: string;
+  scope?: Construct;
   /** Combine all resources into single manifest file */
   singleManifestFile?: boolean;
 }
 
 // Re-export types for backward compatibility
 export type {
+  AWSALBIngressSpec,
   AWSEBSStorageClassSpec,
   AWSEFSStorageClassSpec,
   AWSIRSAServiceAccountSpec,
-  AWSALBIngressSpec,
 } from './resources/cloud/aws/awsResources.js';
