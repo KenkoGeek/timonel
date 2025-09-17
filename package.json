@@ -89,6 +89,7 @@
     "cdk8s-plus-33": "^2.3.5",
     "constructs": "^10.4.2",
     "handlebars": "^4.7.8",
+    "timonel": "^2.9.0",
     "ts-node": "^10.9.2",
     "yaml": "^2.8.1"
   },
