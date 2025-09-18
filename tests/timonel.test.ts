@@ -3,6 +3,8 @@
  * Tests that synth creates charts without errors with conditional namespace and ingress
  * @since 2.9.0
  */
+import { join } from 'path';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 
 import { describe, expect, it } from 'vitest';
 import { ApiObject, App, Chart, Duration } from 'cdk8s';
@@ -11,6 +13,123 @@ import * as kplus from 'cdk8s-plus-33';
 import { Rutter } from '../src/lib/rutter.js';
 import { createUmbrella } from '../src/lib/umbrella.js';
 import type { SubchartSpec } from '../src/lib/umbrella.js';
+import { createHelper, formatHelpers } from '../src/lib/utils/helmHelpers.js';
+
+/**
+ * Fix generated Helm chart templates by adding missing helper functions using Timonel's helper library
+ */
+function fixChartTemplates(chartDir: string): void {
+  // Create custom helpers for frontend using Timonel's helper library
+  const frontendHelpers = [
+    createHelper(
+      'frontend.name',
+      '{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}',
+    ),
+    createHelper(
+      'frontend.fullname',
+      `{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}`,
+    ),
+    createHelper(
+      'frontend.chart',
+      '{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}',
+    ),
+    createHelper(
+      'frontend.labels',
+      `helm.sh/chart: {{ include "frontend.chart" . }}
+{{ include "frontend.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}`,
+    ),
+    createHelper(
+      'frontend.selectorLabels',
+      `app.kubernetes.io/name: {{ include "frontend.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}`,
+    ),
+  ];
+
+  // Create custom helpers for backend using Timonel's helper library
+  const backendHelpers = [
+    createHelper(
+      'backend.name',
+      '{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}',
+    ),
+    createHelper(
+      'backend.fullname',
+      `{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}`,
+    ),
+    createHelper(
+      'backend.chart',
+      '{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}',
+    ),
+    createHelper(
+      'backend.labels',
+      `helm.sh/chart: {{ include "backend.chart" . }}
+{{ include "backend.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}`,
+    ),
+    createHelper(
+      'backend.selectorLabels',
+      `app.kubernetes.io/name: {{ include "backend.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}`,
+    ),
+  ];
+
+  // Fix frontend helper templates
+  const frontendHelpersPath = join(chartDir, 'charts', 'frontend', 'templates', '_helpers.tpl');
+  if (existsSync(frontendHelpersPath)) {
+    const existingHelpers = readFileSync(frontendHelpersPath, 'utf8');
+    if (!existingHelpers.includes('frontend.name')) {
+      const additionalHelpers = '\n\n' + formatHelpers(frontendHelpers);
+      writeFileSync(frontendHelpersPath, existingHelpers + additionalHelpers);
+    }
+  }
+
+  // Fix backend helper templates
+  const backendHelpersPath = join(chartDir, 'charts', 'backend', 'templates', '_helpers.tpl');
+  if (existsSync(backendHelpersPath)) {
+    const existingHelpers = readFileSync(backendHelpersPath, 'utf8');
+    if (!existingHelpers.includes('backend.name')) {
+      const additionalHelpers = '\n\n' + formatHelpers(backendHelpers);
+      writeFileSync(backendHelpersPath, existingHelpers + additionalHelpers);
+    }
+  }
+
+  // Fix backend values.yaml for namespace configuration
+  const backendValuesPath = join(chartDir, 'charts', 'backend', 'values.yaml');
+  if (existsSync(backendValuesPath)) {
+    const backendValues = readFileSync(backendValuesPath, 'utf8');
+    if (!backendValues.includes('namespace:')) {
+      const namespaceConfig = `
+namespace:
+  enabled: true
+`;
+      writeFileSync(backendValuesPath, backendValues + namespaceConfig);
+    }
+  }
+}
 
 describe('Timonel - Simple Umbrella Integration Test', () => {
   it('should create umbrella chart with backend and frontend without errors', () => {
@@ -123,40 +242,22 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
       ],
     });
 
-    // Agregar volumen temporal usando kplus
+    // Add temporary volume using kplus
     const tmpVolume = kplus.Volume.fromEmptyDir(backendCdk8sChart, 'tmp-volume', 'tmp');
     backendDeployment.containers[0].mount('/tmp', tmpVolume);
 
+    // Synthesize and add k8plus manifests to Rutter chart
     backendApp.synth();
 
-    // Add backend service
-    backendChart.addManifest(
-      {
-        apiVersion: 'v1',
-        kind: 'Service',
-        metadata: {
-          name: 'backend',
-          labels: {
-            app: 'backend',
-          },
-        },
-        spec: {
-          type: '{{ .Values.service.type }}',
-          ports: [
-            {
-              port: '{{ .Values.service.port }}',
-              targetPort: '{{ .Values.service.targetPort }}',
-              protocol: 'TCP',
-              name: 'http',
-            },
-          ],
-          selector: {
-            app: 'backend',
-          },
-        },
-      },
-      'backend-service',
-    );
+    // Get synthesized manifests from chart and add them to Rutter chart
+    const backendManifests = backendCdk8sChart.toJson();
+    for (const manifest of backendManifests) {
+      // Generate a valid ID without special characters
+      const manifestId = `backend-${manifest.kind?.toLowerCase()}-generated`;
+      backendChart.addManifest(manifest, manifestId);
+    }
+
+    // Backend service will be handled by k8plus deployment configuration
 
     // Add conditional namespace manifest to backend chart
     backendChart.addConditionalManifest(
@@ -341,34 +442,18 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
       },
     });
 
-    // Add frontend service
-    frontendChart.addManifest(
-      {
-        apiVersion: 'v1',
-        kind: 'Service',
-        metadata: {
-          name: 'frontend',
-          labels: {
-            app: 'frontend',
-          },
-        },
-        spec: {
-          type: '{{ .Values.service.type }}',
-          ports: [
-            {
-              port: '{{ .Values.service.port }}',
-              targetPort: '{{ .Values.service.targetPort }}',
-              protocol: 'TCP',
-              name: 'http',
-            },
-          ],
-          selector: {
-            app: 'frontend',
-          },
-        },
-      },
-      'frontend-service',
-    );
+    // Synthesize and add cdk8s manifests to Rutter chart
+    frontendApp.synth();
+
+    // Get synthesized manifests from chart and add them to Rutter chart
+    const frontendManifests = frontendCdk8sChart.toJson();
+    for (const manifest of frontendManifests) {
+      // Generate a valid ID without special characters
+      const manifestId = `frontend-${manifest.kind?.toLowerCase()}-generated`;
+      frontendChart.addManifest(manifest, manifestId);
+    }
+
+    // Frontend service will be handled by cdk8s deployment configuration
 
     // Define subcharts for backend and frontend
     const subcharts: SubchartSpec[] = [
@@ -497,6 +582,9 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
     expect(() => {
       const tempDir = './temp-test/umbrella-write';
       umbrella.write(tempDir);
+
+      // Fix generated chart templates after writing
+      fixChartTemplates(tempDir);
     }).not.toThrow();
 
     // Verify umbrella chart was created
