@@ -3,7 +3,7 @@ import type { ChartProps } from 'cdk8s';
 import type { Ingress, ServiceAccount } from 'cdk8s-plus-33';
 import type { Construct } from 'constructs';
 import Handlebars from 'handlebars';
-import YAML from 'yaml';
+import * as jsYaml from 'js-yaml';
 
 import { include } from './helm.js';
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
@@ -353,7 +353,7 @@ export class Rutter {
    *
    * This method allows you to add any Kubernetes manifest (CRDs, custom resources, etc.)
    * either as YAML strings or as objects. The manifest will be processed using CDK8S
-   * for better type safety and validation.
+   * for better type safety and validation. Uses js-yaml for reliable YAML parsing.
    *
    * @param yamlOrObject - Kubernetes manifest as YAML string or object
    * @param id - Unique identifier for the manifest (required for multiple manifests)
@@ -381,6 +381,7 @@ export class Rutter {
    * ```
    *
    * @since 2.8.0+
+   * @since 2.9.2 Improved YAML parsing with js-yaml.load for better compatibility
    * @note Consider using cdk8s-plus constructs for better type safety when available
    */
   addManifest(yamlOrObject: string | Record<string, unknown>, id: string): ApiObject {
@@ -389,7 +390,7 @@ export class Rutter {
     if (typeof yamlOrObject === 'string') {
       // Parse YAML string to object
       try {
-        manifestObject = YAML.parse(yamlOrObject) as Record<string, unknown>;
+        manifestObject = jsYaml.load(yamlOrObject) as Record<string, unknown>;
       } catch (error) {
         throw new Error(
           `Invalid YAML provided to addManifest(): ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -489,6 +490,7 @@ export class Rutter {
    *
    * @throws {Error} When condition is invalid or Handlebars template compilation fails
    * @since 2.8.4
+   * @since 2.9.2 Enhanced YAML serialization with dumpHelmAwareYaml for better Helm compatibility
    */
   addConditionalManifest(
     manifestObject: Record<string, unknown>,
