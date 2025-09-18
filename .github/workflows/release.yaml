@@ -12,84 +12,80 @@ permissions:
   id-token: write
 
 jobs:
-  # check-ci-status:
-  #   name: Verify All CI Checks
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     id-token: write
-  #     contents: read
-  #   steps:
-  #     - name: Wait for CI Completion
-  #       uses: actions/github-script@v8
-  #       with:
-  #         script: |
-  #           const sha = context.sha;
-  #           console.log(`Checking CI status for commit: ${sha}`);
+  check-ci-status:
+    name: Verify All CI Checks
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Wait for CI Completion
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const sha = context.sha;
+            console.log(`Checking CI status for commit: ${sha}`);
 
-  #           // Wait for all checks to complete
-  #           let allComplete = false;
-  #           let attempts = 0;
-  #           const maxAttempts = 30; // 15 minutes max wait
+            // Wait for all checks to complete
+            let allComplete = false;
+            let attempts = 0;
+            const maxAttempts = 30; // 15 minutes max wait
 
-  #           while (!allComplete && attempts < maxAttempts) {
-  #             const { data: checks } = await github.rest.checks.listForRef({
-  #               owner: context.repo.owner,
-  #               repo: context.repo.repo,
-  #               ref: sha
-  #             });
+            while (!allComplete && attempts < maxAttempts) {
+              const { data: checks } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: sha
+              });
 
-  #             console.log(`Found ${checks.check_runs.length} check runs`);
+              console.log(`Found ${checks.check_runs.length} check runs`);
 
-  #             const requiredChecks = [
-  #               'Unit Tests (20)',
-  #               'Unit Tests (22)', 
-  #               'Integration Tests',
-  #               'Lint and Format',
-  #               'Security Audit'
-  #             ];
+              const requiredChecks = [
+                'Test Matrix Complete'
+              ];
 
-  #             const pendingChecks = [];
-  #             const failedChecks = [];
-  #             let allFound = true;
+              const pendingChecks = [];
+              const failedChecks = [];
+              let allFound = true;
 
-  #             for (const checkName of requiredChecks) {
-  #               const check = checks.check_runs.find(c => c.name === checkName);
-  #               if (!check) {
-  #                 console.log(`⏳ Missing check: ${checkName}`);
-  #                 allFound = false;
-  #               } else if (check.status !== 'completed') {
-  #                 console.log(`⏳ Pending check: ${checkName} (${check.status})`);
-  #                 pendingChecks.push(checkName);
-  #               } else if (check.conclusion !== 'success') {
-  #                 console.log(`❌ Failed check: ${checkName} (${check.conclusion})`);
-  #                 failedChecks.push(checkName);
-  #               } else {
-  #                 console.log(`✅ Passed check: ${checkName}`);
-  #               }
-  #             }
+              for (const checkName of requiredChecks) {
+                const check = checks.check_runs.find(c => c.name === checkName);
+                if (!check) {
+                  console.log(`⏳ Missing check: ${checkName}`);
+                  allFound = false;
+                } else if (check.status !== 'completed') {
+                  console.log(`⏳ Pending check: ${checkName} (${check.status})`);
+                  pendingChecks.push(checkName);
+                } else if (check.conclusion !== 'success') {
+                  console.log(`❌ Failed check: ${checkName} (${check.conclusion})`);
+                  failedChecks.push(checkName);
+                } else {
+                  console.log(`✅ Passed check: ${checkName}`);
+                }
+              }
 
-  #             if (failedChecks.length > 0) {
-  #               core.setFailed(`Required checks failed: ${failedChecks.join(', ')}`);
-  #               return;
-  #             }
+              if (failedChecks.length > 0) {
+                core.setFailed(`Required checks failed: ${failedChecks.join(', ')}`);
+                return;
+              }
 
-  #             if (allFound && pendingChecks.length === 0) {
-  #               console.log('✅ All required checks completed successfully');
-  #               allComplete = true;
-  #             } else {
-  #               console.log(`⏳ Waiting for ${pendingChecks.length} checks to complete...`);
-  #               await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30 seconds
-  #               attempts++;
-  #             }
-  #           }
+              if (allFound && pendingChecks.length === 0) {
+                console.log('✅ All required checks completed successfully');
+                allComplete = true;
+              } else {
+                console.log(`⏳ Waiting for ${pendingChecks.length} checks to complete...`);
+                await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30 seconds
+                attempts++;
+              }
+            }
 
-  #           if (!allComplete) {
-  #             core.setFailed('Timeout waiting for CI checks to complete');
-  #           }
+            if (!allComplete) {
+              core.setFailed('Timeout waiting for CI checks to complete');
+            }
 
   release:
     name: Release
-    # needs: [check-ci-status]
+    needs: [check-ci-status]
     runs-on: ubuntu-latest
     environment: npm-prd
     steps:
