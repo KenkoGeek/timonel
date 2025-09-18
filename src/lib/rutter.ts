@@ -47,6 +47,8 @@ export class Rutter {
   private readonly props: RutterProps;
 
   constructor(props: RutterProps) {
+    console.log(`🚀 Initializing Rutter chart: ${props.meta.name} v${props.meta.version}`);
+
     this.defaultValues = props.defaultValues ?? {};
     this.envValues = props.envValues ?? {};
     this.meta = props.meta;
@@ -578,42 +580,31 @@ export class Rutter {
    * @since 2.8.0+
    */
   private validateManifestStructure(manifest: Record<string, unknown>): void {
-    if (!manifest['apiVersion'] || typeof manifest['apiVersion'] !== 'string') {
-      throw new Error('Kubernetes manifest must have a valid apiVersion');
+    if (!manifest.apiVersion) {
+      console.error('❌ Manifest validation failed: Missing apiVersion');
+      throw new Error('Manifest must have an apiVersion');
     }
 
-    if (!manifest['kind'] || typeof manifest['kind'] !== 'string') {
-      throw new Error('Kubernetes manifest must have a valid kind');
+    if (!manifest.kind) {
+      console.error('❌ Manifest validation failed: Missing kind');
+      throw new Error('Manifest must have a kind');
     }
 
-    if (
-      !manifest['metadata'] ||
-      typeof manifest['metadata'] !== 'object' ||
-      manifest['metadata'] === null
-    ) {
-      throw new Error('Kubernetes manifest must have valid metadata');
+    if (!manifest.metadata) {
+      console.error('❌ Manifest validation failed: Missing metadata');
+      throw new Error('Manifest must have metadata');
     }
 
-    const metadata = manifest['metadata'] as Record<string, unknown>;
-    if (!metadata['name'] || typeof metadata['name'] !== 'string') {
-      throw new Error('Kubernetes manifest metadata must have a valid name');
+    const metadata = manifest.metadata as Record<string, unknown>;
+    if (!metadata.name) {
+      console.error('❌ Manifest validation failed: Missing metadata.name');
+      throw new Error('Manifest metadata must have a name');
     }
 
-    // Additional validation for specific resource types
-    const kind = manifest['kind'] as string;
-    if (kind === 'CustomResourceDefinition') {
-      if (!manifest['spec'] || typeof manifest['spec'] !== 'object' || manifest['spec'] === null) {
-        throw new Error('CustomResourceDefinition must have a valid spec');
-      }
-
-      const spec = manifest['spec'] as Record<string, unknown>;
-      if (!spec['group'] || typeof spec['group'] !== 'string') {
-        throw new Error('CustomResourceDefinition spec must have a valid group');
-      }
-
-      if (!Array.isArray(spec['versions']) || spec['versions'].length === 0) {
-        throw new Error('CustomResourceDefinition must have at least one version in spec.versions');
-      }
+    // Validate that metadata.name is a string
+    if (typeof metadata.name !== 'string') {
+      console.error('❌ Manifest validation failed: metadata.name must be a string');
+      throw new Error('Manifest metadata.name must be a string');
     }
   }
 
@@ -664,6 +655,8 @@ export class Rutter {
    * @since 2.8.0+
    */
   private toSynthArray(): SynthAsset[] {
+    console.log(`📦 Synthesizing chart assets for: ${this.meta.name}`);
+
     // Get ApiObject IDs before synthesis, excluding placeholders
     const apiObjectIds: string[] = [];
     for (const child of this.chart.node.children) {
@@ -683,6 +676,7 @@ export class Rutter {
       return true;
     });
 
+    console.log(`📋 Found ${manifestObjs.length} manifest objects to process`);
     // Enforce common labels best-practice on all rendered objects
     const enriched = manifestObjs.map((obj: unknown) => {
       if (obj && typeof obj === 'object') {
@@ -1195,6 +1189,8 @@ export class Rutter {
    * @since 1.0.0
    */
   write(outDir: string): void {
+    console.log(`✍️  Writing Helm chart '${this.meta.name}' to: ${outDir}`);
+
     // Generate helpers template
     let helpersContent: string | undefined;
     if (this.props.helpersTpl) {
@@ -1218,6 +1214,7 @@ ${helper.template}
     }
 
     const synthAssets = this.toSynthArray();
+    console.log(`📄 Generated ${synthAssets.length} assets for chart`);
 
     HelmChartWriter.write({
       outDir,
@@ -1227,6 +1224,8 @@ ${helper.template}
       assets: synthAssets,
       helpersTpl: helpersContent,
     });
+
+    console.log(`✅ Helm chart '${this.meta.name}' written successfully`);
   }
 }
 

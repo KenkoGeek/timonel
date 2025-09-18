@@ -144,28 +144,8 @@ export class HelmChartWriter {
   /**
    * Writes a complete Helm chart to the specified directory
    *
-   * Creates the full directory structure and writes all necessary files
-   * for a valid Helm chart including Chart.yaml, values files, templates,
-   * and auxiliary files.
-   *
-   * @param {HelmChartWriteOptions} opts - Chart configuration options
-   * @throws {Error} If output directory path is invalid
-   * @throws {Error} If chart metadata is invalid
-   *
-   * @example
-   * ```typescript
-   * HelmChartWriter.write({
-   *   outDir: './charts/my-app',
-   *   meta: {
-   *     name: 'my-app',
-   *     version: '1.0.0',
-   *     description: 'My application'
-   *   },
-   *   defaultValues: { replicas: 3 },
-   *   assets: []
-   * });
-   * ```
-   *
+   * @param {HelmChartWriteOptions} opts - Chart writing options
+   * @throws {Error} If chart cannot be written
    * @since 2.8.0+
    */
   static write(opts: HelmChartWriteOptions) {
@@ -179,6 +159,8 @@ export class HelmChartWriter {
       notesTpl,
       valuesSchema,
     } = opts;
+
+    console.log(`📝 Writing Helm chart: ${meta.name} v${meta.version} to ${outDir}`);
 
     // Validate output directory path
     const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd());
@@ -197,6 +179,8 @@ export class HelmChartWriter {
     this.writeNotes(validatedOutDir, notesTpl);
     this.writeSchema(validatedOutDir, valuesSchema);
     this.writeHelmIgnore(validatedOutDir);
+
+    console.log(`✅ Helm chart written successfully to ${validatedOutDir}`);
   }
 
   /**
@@ -406,15 +390,21 @@ function writeAssets(outDir: string, assets: SynthAsset[]) {
     // Sanitize asset ID to prevent path traversal
     const sanitizedId = asset.id.replace(/[^a-zA-Z0-9-_]/g, '');
     if (sanitizedId !== asset.id) {
+      console.error(`❌ Invalid asset ID detected: ${SecurityUtils.sanitizeLogMessage(asset.id)}`);
       throw new Error(`Invalid asset ID: ${SecurityUtils.sanitizeLogMessage(asset.id)}`);
     }
 
     const targetDir = getTargetDirectory(asset.target);
 
-    if (asset.singleFile) {
-      writeSingleAssetFile(outDir, targetDir, sanitizedId, asset.yaml);
-    } else {
-      writeMultipleAssetFiles(outDir, targetDir, sanitizedId, asset.yaml);
+    try {
+      if (asset.singleFile) {
+        writeSingleAssetFile(outDir, targetDir, sanitizedId, asset.yaml);
+      } else {
+        writeMultipleAssetFiles(outDir, targetDir, sanitizedId, asset.yaml);
+      }
+    } catch (error) {
+      console.error(`❌ Failed to write asset ${asset.id}:`, error);
+      throw error;
     }
   }
 }
