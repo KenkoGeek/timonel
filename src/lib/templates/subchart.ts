@@ -250,10 +250,7 @@ spec:
 
   // Method to write Helm chart
   writeHelmChart(outDir: string): void {
-    console.log('🔧 Subchart.writeHelmChart called with outDir:', outDir);
-    console.log('🔧 Rutter instance exists:', !!this.rutter);
     this.rutter.write(outDir);
-    console.log('🔧 Subchart.writeHelmChart completed');
   }
 }
 

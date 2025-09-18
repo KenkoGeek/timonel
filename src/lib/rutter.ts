@@ -5,7 +5,7 @@ import type { Construct } from 'constructs';
 import Handlebars from 'handlebars';
 import YAML from 'yaml';
 
-import { helm, include } from './helm.js';
+import { include } from './helm.js';
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
 import type {
@@ -664,7 +664,6 @@ export class Rutter {
    * @since 2.8.0+
    */
   private toSynthArray(): SynthAsset[] {
-    console.log('🔍 toSynthArray called');
     // Get ApiObject IDs before synthesis, excluding placeholders
     const apiObjectIds: string[] = [];
     for (const child of this.chart.node.children) {
@@ -692,12 +691,12 @@ export class Rutter {
         o.metadata.labels = o.metadata.labels ?? {};
         const labels = o.metadata.labels as Record<string, unknown>;
         const defaults: Record<string, string> = {
-          'helm.sh/chart': '{{ .Chart.Name }}-{{ .Chart.Version }}',
-          'app.kubernetes.io/name': include(Rutter.HELPER_NAME),
-          'app.kubernetes.io/instance': helm.releaseName,
-          'app.kubernetes.io/version': helm.chartVersion,
+          'helm.sh/chart': `{{ .Chart.Name }}-{{ .Chart.Version }}`,
+          'app.kubernetes.io/name': `{{ ${include} "${Rutter.HELPER_NAME}" . }}`,
+          'app.kubernetes.io/instance': '{{ .Release.Name }}',
+          'app.kubernetes.io/version': '{{ .Chart.Version }}',
           'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
-          'app.kubernetes.io/part-of': helm.chartName,
+          'app.kubernetes.io/part-of': '{{ .Chart.Name }}',
         };
 
         // Apply defaults only if not already set
@@ -713,7 +712,6 @@ export class Rutter {
 
     const synthAssets: SynthAsset[] = [];
 
-    console.log('🔍 singleManifestFile:', this.props.singleManifestFile);
     if (this.props.singleManifestFile) {
       // Combine all resources into single manifest
       const combinedYaml = enriched
@@ -729,7 +727,6 @@ export class Rutter {
         // eslint-disable-next-line security/detect-object-injection
         const apiObjectId = apiObjectIds[index];
         const manifestId = apiObjectId || `manifest-${index + 1}`;
-        console.log(`🔍 Processing asset ${manifestId} (index ${index})`);
 
         const yaml = this.processHelmTemplates(YAML.stringify(obj).trim());
         if (yaml) {
@@ -755,19 +752,8 @@ export class Rutter {
    * @since 2.8.0+
    */
   private processHelmTemplates(yaml: string): string {
-    // Temporary debug logging for Ingress port issue
-    console.log('🔍 processHelmTemplates called with YAML length:', yaml.length);
-
-    if (yaml.includes('{{ .Values.port }}')) {
-      console.log('🎯 Found YAML with port template:');
-      const portIndex = yaml.indexOf('{{ .Values.port }}');
-      console.log(yaml.substring(Math.max(0, portIndex - 50), portIndex + 100));
-    }
-
     let processed = this.fixCharacterMappingIssues(yaml);
     processed = this.applyHelmTemplateReplacements(processed);
-
-    console.log('✅ processHelmTemplates completed');
     return processed;
   }
 
@@ -849,77 +835,20 @@ export class Rutter {
   }
 
   private applyHelmTemplateReplacements(processed: string): string {
-    // Fix escaped quotes in include statements
-    processed = this.fixIncludeStatements(processed);
-
-    // Fix escaped quotes in function calls
-    processed = this.fixFunctionCalls(processed);
-
-    // Fix Chart object references
-    processed = this.fixChartReferences(processed);
-
-    // Remove quotes around Helm expressions
-    processed = this.removeHelmExpressionQuotes(processed);
-
     // Handle complex multi-line expressions
-    if (processed.includes('number:')) {
-      console.log(
-        'DEBUG: Before fixConditionalBlocks:',
-        processed.split('\n').filter((line) => line.includes('number:')),
-      );
-    }
     processed = this.fixConditionalBlocks(processed);
-    if (processed.includes('number:')) {
-      console.log(
-        'DEBUG: After fixConditionalBlocks:',
-        processed.split('\n').filter((line) => line.includes('number:')),
-      );
-    }
 
     // Handle expressions with pipes
-    if (processed.includes('number:')) {
-      console.log(
-        'DEBUG: Before fixPipeExpressions:',
-        processed.split('\n').filter((line) => line.includes('number:')),
-      );
-    }
     processed = this.fixPipeExpressions(processed);
-    if (processed.includes('number:')) {
-      console.log(
-        'DEBUG: After fixPipeExpressions:',
-        processed.split('\n').filter((line) => line.includes('number:')),
-      );
-    }
 
     // Fix nested quotes
-    if (processed.includes('number:')) {
-      console.log(
-        'DEBUG: Before fixNestedQuotes:',
-        processed.split('\n').filter((line) => line.includes('number:')),
-      );
-    }
     processed = this.fixNestedQuotes(processed);
-    if (processed.includes('number:')) {
-      console.log(
-        'DEBUG: After fixNestedQuotes:',
-        processed.split('\n').filter((line) => line.includes('number:')),
-      );
-    }
 
     // Clean up artifacts
-    if (processed.includes('number:')) {
-      console.log(
-        'DEBUG: Before cleanupArtifacts:',
-        processed.split('\n').filter((line) => line.includes('number:')),
-      );
-    }
     processed = this.cleanupArtifacts(processed);
-    if (processed.includes('number:')) {
-      console.log(
-        'DEBUG: After cleanupArtifacts:',
-        processed.split('\n').filter((line) => line.includes('number:')),
-      );
-    }
+
+    // Remove quotes around Helm expressions (final step)
+    processed = this.removeHelmExpressionQuotes(processed);
 
     return processed;
   }
@@ -949,15 +878,6 @@ export class Rutter {
 
     // Define replacement pattern as constant
     const HELM_EXPRESSION_REPLACEMENT = '$1$2: {{$3}}';
-
-    console.log('🔧 removeHelmExpressionQuotes called');
-    // Debug: Log input to see what we're processing
-    if (processed.includes('number:')) {
-      console.log(
-        'DEBUG: removeHelmExpressionQuotes input contains number:',
-        processed.split('\n').filter((line) => line.includes('number:')),
-      );
-    }
 
     // 1. Handle expressions with type conversion functions (highest priority)
     // These are explicit type conversions that should never be quoted
@@ -998,34 +918,11 @@ export class Rutter {
       HELM_EXPRESSION_REPLACEMENT,
     );
 
-    // Debug: Check if number pattern matches before replacement
-    const numberMatches = processed.match(/^(\s*)(number):\s*"\{\{([^}]*)\}\}"/gm);
-    if (numberMatches) {
-      console.log('DEBUG: Found number pattern matches:', numberMatches);
-    } else {
-      // Check if there are any number fields at all
-      const anyNumberFields = processed.match(/number:\s*"[^"]*"/gm);
-      if (anyNumberFields) {
-        console.log('DEBUG: Found number fields but regex did not match:', anyNumberFields);
-        // Show the exact lines with number fields
-        const lines = processed.split('\n');
-        const numberLines = lines.filter((line) => line.includes('number:'));
-        console.log('DEBUG: Number field lines:', numberLines);
-      }
-    }
-
     processed = processed.replace(
       /^(\s*)(number):\s*"\{\{([^}]*)\}\}"/gm,
       HELM_EXPRESSION_REPLACEMENT,
     );
 
-    // Debug: Log output after number replacement
-    if (processed.includes('number:')) {
-      console.log(
-        'DEBUG: removeHelmExpressionQuotes after number replacement:',
-        processed.split('\n').filter((line) => line.includes('number:')),
-      );
-    }
     processed = processed.replace(
       /^(\s*)(replicas):\s*"\{\{([^}]*)\}\}"/gm,
       HELM_EXPRESSION_REPLACEMENT,
@@ -1298,9 +1195,6 @@ export class Rutter {
    * @since 1.0.0
    */
   write(outDir: string): void {
-    console.log('🚀 Rutter.write called with outDir:', outDir);
-    console.log('📊 Assets count:', this.assets.length);
-
     // Generate helpers template
     let helpersContent: string | undefined;
     if (this.props.helpersTpl) {
@@ -1324,7 +1218,6 @@ ${helper.template}
     }
 
     const synthAssets = this.toSynthArray();
-    console.log('📦 Generated synth assets:', synthAssets.length);
 
     HelmChartWriter.write({
       outDir,
@@ -1334,8 +1227,6 @@ ${helper.template}
       assets: synthAssets,
       helpersTpl: helpersContent,
     });
-
-    console.log('✅ Rutter.write completed');
   }
 }
 

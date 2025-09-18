@@ -232,7 +232,7 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
       },
     });
 
-    // Frontend deployment - usando Chart independiente
+    // Frontend deployment
     const frontendApp = new App();
     const frontendCdk8sChart = new Chart(frontendApp, 'frontend');
 
@@ -490,8 +490,13 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
 
     // Test that umbrella creation completes without errors
     expect(() => {
-      // Just verify umbrella creation, don't write to avoid multiple outputs
       expect(umbrella).toBeDefined();
+    }).not.toThrow();
+
+    // Test write operation to create umbrella-write folder
+    expect(() => {
+      const tempDir = './temp-test/umbrella-write';
+      umbrella.write(tempDir);
     }).not.toThrow();
 
     // Verify umbrella chart was created
