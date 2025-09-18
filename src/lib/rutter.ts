@@ -7,6 +7,7 @@ import YAML from 'yaml';
 
 import { include } from './helm.js';
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
+import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
 import type {
   AWSALBIngressSpec,
@@ -514,14 +515,10 @@ export class Rutter {
     }
 
     try {
-      // Convert the manifest to YAML with options to minimize unnecessary quotes
-      const yamlContent = YAML.stringify(manifestObject, {
+      // Convert the manifest to YAML with Helm-aware serialization
+      const yamlContent = dumpHelmAwareYaml(manifestObject, {
         // Preserve formatting and minimize line wrapping
         lineWidth: 0,
-        // Don't treat double-quoted strings as JSON
-        doubleQuotedAsJSON: false,
-        // Use simple keys when possible
-        simpleKeys: true,
       });
 
       // Create Handlebars template with escaped Helm syntax
@@ -709,7 +706,7 @@ export class Rutter {
     if (this.props.singleManifestFile) {
       // Combine all resources into single manifest
       const combinedYaml = enriched
-        .map((obj) => this.processHelmTemplates(YAML.stringify(obj).trim()))
+        .map((obj) => this.processHelmTemplates(dumpHelmAwareYaml(obj).trim()))
         .filter(Boolean)
         .join('\n---\n');
 
@@ -722,7 +719,7 @@ export class Rutter {
         const apiObjectId = apiObjectIds[index];
         const manifestId = apiObjectId || `manifest-${index + 1}`;
 
-        const yaml = this.processHelmTemplates(YAML.stringify(obj).trim());
+        const yaml = this.processHelmTemplates(dumpHelmAwareYaml(obj).trim());
         if (yaml) {
           // Use descriptive name from ApiObject ID if available, otherwise fallback to generic name
           synthAssets.push({ id: manifestId, yaml });

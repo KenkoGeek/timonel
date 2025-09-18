@@ -3,10 +3,10 @@ import { join } from 'path';
 
 import type { App } from 'cdk8s';
 import { Chart, ApiObject } from 'cdk8s';
-import YAML from 'yaml';
 
 import type { ChartProps } from '../types.js';
 import type { UmbrellaRutter } from '../umbrellaRutter.js';
+import { dumpHelmAwareYaml } from '../utils/helmYamlSerializer.js';
 
 // Interface for charts that support Helm generation
 interface HelmChart extends Chart {
@@ -167,7 +167,7 @@ export class UmbrellaChartTemplate extends Chart {
         })) || [],
     };
     // eslint-disable-next-line security/detect-non-literal-fs-filename
-    writeFileSync(join(outputDir, 'Chart.yaml'), YAML.stringify(chartYaml));
+    writeFileSync(join(outputDir, 'Chart.yaml'), dumpHelmAwareYaml(chartYaml));
 
     // Create values.yaml
     const valuesYaml = {
@@ -185,7 +185,7 @@ export class UmbrellaChartTemplate extends Chart {
       ),
     };
     // eslint-disable-next-line security/detect-non-literal-fs-filename
-    writeFileSync(join(outputDir, 'values.yaml'), YAML.stringify(valuesYaml));
+    writeFileSync(join(outputDir, 'values.yaml'), dumpHelmAwareYaml(valuesYaml));
 
     // Create charts directory
     const chartsDir = join(outputDir, 'charts');
@@ -250,7 +250,7 @@ export class UmbrellaChartTemplate extends Chart {
     };
 
     // eslint-disable-next-line security/detect-non-literal-fs-filename
-    writeFileSync(join(templatesDir, 'namespace.yaml'), YAML.stringify(namespaceYaml));
+    writeFileSync(join(templatesDir, 'namespace.yaml'), dumpHelmAwareYaml(namespaceYaml));
 
     // Create _helpers.tpl
     const helpersTpl = `{{/*
