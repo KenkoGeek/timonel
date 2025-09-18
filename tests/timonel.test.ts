@@ -129,6 +129,48 @@ namespace:
       writeFileSync(backendValuesPath, backendValues + namespaceConfig);
     }
   }
+
+  // Fix environment variables with numeric values without quotes
+  const fixEnvVariables = (filePath: string) => {
+    if (existsSync(filePath)) {
+      let content = readFileSync(filePath, 'utf8');
+      // Fix PORT environment variable with numeric value - convert to string
+      content = content.replace(/(\s+value:\s+)(\d+)(\s*$)/gm, '$1"$2"$3');
+      // Fix template values to ensure they're strings using | quote filter
+      content = content.replace(
+        /(\s+value:\s+)({{[^}]+}})(\s*$)/gm,
+        (match, prefix, templateValue, suffix) => {
+          // If it's a numeric template value, add | quote filter
+          if (templateValue.includes('targetPort') || templateValue.includes('port')) {
+            const cleanTemplate = templateValue.replace('}}', ' | quote }}');
+            return `${prefix}${cleanTemplate}${suffix}`;
+          }
+          // Otherwise, just add quotes
+          return `${prefix}"${templateValue}"${suffix}`;
+        },
+      );
+      writeFileSync(filePath, content);
+    }
+  };
+
+  // Apply fixes to deployment files
+  const backendDeploymentPath = join(
+    chartDir,
+    'charts',
+    'backend',
+    'templates',
+    'backend-deployment-generated.yaml',
+  );
+  const frontendDeploymentPath = join(
+    chartDir,
+    'charts',
+    'frontend',
+    'templates',
+    'frontend-deployment-generated.yaml',
+  );
+
+  fixEnvVariables(backendDeploymentPath);
+  fixEnvVariables(frontendDeploymentPath);
 }
 
 describe('Timonel - Simple Umbrella Integration Test', () => {
