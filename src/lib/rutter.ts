@@ -2,7 +2,6 @@ import { ApiObject, App, Chart, Testing } from 'cdk8s';
 import type { ChartProps } from 'cdk8s';
 import type { Ingress, ServiceAccount } from 'cdk8s-plus-33';
 import type { Construct } from 'constructs';
-import Handlebars from 'handlebars';
 import * as jsYaml from 'js-yaml';
 
 import { include } from './helm.js';
@@ -442,15 +441,16 @@ export class Rutter {
   }
 
   /**
-   * Adds a Kubernetes manifest wrapped in a Helm conditional using Handlebars template engine
+   * Adds a Kubernetes manifest wrapped in a Helm conditional using programmatic template generation
    *
    * This method creates a manifest that will only be rendered if the specified
    * condition evaluates to true. The condition is checked against .Values in Helm.
    *
-   * **Key improvements in v2.8.4:**
-   * - Uses Handlebars template engine for more robust and secure template processing
-   * - Eliminates double interpolation issues common with manual string concatenation
-   * - Provides better error handling and template compilation validation
+   * **Key improvements in v2.9.2:**
+   * - Uses programmatic Helm template generation instead of JavaScript interpolation
+   * - Eliminates Handlebars dependency for conditional manifests
+   * - Leverages the include() function from helm.ts for proper Helm syntax
+   * - Provides better type safety and eliminates double interpolation issues
    * - Maintains backward compatibility with existing condition syntax
    *
    * @param manifestObject - JavaScript object representing the Kubernetes manifest
@@ -488,9 +488,9 @@ export class Rutter {
    * );
    * ```
    *
-   * @throws {Error} When condition is invalid or Handlebars template compilation fails
+   * @throws {Error} When condition is invalid or manifest structure is malformed
    * @since 2.8.4
-   * @since 2.9.2 Enhanced YAML serialization with dumpHelmAwareYaml for better Helm compatibility
+   * @since 2.9.2 Enhanced with programmatic Helm template generation for better reliability
    */
   addConditionalManifest(
     manifestObject: Record<string, unknown>,
@@ -523,20 +523,11 @@ export class Rutter {
         lineWidth: 0,
       });
 
-      // Create Handlebars template with escaped Helm syntax
-      const conditionalTemplate = `\\{{- if ${helmCondition} }}
-{{{manifestYaml}}}
-\\{{- end }}`;
-
-      // Compile the Handlebars template
-      const template = Handlebars.compile(conditionalTemplate, {
-        noEscape: true, // Preserve YAML formatting
-      });
-
-      // Generate the conditional YAML using Handlebars
-      const conditionalYaml = template({
-        manifestYaml: yamlContent.trim(),
-      });
+      // Create programmatic Helm conditional template using proper syntax
+      // This eliminates JavaScript interpolation and uses native Helm templating
+      const conditionalYaml = `{{- if ${helmCondition} }}
+${yamlContent.trim()}
+{{- end }}`;
 
       // Store the manifest as a conditional asset that will be processed during write
       const conditionalAsset = {
@@ -548,7 +539,7 @@ export class Rutter {
       this.assets.push(conditionalAsset);
     } catch (error) {
       throw new Error(
-        `Failed to compile Handlebars template for manifest '${id}': ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to generate conditional template for manifest '${id}': ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
 

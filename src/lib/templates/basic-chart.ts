@@ -86,7 +86,7 @@ export class BasicChart extends Chart {
       );
     }
 
-    // Create deployment manifest
+    // Create deployment manifest with proper Helm labels
     this.rutter.addManifest(
       {
         apiVersion: 'apps/v1',
@@ -95,6 +95,11 @@ export class BasicChart extends Chart {
           name: `{{ .Values.appName }}`,
           labels: {
             app: `{{ .Values.appName }}`,
+            'helm.sh/chart': `{{ .Chart.Name }}-{{ .Chart.Version }}`,
+            'app.kubernetes.io/name': `{{ include "chart.name" . }}`,
+            'app.kubernetes.io/instance': `{{ .Release.Name }}`,
+            'app.kubernetes.io/version': `{{ .Chart.AppVersion }}`,
+            'app.kubernetes.io/managed-by': `{{ .Release.Service }}`,
           },
         },
         spec: {
@@ -102,12 +107,16 @@ export class BasicChart extends Chart {
           selector: {
             matchLabels: {
               app: `{{ .Values.appName }}`,
+              'app.kubernetes.io/name': `{{ include "chart.name" . }}`,
+              'app.kubernetes.io/instance': `{{ .Release.Name }}`,
             },
           },
           template: {
             metadata: {
               labels: {
                 app: `{{ .Values.appName }}`,
+                'app.kubernetes.io/name': `{{ include "chart.name" . }}`,
+                'app.kubernetes.io/instance': `{{ .Release.Name }}`,
               },
             },
             spec: {
@@ -129,7 +138,7 @@ export class BasicChart extends Chart {
       'deployment',
     );
 
-    // Create service manifest
+    // Create service manifest with proper Helm labels
     this.rutter.addManifest(
       {
         apiVersion: 'v1',
@@ -138,6 +147,11 @@ export class BasicChart extends Chart {
           name: `{{ .Values.appName }}`,
           labels: {
             app: `{{ .Values.appName }}`,
+            'helm.sh/chart': `{{ .Chart.Name }}-{{ .Chart.Version }}`,
+            'app.kubernetes.io/name': `{{ include "chart.name" . }}`,
+            'app.kubernetes.io/instance': `{{ .Release.Name }}`,
+            'app.kubernetes.io/version': `{{ .Chart.AppVersion }}`,
+            'app.kubernetes.io/managed-by': `{{ .Release.Service }}`,
           },
         },
         spec: {
@@ -149,6 +163,8 @@ export class BasicChart extends Chart {
           ],
           selector: {
             app: `{{ .Values.appName }}`,
+            'app.kubernetes.io/name': `{{ include "chart.name" . }}`,
+            'app.kubernetes.io/instance': `{{ .Release.Name }}`,
           },
         },
       },
