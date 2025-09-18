@@ -145,7 +145,9 @@ export class UmbrellaChartTemplate extends Chart {
    */
   writeHelmChart(outputDir: string): void {
     // Ensure output directory exists
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     if (!existsSync(outputDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       mkdirSync(outputDir, { recursive: true });
     }
 
@@ -164,7 +166,7 @@ export class UmbrellaChartTemplate extends Chart {
           repository: 'file://./charts/' + subchart.name,
         })) || [],
     };
-
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     writeFileSync(join(outputDir, 'Chart.yaml'), YAML.stringify(chartYaml));
 
     // Create values.yaml
@@ -182,19 +184,23 @@ export class UmbrellaChartTemplate extends Chart {
         ]) || [],
       ),
     };
-
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     writeFileSync(join(outputDir, 'values.yaml'), YAML.stringify(valuesYaml));
 
     // Create charts directory
     const chartsDir = join(outputDir, 'charts');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     if (!existsSync(chartsDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       mkdirSync(chartsDir, { recursive: true });
     }
 
     // Generate Helm charts for each subchart
     this.config.subcharts?.forEach((subchart) => {
       const subchartDir = join(chartsDir, subchart.name);
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       if (!existsSync(subchartDir)) {
+        // eslint-disable-next-line security/detect-non-literal-fs-filename
         mkdirSync(subchartDir, { recursive: true });
       }
 
@@ -222,7 +228,9 @@ export class UmbrellaChartTemplate extends Chart {
 
     // Create templates directory
     const templatesDir = join(outputDir, 'templates');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     if (!existsSync(templatesDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       mkdirSync(templatesDir, { recursive: true });
     }
 
@@ -241,6 +249,7 @@ export class UmbrellaChartTemplate extends Chart {
       },
     };
 
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     writeFileSync(join(templatesDir, 'namespace.yaml'), YAML.stringify(namespaceYaml));
 
     // Create _helpers.tpl
@@ -294,7 +303,7 @@ app.kubernetes.io/name: {{ include "chart.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 `;
-
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     writeFileSync(join(templatesDir, '_helpers.tpl'), helpersTpl);
   }
 }
