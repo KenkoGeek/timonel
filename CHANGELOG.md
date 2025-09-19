@@ -1,3 +1,9 @@
+## [2.9.2](https://github.com/KenkoGeek/timonel/compare/v2.9.1...v2.9.2) (2025-09-19)
+
+### Bug Fixes
+
+- **helm:** implement Helm-aware YAML serializer ([#112](https://github.com/KenkoGeek/timonel/issues/112)) ([daf4276](https://github.com/KenkoGeek/timonel/commit/daf427618eea73db832682f6b37287a9176bc31e))
+
 ## [2.9.1](https://github.com/KenkoGeek/timonel/compare/v2.9.0...v2.9.1) (2025-09-19)
 
 ### Bug Fixes
