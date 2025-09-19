@@ -81,8 +81,8 @@ function usageAndExit(msg?: string, silent = false) {
         '  tl synth my-app my-app/dist',
         '  tl validate my-app',
         '  tl deploy my-app my-release --env prod',
-        '  tl synth my-app --dry-run --silent',
-        '  tl synth my-app --set replicas=5 --set image.tag=v2.0.0',
+        '  tl synth --dry-run --silent',
+        '  tl synth --set replicas=5 --set image.tag=v2.0.0',
         '  tl deploy my-app my-release --set service.port=8080',
       ].join('\n'),
     );

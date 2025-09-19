@@ -13,49 +13,111 @@ import * as kplus from 'cdk8s-plus-33';
 import { Rutter } from '../src/lib/rutter.js';
 import { createUmbrella } from '../src/lib/umbrella.js';
 import type { SubchartSpec } from '../src/lib/umbrella.js';
+import { createHelper, formatHelpers } from '../src/lib/utils/helmHelpers.js';
+
 /**
- * Validate generated Helm chart templates using native Helm templating
- * This function demonstrates the correct usage of Timonel after the addConditionalManifest fix
+ * Fix generated Helm chart templates by adding missing helper functions using Timonel's helper library
  */
-function validateChartTemplates(chartDir: string): void {
-  // Validate that charts use native Helm templating instead of hardcoded helpers
-  const validateTemplateFile = (filePath: string, chartName: string) => {
-    if (existsSync(filePath)) {
-      const content = readFileSync(filePath, 'utf8');
+function fixChartTemplates(chartDir: string): void {
+  // Create custom helpers for frontend using Timonel's helper library
+  const frontendHelpers = [
+    createHelper(
+      'frontend.name',
+      '{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}',
+    ),
+    createHelper(
+      'frontend.fullname',
+      `{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}`,
+    ),
+    createHelper(
+      'frontend.chart',
+      '{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}',
+    ),
+    createHelper(
+      'frontend.labels',
+      `helm.sh/chart: {{ include "frontend.chart" . }}
+{{ include "frontend.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}`,
+    ),
+    createHelper(
+      'frontend.selectorLabels',
+      `app.kubernetes.io/name: {{ include "frontend.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}`,
+    ),
+  ];
 
-      // Check that templates use standard Helm functions instead of custom helpers
-      const hasStandardHelm =
-        content.includes('{{ include "') ||
-        content.includes('{{ .Chart.Name }}') ||
-        content.includes('{{ .Release.Name }}');
+  // Create custom helpers for backend using Timonel's helper library
+  const backendHelpers = [
+    createHelper(
+      'backend.name',
+      '{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}',
+    ),
+    createHelper(
+      'backend.fullname',
+      `{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}`,
+    ),
+    createHelper(
+      'backend.chart',
+      '{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}',
+    ),
+    createHelper(
+      'backend.labels',
+      `helm.sh/chart: {{ include "backend.chart" . }}
+{{ include "backend.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}`,
+    ),
+    createHelper(
+      'backend.selectorLabels',
+      `app.kubernetes.io/name: {{ include "backend.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}`,
+    ),
+  ];
 
-      if (!hasStandardHelm) {
-        console.warn(`Warning: ${chartName} templates may not be using standard Helm templating`);
-      }
+  // Fix frontend helper templates
+  const frontendHelpersPath = join(chartDir, 'charts', 'frontend', 'templates', '_helpers.tpl');
+  if (existsSync(frontendHelpersPath)) {
+    const existingHelpers = readFileSync(frontendHelpersPath, 'utf8');
+    if (!existingHelpers.includes('frontend.name')) {
+      const additionalHelpers = '\n\n' + formatHelpers(frontendHelpers);
+      writeFileSync(frontendHelpersPath, existingHelpers + additionalHelpers);
     }
-  };
+  }
 
-  // Validate frontend templates
-  const frontendDeploymentPath = join(
-    chartDir,
-    'charts',
-    'frontend',
-    'templates',
-    'frontend-deployment-generated.yaml',
-  );
-  validateTemplateFile(frontendDeploymentPath, 'frontend');
+  // Fix backend helper templates
+  const backendHelpersPath = join(chartDir, 'charts', 'backend', 'templates', '_helpers.tpl');
+  if (existsSync(backendHelpersPath)) {
+    const existingHelpers = readFileSync(backendHelpersPath, 'utf8');
+    if (!existingHelpers.includes('backend.name')) {
+      const additionalHelpers = '\n\n' + formatHelpers(backendHelpers);
+      writeFileSync(backendHelpersPath, existingHelpers + additionalHelpers);
+    }
+  }
 
-  // Validate backend templates
-  const backendDeploymentPath = join(
-    chartDir,
-    'charts',
-    'backend',
-    'templates',
-    'backend-deployment-generated.yaml',
-  );
-  validateTemplateFile(backendDeploymentPath, 'backend');
-
-  // Ensure backend values.yaml has namespace configuration
+  // Fix backend values.yaml for namespace configuration
   const backendValuesPath = join(chartDir, 'charts', 'backend', 'values.yaml');
   if (existsSync(backendValuesPath)) {
     const backendValues = readFileSync(backendValuesPath, 'utf8');
@@ -91,7 +153,21 @@ namespace:
     }
   };
 
-  // Apply fixes to deployment files using the paths already defined above
+  // Apply fixes to deployment files
+  const backendDeploymentPath = join(
+    chartDir,
+    'charts',
+    'backend',
+    'templates',
+    'backend-deployment-generated.yaml',
+  );
+  const frontendDeploymentPath = join(
+    chartDir,
+    'charts',
+    'frontend',
+    'templates',
+    'frontend-deployment-generated.yaml',
+  );
   fixEnvVariables(backendDeploymentPath);
   fixEnvVariables(frontendDeploymentPath);
 }
@@ -143,22 +219,22 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
     const backendApp = new App();
     const backendCdk8sChart = new Chart(backendApp, 'backend');
 
-    // Crear deployment usando kplus.Deployment con templating nativo de Helm
+    // Crear deployment usando kplus.Deployment con configuración simplificada
     const backendDeployment = new kplus.Deployment(backendCdk8sChart, 'backend-deployment', {
       metadata: {
-        name: '{{ .Release.Name }}-backend',
+        name: '{{ include "backend.fullname" . }}',
         labels: {
-          'app.kubernetes.io/name': '{{ .Chart.Name }}',
+          'app.kubernetes.io/name': '{{ include "backend.name" . }}',
           'app.kubernetes.io/instance': '{{ .Release.Name }}',
           'app.kubernetes.io/version': '{{ .Chart.AppVersion }}',
           'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
-          'helm.sh/chart': '{{ .Chart.Name }}-{{ .Chart.Version }}',
+          'helm.sh/chart': '{{ include "backend.chart" . }}',
         },
       },
       replicas: 2,
       podMetadata: {
         labels: {
-          'app.kubernetes.io/name': '{{ .Chart.Name }}',
+          'app.kubernetes.io/name': '{{ include "backend.name" . }}',
           'app.kubernetes.io/instance': '{{ .Release.Name }}',
         },
       },
@@ -306,27 +382,27 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
       apiVersion: 'apps/v1',
       kind: 'Deployment',
       metadata: {
-        name: '{{ .Release.Name }}-frontend',
+        name: '{{ include "frontend.fullname" . }}',
         labels: {
-          'app.kubernetes.io/name': '{{ .Chart.Name }}',
+          'app.kubernetes.io/name': '{{ include "frontend.name" . }}',
           'app.kubernetes.io/instance': '{{ .Release.Name }}',
           'app.kubernetes.io/version': '{{ .Chart.AppVersion }}',
           'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
-          'helm.sh/chart': '{{ .Chart.Name }}-{{ .Chart.Version }}',
+          'helm.sh/chart': '{{ include "frontend.chart" . }}',
         },
       },
       spec: {
         replicas: '{{ .Values.replicaCount }}',
         selector: {
           matchLabels: {
-            'app.kubernetes.io/name': '{{ .Chart.Name }}',
+            'app.kubernetes.io/name': '{{ include "frontend.name" . }}',
             'app.kubernetes.io/instance': '{{ .Release.Name }}',
           },
         },
         template: {
           metadata: {
             labels: {
-              'app.kubernetes.io/name': '{{ .Chart.Name }}',
+              'app.kubernetes.io/name': '{{ include "frontend.name" . }}',
               'app.kubernetes.io/instance': '{{ .Release.Name }}',
             },
           },
@@ -548,8 +624,8 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
       const tempDir = './temp-test/umbrella-write';
       umbrella.write(tempDir);
 
-      // Validate generated chart templates after writing
-      validateChartTemplates(tempDir);
+      // Fix generated chart templates after writing
+      fixChartTemplates(tempDir);
     }).not.toThrow();
 
     // Verify umbrella chart was created

@@ -1,3 +1,10 @@
+## [2.9.1](https://github.com/KenkoGeek/timonel/compare/v2.9.0...v2.9.1) (2025-09-19)
+
+### Bug Fixes
+
+- **deps:** merge conflict solved [skip ci] ([3422464](https://github.com/KenkoGeek/timonel/commit/3422464ddee4a1408019ba4617b6f8e6f6c8fd12))
+- **deps:** upgrade timonel version [skip ci] ([63901ef](https://github.com/KenkoGeek/timonel/commit/63901ef4277a1ebf702fc55337ed1eb7f6b226ea))
+
 # [2.9.0](https://github.com/KenkoGeek/timonel/compare/v2.8.3...v2.9.0) (2025-09-17)
 
 ### Features
