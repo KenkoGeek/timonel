@@ -241,7 +241,7 @@ export class UmbrellaChartTemplate extends Chart {
       metadata: {
         name: '{{ .Values.global.namespace | default .Release.Name }}',
         labels: {
-          'app.kubernetes.io/name': '{{ include "chart.name" . }}',
+          'app.kubernetes.io/name': '{{ .Chart.Name }}',
           'app.kubernetes.io/instance': '{{ .Release.Name }}',
           'app.kubernetes.io/version': '{{ .Chart.AppVersion }}',
           'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
@@ -287,7 +287,7 @@ Create chart name and version as used by the chart label.
 Common labels
 */}}
 {{- define "chart.labels" -}}
-helm.sh/chart: {{ include "chart.chart" . }}
+helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 {{ include "chart.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
@@ -299,7 +299,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 Selector labels
 */}}
 {{- define "chart.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "chart.name" . }}
+app.kubernetes.io/name: {{ .Chart.Name }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 `;
