@@ -4,7 +4,6 @@ import type { Ingress, ServiceAccount } from 'cdk8s-plus-33';
 import type { Construct } from 'constructs';
 import * as jsYaml from 'js-yaml';
 
-import { include } from './helm.js';
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
@@ -674,9 +673,14 @@ ${yamlContent.trim()}
         o.metadata = o.metadata ?? {};
         o.metadata.labels = o.metadata.labels ?? {};
         const labels = o.metadata.labels as Record<string, unknown>;
+        /**
+         * Default Kubernetes labels following Helm best practices
+         * Fixed template literal bug: using proper Helm syntax instead of JavaScript template evaluation
+         * @since 2.9.3
+         */
         const defaults: Record<string, string> = {
           'helm.sh/chart': `{{ .Chart.Name }}-{{ .Chart.Version }}`,
-          'app.kubernetes.io/name': `{{ ${include} "${Rutter.HELPER_NAME}" . }}`,
+          'app.kubernetes.io/name': `{{ include "${Rutter.HELPER_NAME}" . }}`,
           'app.kubernetes.io/instance': '{{ .Release.Name }}',
           'app.kubernetes.io/version': '{{ .Chart.Version }}',
           'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
