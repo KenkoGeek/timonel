@@ -7,6 +7,7 @@ import { Chart, ApiObject } from 'cdk8s';
 import type { ChartProps } from '../types.js';
 import type { UmbrellaRutter } from '../umbrellaRutter.js';
 import { dumpHelmAwareYaml } from '../utils/helmYamlSerializer.js';
+import { generateHelpersTemplate } from '../utils/helmHelpers.js';
 
 // Interface for charts that support Helm generation
 interface HelmChart extends Chart {
@@ -252,57 +253,11 @@ export class UmbrellaChartTemplate extends Chart {
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     writeFileSync(join(templatesDir, 'namespace.yaml'), dumpHelmAwareYaml(namespaceYaml));
 
-    // Create _helpers.tpl
-    const helpersTpl = `{{/*
-Expand the name of the chart.
-*/}}
-{{- define "chart.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{/*
-Create a default fully qualified app name.
-*/}}
-{{- define "chart.fullname" -}}
-{{- if .Values.fullnameOverride }}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- $name := default .Chart.Name .Values.nameOverride }}
-{{- if contains $name .Release.Name }}
-{{- .Release.Name | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
-{{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "chart.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{/*
-Common labels
-*/}}
-{{- define "chart.labels" -}}
-helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
-{{ include "chart.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- end }}
-
-{{/*
-Selector labels
-*/}}
-{{- define "chart.selectorLabels" -}}
-app.kubernetes.io/name: {{ .Chart.Name }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
-`;
+    // Create _helpers.tpl using programmatic generation
+    const helpersTpl = generateHelpersTemplate('aws', undefined, {
+      includeKubernetes: true,
+      includeSprig: true,
+    });
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     writeFileSync(join(templatesDir, '_helpers.tpl'), helpersTpl);
   }

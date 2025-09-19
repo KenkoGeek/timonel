@@ -4,6 +4,7 @@ import type { Construct } from 'constructs';
 
 import { Rutter } from '../rutter.js';
 import type { ChartMetadata } from '../rutter.js';
+import { generateHelpersTemplate } from '../utils/helmHelpers.js';
 
 export interface SubchartProps extends ChartProps {
   appName?: string;
@@ -76,6 +77,10 @@ export class Subchart extends Chart {
           tls: [],
         },
       },
+      helpersTpl: generateHelpersTemplate('aws', undefined, {
+        includeKubernetes: true,
+        includeSprig: true,
+      }),
     });
 
     // Create a ConfigMap for application configuration

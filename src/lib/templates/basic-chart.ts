@@ -4,6 +4,7 @@ import type { Construct } from 'constructs';
 
 import { Rutter } from '../rutter.js';
 import type { ChartMetadata } from '../rutter.js';
+import { generateHelpersTemplate } from '../utils/helmHelpers.js';
 
 export interface BasicChartProps extends ChartProps {
   appName?: string;
@@ -69,6 +70,10 @@ export class BasicChart extends Chart {
         replicas,
         createNamespace,
       },
+      helpersTpl: generateHelpersTemplate('aws', undefined, {
+        includeKubernetes: true,
+        includeSprig: true,
+      }),
     });
 
     // Conditionally create namespace using Helm template
