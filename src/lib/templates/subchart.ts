@@ -4,6 +4,7 @@ import type { Construct } from 'constructs';
 
 import { Rutter } from '../rutter.js';
 import type { ChartMetadata } from '../rutter.js';
+import { generateHelpersTemplate } from '../utils/helmHelpers.js';
 
 export interface SubchartProps extends ChartProps {
   appName?: string;
@@ -76,6 +77,10 @@ export class Subchart extends Chart {
           tls: [],
         },
       },
+      helpersTpl: generateHelpersTemplate('aws', undefined, {
+        includeKubernetes: true,
+        includeSprig: true,
+      }),
     });
 
     // Create a ConfigMap for application configuration
@@ -189,56 +194,50 @@ export class Subchart extends Chart {
       'service',
     );
 
-    // Add ingress
-    this.rutter.addTemplateManifest(
-      `{{- if .Values.enableIngress }}
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: {{ include "chart.fullname" . }}
-  labels:
-    {{- include "chart.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-spec:
-  {{- if and .Values.ingress.className (not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class")) }}
-  ingressClassName: {{ .Values.ingress.className }}
-  {{- end }}
-  {{- if .Values.ingress.tls }}
-  tls:
-    {{- range .Values.ingress.tls }}
-    - hosts:
-        {{- range .hosts }}
-        - {{ . | quote }}
-        {{- end }}
-      secretName: {{ .secretName }}
-    {{- end }}
-  {{- end }}
-  rules:
-    {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
-      http:
-        paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
-            pathType: {{ .pathType }}
-            {{- end }}
-            backend:
-              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
-              service:
-                name: {{ include "chart.fullname" $ }}
-                port:
-                  number: {{ $.Values.port | int }}
-              {{- else }}
-              serviceName: {{ include "chart.fullname" $ }}
-              servicePort: {{ $.Values.port | int }}
-              {{- end }}
-          {{- end }}
-    {{- end }}
-{{- end }}`,
+    // Add ingress using addConditionalManifest with native Helm templating
+    this.rutter.addConditionalManifest(
+      {
+        apiVersion: 'networking.k8s.io/v1',
+        kind: 'Ingress',
+        metadata: {
+          name: `{{ .Release.Name }}-{{ .Values.appName }}`,
+          labels: {
+            app: `{{ .Values.appName }}`,
+            'helm.sh/chart': `{{ .Chart.Name }}-{{ .Chart.Version }}`,
+            'app.kubernetes.io/name': `{{ .Chart.Name }}`,
+            'app.kubernetes.io/instance': `{{ .Release.Name }}`,
+            'app.kubernetes.io/version': `{{ .Chart.AppVersion }}`,
+            'app.kubernetes.io/managed-by': `{{ .Release.Service }}`,
+          },
+          annotations: `{{ toYaml .Values.ingress.annotations | nindent 4 }}`,
+        },
+        spec: {
+          ingressClassName: `{{ .Values.ingress.className }}`,
+          tls: `{{ toYaml .Values.ingress.tls | nindent 4 }}`,
+          rules: [
+            {
+              host: `{{ .Values.ingressHost }}`,
+              http: {
+                paths: [
+                  {
+                    path: '/',
+                    pathType: 'Prefix',
+                    backend: {
+                      service: {
+                        name: `{{ .Release.Name }}-{{ .Values.appName }}`,
+                        port: {
+                          number: `{{ .Values.port }}`,
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      'enableIngress',
       'ingress',
     );
   }

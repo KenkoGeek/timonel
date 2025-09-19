@@ -6,11 +6,10 @@
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-import YAML from 'yaml';
-
 import type { HelmChartMeta } from './helmChartWriter.js';
 import type { Rutter } from './rutter.js';
 import { SecurityUtils } from './security.js';
+import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
 
 /**
  * Configuration for a subchart within an umbrella chart
@@ -178,7 +177,7 @@ export class UmbrellaRutter {
     };
 
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    writeFileSync(join(outDir, 'Chart.yaml'), YAML.stringify(chartYaml));
+    writeFileSync(join(outDir, 'Chart.yaml'), dumpHelmAwareYaml(chartYaml));
   }
 
   private writeParentValues(outDir: string): void {
@@ -199,7 +198,7 @@ export class UmbrellaRutter {
     }
 
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    writeFileSync(join(outDir, 'values.yaml'), YAML.stringify(values));
+    writeFileSync(join(outDir, 'values.yaml'), dumpHelmAwareYaml(values));
 
     // Write environment-specific values files
     if (this.props.envValues) {
@@ -208,7 +207,7 @@ export class UmbrellaRutter {
         const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(env);
         const envValues = this.deepMerge(values, envVals);
         // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-        writeFileSync(join(outDir, `values-${sanitizedEnv}.yaml`), YAML.stringify(envValues));
+        writeFileSync(join(outDir, `values-${sanitizedEnv}.yaml`), dumpHelmAwareYaml(envValues));
       }
     }
   }
