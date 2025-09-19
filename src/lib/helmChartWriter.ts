@@ -6,9 +6,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import YAML from 'yaml';
-
 import { SecurityUtils } from './security.js';
+import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
 
 /**
  * Metadata for a Helm chart
@@ -207,7 +206,7 @@ export class HelmChartWriter {
    * @since 2.8.0+
    */
   private static writeChartYaml(outDir: string, meta: HelmChartMeta): void {
-    const chartYaml = YAML.stringify({
+    const chartYaml = dumpHelmAwareYaml({
       apiVersion: 'v2',
       name: meta.name,
       version: meta.version,
@@ -242,12 +241,12 @@ export class HelmChartWriter {
     envValues: EnvValuesMap,
   ): void {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(path.join(outDir, 'values.yaml'), YAML.stringify(defaultValues));
+    fs.writeFileSync(path.join(outDir, 'values.yaml'), dumpHelmAwareYaml(defaultValues));
     for (const [env, values] of Object.entries(envValues)) {
       // Use centralized environment name sanitization
       const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(env);
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-      fs.writeFileSync(path.join(outDir, `values-${sanitizedEnv}.yaml`), YAML.stringify(values));
+      fs.writeFileSync(path.join(outDir, `values-${sanitizedEnv}.yaml`), dumpHelmAwareYaml(values));
     }
   }
 

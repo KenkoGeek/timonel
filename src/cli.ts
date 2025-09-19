@@ -15,49 +15,78 @@ const UMBRELLA_CONFIG_FILE = 'umbrella.config.json';
 const UMBRELLA_FILE_NAME = 'umbrella.ts';
 
 // Helper functions
+/**
+ * Enhanced logging function that respects silent flag globally
+ * @param msg - Message to log
+ * @param silent - Whether to suppress output
+ * @since 2.9.2
+ */
 function log(msg: string, silent = false) {
   if (!silent) {
     console.log(msg);
   }
 }
 
-function usageAndExit(msg?: string) {
-  if (msg) {
-    console.error(`Error: ${msg}`);
+/**
+ * Enhanced error logging function that respects silent flag
+ * @param msg - Error message to log
+ * @param silent - Whether to suppress output
+ * @since 2.9.2
+ */
+function logError(msg: string, silent = false) {
+  if (!silent) {
+    console.error(msg);
   }
-  console.log(
-    [
-      'Usage: tl <command> [options]',
-      '',
-      'Commands:',
-      '  tl init <chart-name>              Create new chart',
-      '  tl synth [outDir]                 Generate Helm chart',
-      '  tl validate                       Validate chart',
-      '  tl deploy <release> [namespace]   Deploy chart',
-      '  tl templates                      List available templates',
-      '',
-      'Umbrella Charts:',
-      '  tl umbrella init <n>              Create umbrella chart structure',
-      '  tl umbrella add <subchart>           Add subchart to umbrella',
-      '  tl umbrella synth [outDir]           Generate umbrella chart',
-      '',
-      'Flags:',
-      '  --dry-run                            Show what would be done without executing',
-      '  --silent                             Suppress output (useful for CI)',
-      '  --env <environment>                  Use environment-specific values',
-      '  --set <key=value>                    Override values (can be used multiple times)',
-      '  --help, -h                           Show this help message',
-      '',
-      'Examples:',
-      '  tl init my-app',
-      '  tl synth my-app my-app/dist',
-      '  tl validate my-app',
-      '  tl deploy my-app my-release --env prod',
-      '  tl synth my-app --dry-run --silent',
-      '  tl synth my-app --set replicas=5 --set image.tag=v2.0.0',
-      '  tl deploy my-app my-release --set service.port=8080',
-    ].join('\n'),
-  );
+}
+
+/**
+ * Display usage information and exit
+ * @param msg - Optional error message
+ * @param silent - Whether to suppress output
+ * @since 2.9.2
+ */
+function usageAndExit(msg?: string, silent = false) {
+  if (msg) {
+    logError(`Error: ${msg}`, silent);
+  }
+
+  if (!silent) {
+    console.log(
+      [
+        'Usage: tl <command> [options]',
+        '',
+        'Commands:',
+        '  tl init <chart-name>              Create new chart',
+        '  tl synth [outDir]                 Generate Helm chart',
+        '  tl validate                       Validate chart',
+        '  tl deploy <release> [namespace]   Deploy chart',
+        '  tl templates                      List available templates',
+        '  tl help                           Show this help message',
+        '',
+        'Umbrella Charts:',
+        '  tl umbrella init <n>              Create umbrella chart structure',
+        '  tl umbrella add <subchart>           Add subchart to umbrella',
+        '  tl umbrella synth [outDir]           Generate umbrella chart',
+        '',
+        'Flags:',
+        '  --dry-run                            Show what would be done without executing',
+        '  --silent                             Suppress output (useful for CI)',
+        '  --env <environment>                  Use environment-specific values',
+        '  --set <key=value>                    Override values (can be used multiple times)',
+        '  --help, -h                           Show this help message',
+        '  --version, -v                        Show version information',
+        '',
+        'Examples:',
+        '  tl init my-app',
+        '  tl synth my-app my-app/dist',
+        '  tl validate my-app',
+        '  tl deploy my-app my-release --env prod',
+        '  tl synth --dry-run --silent',
+        '  tl synth --set replicas=5 --set image.tag=v2.0.0',
+        '  tl deploy my-app my-release --set service.port=8080',
+      ].join('\n'),
+    );
+  }
   process.exit(msg ? 1 : 0);
 }
 
@@ -265,13 +294,13 @@ async function cmdTemplates(flags?: CliFlags) {
   ];
 
   if (flags?.silent) {
-    console.log(JSON.stringify(templates));
+    // In silent mode, output only JSON for programmatic consumption
+    console.log(JSON.stringify(templates, null, 2));
   } else {
     console.log('Available templates:');
     templates.forEach((t) => {
-      console.log(`\n${t.name}`);
-      console.log(`  Description: ${t.description}`);
-      console.log(`  Usage: ${t.usage}`);
+      console.log(`  ${t.name.padEnd(15)} - ${t.description}`);
+      console.log(`  ${''.padEnd(15)}   Usage: ${t.usage}`);
     });
   }
 }
@@ -578,6 +607,12 @@ console.log('Umbrella chart written to ' + output);
 }
 
 // Main CLI function
+/**
+ * Parse command line flags with improved help handling
+ * @param args - Command line arguments
+ * @returns Parsed flags object
+ * @since 2.9.2
+ */
 function parseFlags(args: string[]): CliFlags {
   const flags: CliFlags = {};
 
@@ -605,15 +640,17 @@ function parseFlags(args: string[]): CliFlags {
       }
       case '--version':
       case '-v':
-        console.log('Timonel v0.1.0');
+        if (!flags.silent) {
+          console.log('Timonel v0.1.0');
+        }
         process.exit(0);
         break;
       case '--help':
       case '-h':
-        usageAndExit();
+        usageAndExit(undefined, flags.silent);
         break;
       default:
-        usageAndExit(`Unknown flag: ${flag}`);
+        usageAndExit(`Unknown flag: ${flag}`, flags.silent);
     }
   }
   return flags;
@@ -643,24 +680,49 @@ async function executeCommand(
     case 'umbrella':
       await cmdUmbrella(args[0], args.slice(1), flags);
       break;
+    case 'help':
     case undefined:
-      usageAndExit('Missing command');
+      usageAndExit(undefined, flags.silent);
       break;
     default:
-      usageAndExit(`Unknown command: ${command}`);
+      usageAndExit(`Unknown command: ${command}`, flags.silent);
   }
 }
 
+/**
+ * Enhanced main function with better error handling
+ * @since 2.9.2
+ */
 async function main() {
   const args = process.argv.slice(2);
-  const command = args.shift();
 
+  // Check for silent flag early
+  const isSilent = args.includes('--silent');
+
+  // Handle help flags first, before extracting command
+  if (args.includes('--help') || args.includes('-h')) {
+    usageAndExit(undefined, isSilent);
+    return;
+  }
+
+  // Handle version flags first
+  if (args.includes('--version') || args.includes('-v')) {
+    if (!isSilent) {
+      console.log('Timonel v0.1.0');
+    }
+    process.exit(0);
+  }
+
+  const command = args.shift();
   const flags = parseFlags(args);
   await executeCommand(command, args, flags);
 }
 
-// Run CLI
+// Run CLI with enhanced error handling
 main().catch((error) => {
-  console.error('Error:', error.message);
+  const flags = parseFlags(process.argv.slice(2));
+  if (!flags.silent) {
+    console.error('Error:', error.message);
+  }
   process.exit(1);
 });
