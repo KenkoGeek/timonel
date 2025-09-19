@@ -13,7 +13,7 @@ importers:
         version: 2.70.12(constructs@10.4.2)
       cdk8s-plus-33:
         specifier: ^2.3.5
-        version: 2.3.5(cdk8s@2.70.12(constructs@10.4.2))(constructs@10.4.2)
+        version: 2.3.6(cdk8s@2.70.12(constructs@10.4.2))(constructs@10.4.2)
       constructs:
         specifier: ^10.4.2
         version: 10.4.2
@@ -1316,8 +1316,8 @@ packages:
     resolution: {integrity: sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ==}
     engines: {node: '>=6'}
 
-  cdk8s-plus-33@2.3.5:
-    resolution: {integrity: sha512-7SRgqeDIWgVIdOcDZZ+kuEX1l7WzjqfKkFR9otU1NqGSEI65NOknsWF6KJlVTEw/xyHk28tL9WjPO4tZH9ChDg==}
+  cdk8s-plus-33@2.3.6:
+    resolution: {integrity: sha512-E5ByHKBx2T0yRaCxrd8JsfbTz4hQsptqj8OeyB/6mpR8FAXM8KLmyDVm7DpP3ITkmxS1RZ81sH43mB4xNNfquQ==}
     engines: {node: '>= 16.20.0'}
     peerDependencies:
       cdk8s: ^2.68.11
@@ -4952,7 +4952,7 @@ snapshots:
 
   callsites@3.1.0: {}
 
-  cdk8s-plus-33@2.3.5(cdk8s@2.70.12(constructs@10.4.2))(constructs@10.4.2):
+  cdk8s-plus-33@2.3.6(cdk8s@2.70.12(constructs@10.4.2))(constructs@10.4.2):
     dependencies:
       cdk8s: 2.70.12(constructs@10.4.2)
       constructs: 10.4.2
@@ -7365,7 +7365,7 @@ snapshots:
   timonel@2.9.0(@types/node@24.3.1)(typescript@5.9.2):
     dependencies:
       cdk8s: 2.70.12(constructs@10.4.2)
-      cdk8s-plus-33: 2.3.5(cdk8s@2.70.12(constructs@10.4.2))(constructs@10.4.2)
+      cdk8s-plus-33: 2.3.6(cdk8s@2.70.12(constructs@10.4.2))(constructs@10.4.2)
       constructs: 10.4.2
       handlebars: 4.7.8
       ts-node: 10.9.2(@types/node@24.3.1)(typescript@5.9.2)
