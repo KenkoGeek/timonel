@@ -168,7 +168,6 @@ namespace:
     'templates',
     'frontend-deployment-generated.yaml',
   );
-
   fixEnvVariables(backendDeploymentPath);
   fixEnvVariables(frontendDeploymentPath);
 }
