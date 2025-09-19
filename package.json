@@ -81,12 +81,12 @@
     ]
   },
   "dependencies": {
-    "cdk8s": "^2.70.11",
-    "cdk8s-plus-33": "^2.3.5",
+    "cdk8s": "^2.70.15",
+    "cdk8s-plus-33": "^2.3.6",
     "constructs": "^10.4.2",
     "handlebars": "^4.7.8",
     "js-yaml": "^4.1.0",
-    "timonel": "^2.9.0",
+    "timonel": "^2.9.2",
     "ts-node": "^10.9.2",
     "yaml": "^2.8.1"
   },
@@ -98,10 +98,10 @@
     "@semantic-release/exec": "^7.1.0",
     "@semantic-release/git": "^10.0.1",
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^24.3.0",
-    "@typescript-eslint/eslint-plugin": "^8.42.0",
-    "@typescript-eslint/parser": "^8.42.0",
-    "@vitest/coverage-v8": "^2.1.9",
+    "@types/node": "^24.5.2",
+    "@typescript-eslint/eslint-plugin": "^8.44.0",
+    "@typescript-eslint/parser": "^8.44.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "conventional-changelog-cli": "^5.0.0",
     "eslint": "^9.35.0",
     "eslint-config-prettier": "^10.1.8",
@@ -115,10 +115,10 @@
     "markdownlint": "^0.38.0",
     "markdownlint-cli": "^0.45.0",
     "prettier": "^3.6.2",
-    "semantic-release": "^24.2.7",
+    "semantic-release": "^24.2.8",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
-    "vitest": "^2.1.9"
+    "vitest": "^3.2.4"
   },
   "files": [
     "dist",
