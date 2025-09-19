@@ -144,28 +144,8 @@ export class HelmChartWriter {
   /**
    * Writes a complete Helm chart to the specified directory
    *
-   * Creates the full directory structure and writes all necessary files
-   * for a valid Helm chart including Chart.yaml, values files, templates,
-   * and auxiliary files.
-   *
-   * @param {HelmChartWriteOptions} opts - Chart configuration options
-   * @throws {Error} If output directory path is invalid
-   * @throws {Error} If chart metadata is invalid
-   *
-   * @example
-   * ```typescript
-   * HelmChartWriter.write({
-   *   outDir: './charts/my-app',
-   *   meta: {
-   *     name: 'my-app',
-   *     version: '1.0.0',
-   *     description: 'My application'
-   *   },
-   *   defaultValues: { replicas: 3 },
-   *   assets: []
-   * });
-   * ```
-   *
+   * @param {HelmChartWriteOptions} opts - Chart writing options
+   * @throws {Error} If chart cannot be written
    * @since 2.8.0+
    */
   static write(opts: HelmChartWriteOptions) {
@@ -180,30 +160,27 @@ export class HelmChartWriter {
       valuesSchema,
     } = opts;
 
+    console.log(`📝 Writing Helm chart: ${meta.name} v${meta.version} to ${outDir}`);
+
     // Validate output directory path
     const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd());
-    console.log('📝 Validated outDir:', validatedOutDir);
 
     // Create directory structure
     this.createDirectories(validatedOutDir);
-    console.log('📝 Directories created');
 
     // Write chart files
     this.writeChartYaml(validatedOutDir, meta);
-    console.log('📝 Chart.yaml written');
 
     this.writeValuesFiles(validatedOutDir, defaultValues, envValues);
-    console.log('📝 Values files written');
 
     this.writeAssets(validatedOutDir, assets);
-    console.log('📝 Assets written');
 
     this.writeHelpers(validatedOutDir, helpersTpl);
     this.writeNotes(validatedOutDir, notesTpl);
     this.writeSchema(validatedOutDir, valuesSchema);
     this.writeHelmIgnore(validatedOutDir);
 
-    console.log('📝 HelmChartWriter.write completed');
+    console.log(`✅ Helm chart written successfully to ${validatedOutDir}`);
   }
 
   /**
@@ -409,34 +386,25 @@ function splitDocs(yamlStr: string): string[] {
  * @since 2.8.0+
  */
 function writeAssets(outDir: string, assets: SynthAsset[]) {
-  console.log('🔍 writeAssets called with', assets.length, 'assets');
   for (const asset of assets) {
     // Sanitize asset ID to prevent path traversal
     const sanitizedId = asset.id.replace(/[^a-zA-Z0-9-_]/g, '');
     if (sanitizedId !== asset.id) {
+      console.error(`❌ Invalid asset ID detected: ${SecurityUtils.sanitizeLogMessage(asset.id)}`);
       throw new Error(`Invalid asset ID: ${SecurityUtils.sanitizeLogMessage(asset.id)}`);
     }
 
     const targetDir = getTargetDirectory(asset.target);
 
-    console.log(
-      `🔍 Processing asset: ${asset.id} -> ${sanitizedId}, singleFile: ${asset.singleFile}, target: ${asset.target}`,
-    );
-
-    if (asset.id === 'ingress') {
-      console.log('🔍 Ingress asset YAML preview:', asset.yaml.substring(0, 200));
-      if (asset.yaml.includes('number:')) {
-        console.log(
-          '🔍 Ingress contains number field:',
-          asset.yaml.split('\n').filter((line) => line.includes('number:')),
-        );
+    try {
+      if (asset.singleFile) {
+        writeSingleAssetFile(outDir, targetDir, sanitizedId, asset.yaml);
+      } else {
+        writeMultipleAssetFiles(outDir, targetDir, sanitizedId, asset.yaml);
       }
-    }
-
-    if (asset.singleFile) {
-      writeSingleAssetFile(outDir, targetDir, sanitizedId, asset.yaml);
-    } else {
-      writeMultipleAssetFiles(outDir, targetDir, sanitizedId, asset.yaml);
+    } catch (error) {
+      console.error(`❌ Failed to write asset ${asset.id}:`, error);
+      throw error;
     }
   }
 }

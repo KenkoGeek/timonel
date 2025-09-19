@@ -46,7 +46,6 @@ function usageAndExit(msg?: string) {
       '  --silent                             Suppress output (useful for CI)',
       '  --env <environment>                  Use environment-specific values',
       '  --set <key=value>                    Override values (can be used multiple times)',
-      '  --version, -v                        Show version information',
       '  --help, -h                           Show this help message',
       '',
       'Examples:',
@@ -110,6 +109,7 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags) {
   let outDir: string | undefined;
 
   // If the parameter is a directory containing chart.ts, use it as chart directory
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   if (chartDirOrOutDir && fs.existsSync(path.join(chartDirOrOutDir, 'chart.ts'))) {
     chartDir = path.resolve(chartDirOrOutDir);
   } else {
@@ -120,6 +120,7 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags) {
   const chartFile = path.join(chartDir, 'chart.ts');
   const defaultOutDir = path.join(chartDir, 'dist');
 
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   if (!fs.existsSync(chartFile)) {
     console.error('chart.ts not found. Run `tl init` first.');
     process.exit(1);
@@ -128,6 +129,7 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags) {
   const resolvedOutDir = outDir ? path.resolve(outDir) : defaultOutDir;
 
   // Read the original chart file and modify the writeHelmChart output directory
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   const originalContent = fs.readFileSync(chartFile, 'utf8');
   const modifiedContent = originalContent.replace(
     /chart\.writeHelmChart\(['"][^'"]*['"]\)/,
@@ -136,6 +138,7 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags) {
 
   // Create a temporary modified chart file
   const tempChartFile = path.join(chartDir, '.timonel-temp-chart.ts');
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.writeFileSync(tempChartFile, modifiedContent);
 
   // Create wrapper script for tsx execution
@@ -149,6 +152,7 @@ await import(pathToFileURL('${tempChartFile}').href);
   const wrapperFile = path.join(chartDir, '.timonel-wrapper.mjs');
 
   try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
     fs.writeFileSync(wrapperFile, wrapperScript);
 
     const result = spawnSync('npx', ['tsx', wrapperFile].filter(Boolean), {
@@ -165,11 +169,15 @@ await import(pathToFileURL('${tempChartFile}').href);
     }
   } finally {
     // Clean up wrapper file
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
     if (fs.existsSync(wrapperFile)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
       fs.unlinkSync(wrapperFile);
     }
     // Clean up temporary chart file
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
     if (fs.existsSync(tempChartFile)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
       fs.unlinkSync(tempChartFile);
     }
   }
@@ -339,6 +347,7 @@ async function cmdUmbrellaInit(name?: string, silent = false) {
     subcharts: [] as SubchartProps[],
   };
 
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
 
   // Create charts directory for subcharts
@@ -607,7 +616,6 @@ function parseFlags(args: string[]): CliFlags {
         usageAndExit(`Unknown flag: ${flag}`);
     }
   }
-
   return flags;
 }
 
