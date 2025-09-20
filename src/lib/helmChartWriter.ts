@@ -159,7 +159,7 @@ export class HelmChartWriter {
       valuesSchema,
     } = opts;
 
-    console.log(`📝 Writing Helm chart: ${meta.name} v${meta.version} to ${outDir}`);
+    console.log(`Writing chart: ${meta.name} v${meta.version} to ${outDir}`);
 
     // Validate output directory path
     const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd());
@@ -179,7 +179,7 @@ export class HelmChartWriter {
     this.writeSchema(validatedOutDir, valuesSchema);
     this.writeHelmIgnore(validatedOutDir);
 
-    console.log(`✅ Helm chart written successfully to ${validatedOutDir}`);
+    console.log(`Chart written successfully to ${validatedOutDir}`);
   }
 
   /**
@@ -389,7 +389,7 @@ function writeAssets(outDir: string, assets: SynthAsset[]) {
     // Sanitize asset ID to prevent path traversal
     const sanitizedId = asset.id.replace(/[^a-zA-Z0-9-_]/g, '');
     if (sanitizedId !== asset.id) {
-      console.error(`❌ Invalid asset ID detected: ${SecurityUtils.sanitizeLogMessage(asset.id)}`);
+      console.error(`Invalid asset ID detected: ${SecurityUtils.sanitizeLogMessage(asset.id)}`);
       throw new Error(`Invalid asset ID: ${SecurityUtils.sanitizeLogMessage(asset.id)}`);
     }
 
@@ -402,7 +402,7 @@ function writeAssets(outDir: string, assets: SynthAsset[]) {
         writeMultipleAssetFiles(outDir, targetDir, sanitizedId, asset.yaml);
       }
     } catch (error) {
-      console.error(`❌ Failed to write asset ${asset.id}:`, error);
+      console.error(`Failed to write asset ${asset.id}:`, error);
       throw error;
     }
   }
@@ -438,7 +438,7 @@ function writeSingleAssetFile(
 ): void {
   // Debug: Log content being written for ingress files
   if (assetId === 'ingress' && yaml.includes('number:')) {
-    console.log('🔍 Writing ingress file with content:');
+    console.log('Writing ingress file with number fields');
     const numberLines = yaml.split('\n').filter((line) => line.includes('number:'));
     console.log('Number lines:', numberLines);
   }
