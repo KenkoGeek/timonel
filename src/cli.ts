@@ -16,35 +16,6 @@ const UMBRELLA_FILE_NAME = 'umbrella.ts';
 const PACKAGE_JSON_FILE = 'package.json';
 
 // Helper functions
-/**
- * Validates that a file path is safe and within expected boundaries
- * @param filePath - The file path to validate
- * @param expectedFileName - The expected filename to end with
- * @returns True if the path is safe, false otherwise
- * @since 2.10.1
- */
-function isValidPath(filePath: string, expectedFileName: string): boolean {
-  try {
-    const resolvedPath = path.resolve(filePath);
-    const normalizedPath = path.normalize(resolvedPath);
-
-    // Check for path traversal attempts
-    if (normalizedPath.includes('..') || normalizedPath.includes('~')) {
-      return false;
-    }
-
-    // Ensure the path ends with the expected filename
-    if (!normalizedPath.endsWith(expectedFileName)) {
-      return false;
-    }
-
-    // Additional security: ensure path doesn't contain suspicious patterns
-    const suspiciousPatterns = ['\\', '..', '~', '$', '`', '|', '&', ';', '(', ')'];
-    return !suspiciousPatterns.some((pattern) => normalizedPath.includes(pattern));
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Retrieves the version from the nearest package.json file with security validation
@@ -62,21 +33,24 @@ function getVersion(): string {
     ];
 
     for (const packagePath of possiblePaths) {
-      // Validate path is within expected boundaries before file operations
-      if (!isValidPath(packagePath, PACKAGE_JSON_FILE)) {
-        continue;
-      }
+      try {
+        // Use SecurityUtils for consistent path validation
+        const validatedPath = SecurityUtils.validatePath(packagePath, process.cwd());
 
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by isValidPath() function
-      if (fs.existsSync(packagePath)) {
-        try {
-          // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by isValidPath() function
-          const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-          return packageJson.version || 'unknown';
-        } catch {
-          // Continue to next path if JSON parsing fails
-          continue;
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+        if (fs.existsSync(validatedPath)) {
+          try {
+            // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+            const packageJson = JSON.parse(fs.readFileSync(validatedPath, 'utf8'));
+            return packageJson.version || 'unknown';
+          } catch {
+            // Continue to next path if JSON parsing fails
+            continue;
+          }
         }
+      } catch {
+        // Skip invalid paths
+        continue;
       }
     }
 
@@ -111,7 +85,7 @@ function log(msg: string, silent = false) {
  */
 function logError(msg: string, silent = false) {
   if (!silent) {
-    console.error(msg);
+    console.error(SecurityUtils.sanitizeLogMessage(msg));
   }
 }
 
@@ -798,7 +772,7 @@ async function main() {
 main().catch((error) => {
   const flags = parseFlags(process.argv.slice(2));
   if (!flags.silent) {
-    console.error('Error:', error.message);
+    console.error('Error:', SecurityUtils.sanitizeLogMessage(error.message));
   }
   process.exit(1);
 });
