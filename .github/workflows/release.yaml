@@ -119,14 +119,87 @@ jobs:
           fi
 
   # Wait for CI completion
-  # CI checks are already verified by branch protection rules
-  # This workflow only runs after all required checks have passed
+  check-ci-status:
+    name: Verify All CI Checks
+    runs-on: ubuntu-latest
+    needs: pre-release-checks
+    if: needs.pre-release-checks.outputs.should-release == 'true'
+    timeout-minutes: 20
+    permissions:
+      id-token: write
+      contents: read
+      checks: read
+    steps:
+      - name: Wait for CI Completion
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const sha = context.sha;
+            console.log(`Checking CI status for commit: ${sha}`);
+
+            // Wait for all checks to complete
+            let allComplete = false;
+            let attempts = 0;
+            const maxAttempts = 40; // 20 minutes max wait
+
+            while (!allComplete && attempts < maxAttempts) {
+              const { data: checks } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: sha
+              });
+
+              console.log(`Found ${checks.check_runs.length} check runs`);
+
+              const requiredChecks = [
+                'Test Suite',
+                'CodeQL Analysis'
+              ];
+
+              const pendingChecks = [];
+              const failedChecks = [];
+              let allFound = true;
+
+              for (const checkName of requiredChecks) {
+                const check = checks.check_runs.find(c => c.name === checkName);
+                if (!check) {
+                  console.log(`⏳ Missing check: ${checkName}`);
+                  allFound = false;
+                } else if (check.status !== 'completed') {
+                  console.log(`⏳ Pending check: ${checkName} (${check.status})`);
+                  pendingChecks.push(checkName);
+                } else if (check.conclusion !== 'success') {
+                  console.log(`❌ Failed check: ${checkName} (${check.conclusion})`);
+                  failedChecks.push(checkName);
+                } else {
+                  console.log(`✅ Passed check: ${checkName}`);
+                }
+              }
+
+              if (failedChecks.length > 0) {
+                core.setFailed(`Required checks failed: ${failedChecks.join(', ')}`);
+                return;
+              }
+
+              if (allFound && pendingChecks.length === 0) {
+                console.log('✅ All required checks completed successfully');
+                allComplete = true;
+              } else {
+                console.log(`⏳ Waiting for ${pendingChecks.length} checks to complete...`);
+                await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30 seconds
+                attempts++;
+              }
+            }
+
+            if (!allComplete) {
+              core.setFailed('Timeout waiting for CI checks to complete');
+            }
 
   # Security scan before release
   security-scan:
     name: Pre-Release Security Scan
     runs-on: ubuntu-latest
-    needs: [pre-release-checks]
+    needs: [pre-release-checks, check-ci-status]
     if: needs.pre-release-checks.outputs.should-release == 'true'
     timeout-minutes: 10
     steps:
@@ -168,7 +241,7 @@ jobs:
   # Main release job
   release:
     name: Release
-    needs: [pre-release-checks, security-scan]
+    needs: [pre-release-checks, check-ci-status, security-scan]
     if: needs.pre-release-checks.outputs.should-release == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
