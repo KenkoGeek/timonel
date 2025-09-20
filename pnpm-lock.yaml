@@ -24,8 +24,8 @@ importers:
         specifier: ^4.1.0
         version: 4.1.0
       timonel:
-        specifier: ^2.9.2
-        version: 2.9.2(@types/node@24.5.2)(typescript@5.9.2)
+        specifier: ^2.10.0
+        version: 2.10.0(@types/node@24.5.2)(typescript@5.9.2)
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@24.5.2)(typescript@5.9.2)
@@ -3324,8 +3324,8 @@ packages:
     resolution: {integrity: sha512-75voc/9G4rDIJleOo4jPvN4/YC4GRZrY8yy1uU4lwrB3XEQbWve8zXoO5No4eFrGcTAMYyoY67p8jRQdtA1HbA==}
     engines: {node: '>=12'}
 
-  timonel@2.9.2:
-    resolution: {integrity: sha512-bXUu7NmWnXLp81uSAZiQcW3P3VWBmj2kqtwz7tAn6kbmQHOVhujuq5YMfH00Bck8TXf+V1y+ruR14haJJm/WcQ==}
+  timonel@2.10.0:
+    resolution: {integrity: sha512-Ga4OHpRVhvpR3Aiv31eP5+m6qvv1bjia4bG2NLmUGfL41wRno0gFiBefJD3SovMT2ChALBhCZ93CYvQTG7ROjQ==}
     engines: {node: '>=20', pnpm: '>=9.0.0'}
     hasBin: true
 
@@ -7087,7 +7087,7 @@ snapshots:
     dependencies:
       convert-hrtime: 5.0.0
 
-  timonel@2.9.2(@types/node@24.5.2)(typescript@5.9.2):
+  timonel@2.10.0(@types/node@24.5.2)(typescript@5.9.2):
     dependencies:
       cdk8s: 2.70.15(constructs@10.4.2)
       cdk8s-plus-33: 2.3.6(cdk8s@2.70.15(constructs@10.4.2))(constructs@10.4.2)
