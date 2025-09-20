@@ -47,7 +47,7 @@ export class Rutter {
   private readonly props: RutterProps;
 
   constructor(props: RutterProps) {
-    console.log(`🚀 Initializing Rutter chart: ${props.meta.name} v${props.meta.version}`);
+    console.log(`Initializing chart: ${props.meta.name} v${props.meta.version}`);
 
     this.defaultValues = props.defaultValues ?? {};
     this.envValues = props.envValues ?? {};
@@ -571,29 +571,29 @@ ${yamlContent.trim()}
    */
   private validateManifestStructure(manifest: Record<string, unknown>): void {
     if (!manifest.apiVersion) {
-      console.error('❌ Manifest validation failed: Missing apiVersion');
+      console.error('Validation failed: Missing apiVersion');
       throw new Error('Manifest must have an apiVersion');
     }
 
     if (!manifest.kind) {
-      console.error('❌ Manifest validation failed: Missing kind');
+      console.error('Validation failed: Missing kind');
       throw new Error('Manifest must have a kind');
     }
 
     if (!manifest.metadata) {
-      console.error('❌ Manifest validation failed: Missing metadata');
+      console.error('Validation failed: Missing metadata');
       throw new Error('Manifest must have metadata');
     }
 
     const metadata = manifest.metadata as Record<string, unknown>;
     if (!metadata.name) {
-      console.error('❌ Manifest validation failed: Missing metadata.name');
+      console.error('Validation failed: Missing metadata.name');
       throw new Error('Manifest metadata must have a name');
     }
 
     // Validate that metadata.name is a string
     if (typeof metadata.name !== 'string') {
-      console.error('❌ Manifest validation failed: metadata.name must be a string');
+      console.error('Validation failed: metadata.name must be a string');
       throw new Error('Manifest metadata.name must be a string');
     }
   }
@@ -1179,7 +1179,7 @@ ${yamlContent.trim()}
    * @since 1.0.0
    */
   write(outDir: string): void {
-    console.log(`✍️  Writing Helm chart '${this.meta.name}' to: ${outDir}`);
+    console.log(`Writing chart '${this.meta.name}' to: ${outDir}`);
 
     // Generate helpers template
     let helpersContent: string | undefined;
@@ -1215,7 +1215,7 @@ ${helper.template}
       helpersTpl: helpersContent,
     });
 
-    console.log(`✅ Helm chart '${this.meta.name}' written successfully`);
+    console.log(`Chart '${this.meta.name}' written successfully`);
   }
 }
 
