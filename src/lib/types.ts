@@ -4,6 +4,9 @@ export interface ChartProps {
   name: string;
   version: string;
   description: string;
+  namespace?: string;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
   services?: Array<{
     name: string;
     port: number;
@@ -17,6 +20,8 @@ export interface ChartProps {
     // Allow any additional properties for flexibility
     [key: string]: unknown;
   }>;
+  // Allow any additional properties for flexibility
+  [key: string]: unknown;
 }
 
 export interface SubchartProps {
