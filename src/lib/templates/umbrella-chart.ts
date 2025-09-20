@@ -9,7 +9,10 @@ import type { UmbrellaRutter } from '../umbrellaRutter.js';
 import { dumpHelmAwareYaml } from '../utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from '../utils/helmHelpers.js';
 
+import { createFlexibleSubchart } from './flexible-subchart.js';
+
 // Interface for charts that support Helm generation
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface HelmChart extends Chart {
   writeHelmChart(outputDir: string): void;
 }
@@ -134,9 +137,120 @@ export class UmbrellaChartTemplate extends Chart {
     });
   }
 
-  private _addSubchart(_subchart: { name: string; chart: Chart | (() => Chart) }, _index: number) {
-    // Subchart integration will be implemented in future versions
-    // For now, we just acknowledge their existence in the ConfigMap
+  private _addSubchart(
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
+    index: number,
+  ) {
+    try {
+      let _subchartInstance: Chart;
+
+      // Create a flexible subchart that can handle any type of input
+      const {
+        name: _name,
+        version: _version,
+        description: _description,
+        ...subchartProps
+      } = subchart;
+      const flexibleSubchart = createFlexibleSubchart(this, `${subchart.name}-${index}`, {
+        name: subchart.name,
+        version: subchart.version || '1.0.0',
+        description: subchart.description || `${subchart.name} subchart`,
+        ...subchartProps,
+      });
+
+      // Handle different types of chart inputs
+      if (typeof subchart.chart === 'function') {
+        try {
+          // Try calling with scope and id parameters
+          _subchartInstance = (subchart.chart as (scope: Chart, id: string) => Chart)(
+            this,
+            `${subchart.name}-${index}`,
+          );
+        } catch {
+          // If that fails, try calling without parameters
+          _subchartInstance = (subchart.chart as () => Chart)();
+        }
+      } else if (subchart.chart && typeof subchart.chart === 'object') {
+        // If it's an object, try to use it as a construct
+        if (subchart.chart.constructor && subchart.chart.constructor.name !== 'Object') {
+          // It's a cdk8s construct, add it to the flexible subchart
+          flexibleSubchart.addConstruct(subchart.chart);
+        } else {
+          // It's a manifest object, add it as a manifest
+          flexibleSubchart.addManifest(subchart.chart);
+        }
+        _subchartInstance = flexibleSubchart;
+      } else {
+        // Use the flexible subchart as fallback
+        _subchartInstance = flexibleSubchart;
+      }
+
+      // Note: Don't add dependency to avoid circular dependencies
+      // The subchart is already a child of this umbrella chart
+
+      console.log(`Added flexible subchart: ${subchart.name}`);
+    } catch (_error) {
+      console.warn(`Failed to add subchart ${subchart.name}:`, _error);
+      // Create a basic flexible subchart as fallback
+      const _fallbackSubchart = createFlexibleSubchart(this, `${subchart.name}-fallback-${index}`, {
+        name: subchart.name,
+        version: subchart.version || '1.0.0',
+        description: `${subchart.name} subchart (fallback)`,
+      });
+      // Note: Don't add dependency to avoid circular dependencies
+      console.log(`Created fallback subchart: ${subchart.name}`);
+    }
+  }
+
+  /**
+   * Create a basic Helm chart structure for subcharts that don't have writeHelmChart
+   * @since 2.8.4
+   * @param subchartName - Name of the subchart
+   * @param subchartDir - Directory to write the subchart files
+   * @private
+   */
+  private _createBasicSubchart(subchartName: string, subchartDir: string) {
+    // Create Chart.yaml for the subchart
+    const subchartYaml = {
+      apiVersion: 'v2',
+      name: subchartName,
+      description: `${subchartName} subchart`,
+      type: 'application',
+      version: '1.0.0',
+      appVersion: '1.0.0',
+    };
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    writeFileSync(join(subchartDir, 'Chart.yaml'), dumpHelmAwareYaml(subchartYaml));
+
+    // Create values.yaml for the subchart
+    const subchartValues = {
+      enabled: true,
+      replicas: 1,
+      image: {
+        repository: 'nginx',
+        tag: 'latest',
+      },
+    };
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    writeFileSync(join(subchartDir, 'values.yaml'), dumpHelmAwareYaml(subchartValues));
+
+    // Create templates directory
+    const templatesDir = join(subchartDir, 'templates');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    if (!existsSync(templatesDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      mkdirSync(templatesDir, { recursive: true });
+    }
+
+    // Create _helpers.tpl for the subchart
+    const helpersTpl = generateHelpersTemplate('aws', undefined, {
+      includeKubernetes: true,
+      includeSprig: true,
+    });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    writeFileSync(join(templatesDir, '_helpers.tpl'), helpersTpl);
+
+    console.log(`Created basic Helm chart structure for subchart: ${subchartName}`);
   }
 
   /**
@@ -144,6 +258,7 @@ export class UmbrellaChartTemplate extends Chart {
    * @since 2.8.4
    * @param outputDir - Directory to write the Helm chart files
    */
+
   writeHelmChart(outputDir: string): void {
     // Ensure output directory exists
     // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -197,6 +312,7 @@ export class UmbrellaChartTemplate extends Chart {
     }
 
     // Generate Helm charts for each subchart
+    // eslint-disable-next-line sonarjs/cognitive-complexity
     this.config.subcharts?.forEach((subchart) => {
       const subchartDir = join(chartsDir, subchart.name);
       // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -205,25 +321,60 @@ export class UmbrellaChartTemplate extends Chart {
         mkdirSync(subchartDir, { recursive: true });
       }
 
-      // Handle both function exports and direct chart instances
-      let subchartInstance: HelmChart | null = null;
+      // Create a flexible subchart that can handle any type of input
+      const {
+        name: _name,
+        version: _version,
+        description: _description,
+        ...subchartProps
+      } = subchart;
+      const flexibleSubchart = createFlexibleSubchart(this, `${subchart.name}-chart`, {
+        name: subchart.name,
+        version: subchart.version || '1.0.0',
+        description: subchart.description || `${subchart.name} subchart`,
+        ...subchartProps,
+      });
 
+      // Handle different types of chart inputs
       if (typeof subchart.chart === 'function') {
-        // If it's a function (createChart), call it to get the instance
         try {
-          subchartInstance = subchart.chart() as HelmChart;
-        } catch (error) {
-          console.warn(`Failed to create subchart ${subchart.name}:`, error);
-          return;
+          // Try calling with scope and id parameters
+          const chartInstance = (subchart.chart as (scope: Chart, id: string) => Chart)(
+            this,
+            `${subchart.name}-chart`,
+          );
+          if (chartInstance && typeof (chartInstance as unknown).writeHelmChart === 'function') {
+            (chartInstance as unknown).writeHelmChart(subchartDir);
+          } else {
+            flexibleSubchart.writeHelmChart(subchartDir);
+          }
+        } catch {
+          // If that fails, try calling without parameters
+          try {
+            const chartInstance = (subchart.chart as () => Chart)();
+            if (chartInstance && typeof (chartInstance as unknown).writeHelmChart === 'function') {
+              (chartInstance as unknown).writeHelmChart(subchartDir);
+            } else {
+              flexibleSubchart.writeHelmChart(subchartDir);
+            }
+          } catch (fallbackError) {
+            console.warn(`Failed to create subchart ${subchart.name}:`, fallbackError);
+            flexibleSubchart.writeHelmChart(subchartDir);
+          }
         }
+      } else if (subchart.chart && typeof subchart.chart === 'object') {
+        // If it's an object, try to use it as a construct or manifest
+        if (subchart.chart.constructor && subchart.chart.constructor.name !== 'Object') {
+          // It's a cdk8s construct, add it to the flexible subchart
+          flexibleSubchart.addConstruct(subchart.chart);
+        } else {
+          // It's a manifest object, add it as a manifest
+          flexibleSubchart.addManifest(subchart.chart);
+        }
+        flexibleSubchart.writeHelmChart(subchartDir);
       } else {
-        // If it's already an instance, use it directly
-        subchartInstance = subchart.chart as HelmChart;
-      }
-
-      // Call writeHelmChart on the subchart instance
-      if (subchartInstance && typeof subchartInstance.writeHelmChart === 'function') {
-        subchartInstance.writeHelmChart(subchartDir);
+        // Use the flexible subchart as fallback
+        flexibleSubchart.writeHelmChart(subchartDir);
       }
     });
 

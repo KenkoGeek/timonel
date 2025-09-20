@@ -6,7 +6,6 @@ import * as jsYaml from 'js-yaml';
 
 import { include } from './helm.js';
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
-import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
 import type {
   AWSALBIngressSpec,
@@ -21,6 +20,7 @@ import type {
   KarpenterNodeClaimSpec,
   KarpenterNodePoolSpec,
 } from './resources/cloud/aws/karpenterResources.js';
+import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from './utils/helmHelpers.js';
 import type { HelperDefinition } from './utils/helmHelpers.js';
 
