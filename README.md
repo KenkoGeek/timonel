@@ -10,38 +10,138 @@
 [![TypeScript][ts-badge]][ts-url]
 [![Maintained by KenkoGeek][maintained-badge]][maintained-url]
 
-Timonel (Spanish for "helmsman") is a TypeScript library to programmatically generate Helm charts
-using cdk8s. Define Kubernetes resources with classes and synthesize a full Helm chart with
-`Chart.yaml`, `values.yaml`, per‑environment values files, and `templates/`.
+**Timonel** (Spanish for "helmsman") is a powerful TypeScript library that programmatically generates
+Helm charts using cdk8s. Define Kubernetes resources with type-safe classes and synthesize complete
+Helm charts with `Chart.yaml`, `values.yaml`, environment-specific values files, and `templates/`
+directory.
+
+> 🚀 **New in v2.9.2**: Enhanced umbrella chart support with flexible subchart templates, improved
+> CLI version handling, and optimized GitHub workflows.
 
 ## ✨ Key Features
 
-- **Type-safe API** with strict TypeScript and cdk8s constructs.
-- **Flexible resource creation** with built-in methods and `addManifest()` for custom resources.
-- **Multi-environment support** with automatic values files generation.
-- **Umbrella Charts** for managing multiple subcharts as a single unit.
-- **AWS integrations**:
-  - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount.
-- **Security-first approach** with NetworkPolicies and best practices.
-- **Minimal CLI** (`tl`) for scaffolding and chart generation.
+- **🔒 Type-safe API** with strict TypeScript and cdk8s constructs
+- **🔧 Flexible resource creation** with built-in methods and `addManifest()` for custom resources
+- **🌍 Multi-environment support** with automatic values files generation
+- **☂️ Umbrella Charts** for managing multiple subcharts as a single unit
+- **☁️ Cloud integrations**:
+  - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount
+  - **Azure**: Azure Disk, Azure Files, AKS integrations
+  - **GCP**: GCE Persistent Disk, GKE integrations
+- **🛡️ Security-first approach** with NetworkPolicies and best practices
+- **⚡ Minimal CLI** (`tl`) for scaffolding and chart generation
+- **📦 Flexible subchart templates** supporting cdk8s, cdk8s-plus-33, and raw manifests
 
 ## 🚀 Quick Start
+
+### Installation
 
 ```bash
 # Install Timonel globally
 npm install -g timonel
 
+# Or use with pnpm
+pnpm add -g timonel
+
+# Verify installation
+tl --version
+```
+
+### Basic Usage
+
+```bash
 # Create your first chart
 tl init my-app
 
 # Generate Helm chart
-tl synth charts/my-app charts/my-app-dist
+tl synth my-app my-app-dist
 
 # Use with Helm
-helm install my-app charts/my-app-dist
+helm install my-app my-app-dist
+```
+
+### Umbrella Charts
+
+```bash
+# Create umbrella chart structure
+tl umbrella init my-umbrella-app
+
+# Add subcharts
+tl umbrella add frontend
+tl umbrella add backend
+
+# Generate umbrella chart
+tl umbrella synth
+```
+
+## 💡 Examples
+
+### Simple Web Application
+
+```typescript
+import { Chart } from 'cdk8s';
+import { Deployment, Service } from 'cdk8s-plus-33';
+
+export class WebAppChart extends Chart {
+  constructor(scope: Chart, id: string) {
+    super(scope, id);
+
+    // Create deployment
+    new Deployment(this, 'web-deployment', {
+      containers: [{
+        image: 'nginx:latest',
+        port: 80,
+        env: {
+          NGINX_PORT: '80'
+        }
+      }]
+    });
+
+    // Create service
+    new Service(this, 'web-service', {
+      selector: { app: 'web' },
+      ports: [{ port: 80, targetPort: 80 }]
+    });
+  }
+}
+```
+
+### Umbrella Chart with Multiple Services
+
+```typescript
+import { UmbrellaChartTemplate } from 'timonel';
+
+const umbrellaConfig = {
+  name: 'my-umbrella-app',
+  version: '1.0.0',
+  subcharts: [
+    {
+      name: 'frontend',
+      version: '1.0.0',
+      chart: frontendChartFunction
+    },
+    {
+      name: 'backend',
+      version: '1.0.0',
+      chart: backendChartFunction
+    }
+  ]
+};
+
+export const umbrella = new UmbrellaChartTemplate(umbrellaConfig);
 ```
 
 ## 📚 Documentation
+
+- **[API Reference](https://github.com/KenkoGeek/timonel/wiki/API-Reference)** - Complete API
+  documentation
+- **[CLI Reference](https://github.com/KenkoGeek/timonel/wiki/CLI-Reference)** - Command-line
+  interface guide
+- **[Examples](https://github.com/KenkoGeek/timonel/wiki/Examples)** - Real-world usage examples
+- **[Best Practices](https://github.com/KenkoGeek/timonel/wiki/Best-Practices)** - Recommended
+  patterns and practices
+- **[Contributing](https://github.com/KenkoGeek/timonel/wiki/Contributing)** - Development setup
+  and guidelines
 
 ## 🔧 Troubleshooting
 
@@ -59,13 +159,13 @@ If you get `Error: Cannot find module 'cdk8s'` when running `tl umbrella synth`:
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "cdk8s": "^2.70.11",
-    "cdk8s-plus-33": "^2.3.5",
+    "cdk8s": "^2.70.15",
+    "cdk8s-plus-33": "^2.3.6",
     "constructs": "^10.4.2",
-    "timonel": "^2.9.0"
+    "timonel": "^2.9.2"
   },
   "devDependencies": {
-    "@types/node": "^24.3.0",
+    "@types/node": "^24.5.2",
     "typescript": "^5.9.2"
   }
 }
@@ -76,6 +176,45 @@ Then run:
 ```bash
 npm install
 tl umbrella synth  # Now it works!
+```
+
+### Version Display Issues
+
+If the CLI shows an incorrect version:
+
+**Problem**: The CLI might be using cached or hardcoded version information.
+
+**Solution**: Rebuild the project:
+
+```bash
+# In the Timonel project directory
+pnpm build
+tl --version  # Should show correct version
+```
+
+### TypeScript Compilation Errors
+
+If you encounter TypeScript errors when using umbrella charts:
+
+**Problem**: Type mismatches in subchart configurations.
+
+**Solution**: Ensure proper type casting for version and description fields:
+
+```typescript
+// ✅ Correct
+const subchart = {
+  name: 'my-service',
+  version: '1.0.0' as string,
+  description: 'My service' as string,
+  chart: myChartFunction
+};
+
+// ❌ Incorrect
+const subchart = {
+  name: 'my-service',
+  version: someUnknownValue,  // This will cause TypeScript errors
+  chart: myChartFunction
+};
 ```
 
 ## 🤝 Contributing
@@ -104,6 +243,6 @@ MIT
 [maintained-badge]: https://img.shields.io/badge/maintained%20by-KenkoGeek-6C78AF?style=flat
 [maintained-url]: https://github.com/kenkogeek/
 [ci-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/test.yaml/badge.svg?branch=main
-[ci-url]: https://github.com/KenkoGeek/timonel/actions/workflows/teast.yaml
+[ci-url]: https://github.com/KenkoGeek/timonel/actions/workflows/test.yaml
 [codeql-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yaml/badge.svg
 [codeql-url]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yaml
