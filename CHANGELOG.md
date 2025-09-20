@@ -1,3 +1,39 @@
+# [2.10.0](https://github.com/KenkoGeek/timonel/compare/v2.9.2...v2.10.0) (2025-09-20)
+
+### Bug Fixes
+
+- **ci:** and beside or ([2901953](https://github.com/KenkoGeek/timonel/commit/2901953363ff81c03ad95e57fbf61129bffe4138))
+- **ci:** change CodeQL build-mode to 'none' for JavaScript/TypeScript ([017ec93](https://github.com/KenkoGeek/timonel/commit/017ec930940780fca9e6f93e02372067f899675f))
+- **ci:** clean up workflows and fix CodeQL configuration ([4c3ac55](https://github.com/KenkoGeek/timonel/commit/4c3ac55e04210d77ad694aef1fab261482a7f5e9))
+- **ci:** correct CodeQL workflow configuration ([25813d3](https://github.com/KenkoGeek/timonel/commit/25813d3b4ce649da5fa3b1cf29f825369c17b196))
+- **ci:** correct CodeQL workflow name in release.yaml ([cb38608](https://github.com/KenkoGeek/timonel/commit/cb3860881b527f5016dcdc891f848c22ea464868))
+- **ci:** correct job dependencies and summary references ([d37cc9c](https://github.com/KenkoGeek/timonel/commit/d37cc9ccf05407f28b85bd7eeb5710b2460b72ef))
+- **ci:** ensure real release on main branch ([c06a5f7](https://github.com/KenkoGeek/timonel/commit/c06a5f7f9d0d45261c95e677f04382e0e20de58d))
+- **ci:** lint errors ([08fbb64](https://github.com/KenkoGeek/timonel/commit/08fbb645b3661a2bc4e6bf33b309ab88cd707fef))
+- **ci:** remove explicit pnpm version from CodeQL workflow ([25a8a6c](https://github.com/KenkoGeek/timonel/commit/25a8a6cd9556ae614bb84bfcc147aadb17850f48))
+- **ci:** remove explicit pnpm version from workflows ([b517e1e](https://github.com/KenkoGeek/timonel/commit/b517e1eb35b3ab57673428c7d80fa25d427bf046))
+- **ci:** reorder pnpm setup before Node.js in CodeQL workflow ([904579c](https://github.com/KenkoGeek/timonel/commit/904579ca507ef2cad5f11887e35431e6a15a59f5))
+- **ci:** resolve pnpm version conflict in workflows ([a2ee153](https://github.com/KenkoGeek/timonel/commit/a2ee153934c5710e58f8e5bd85da6ea70e1c8959))
+- **ci:** simple but effective release ([a6b2014](https://github.com/KenkoGeek/timonel/commit/a6b201476903cedf8e1d1dd7bbf36c2f02fa750b))
+- **ci:** simple but effective release, security.md updated ([6911d21](https://github.com/KenkoGeek/timonel/commit/6911d2131971787d8afce1123ed4969e0ae8e077))
+- **ci:** use exact pnpm version 10.15.0 in workflows ([2634e7d](https://github.com/KenkoGeek/timonel/commit/2634e7d30b58dcea182605a52a1e34daca0cf6bb))
+- **core:** correct TypeScript errors and improve version handling ([3945d8b](https://github.com/KenkoGeek/timonel/commit/3945d8b6e3f84141579e0a08b48bdfd480e64168))
+- **core:** resolve issue [#114](https://github.com/KenkoGeek/timonel/issues/114) - invalid Helm template generation ([eac0bdb](https://github.com/KenkoGeek/timonel/commit/eac0bdbbe4946e0dcf29346b956451f4d1f4a016))
+- **docs:** apply prettier formatting to README.md ([0ad15aa](https://github.com/KenkoGeek/timonel/commit/0ad15aa8add475268b6b7c9af9bdcd3b6a82bb80))
+- **release:** align required checks with ruleset configuration ([1b4d1dd](https://github.com/KenkoGeek/timonel/commit/1b4d1dd245974f80d3fb00096d48dbaaa79419f1))
+- **release:** update required checks in release workflow ([1811247](https://github.com/KenkoGeek/timonel/commit/1811247fa1562885b8bd43909bd2127e23de225d))
+- resolve issue [#114](https://github.com/KenkoGeek/timonel/issues/114) - Helm template generation bug and enhance documentation ([#116](https://github.com/KenkoGeek/timonel/issues/116)) ([92782f8](https://github.com/KenkoGeek/timonel/commit/92782f840571e036cc235d1b7739b00d8ac8d56c))
+- **umbrella:** remove unused \_subchartInstance variables ([73b3a8a](https://github.com/KenkoGeek/timonel/commit/73b3a8a99b30ef4576f60331f66b30164bd8213e))
+
+### Features
+
+- **ci:** optimize GitHub workflows with enhanced performance and reliability ([09d0470](https://github.com/KenkoGeek/timonel/commit/09d04700b011e8dc4ae3875c4a46d835b88bb13d)), closes [#114](https://github.com/KenkoGeek/timonel/issues/114)
+- **core:** enhance ChartProps for better flexibility ([385f966](https://github.com/KenkoGeek/timonel/commit/385f96607c27a1dd58ff8e4ceb60d8a56ece8422))
+
+### Reverts
+
+- **ci:** restore original release workflow ([f2f9b27](https://github.com/KenkoGeek/timonel/commit/f2f9b27e1950e8c9496f0faf6b874c0be5ad02e9))
+
 ## [2.9.2](https://github.com/KenkoGeek/timonel/compare/v2.9.1...v2.9.2) (2025-09-19)
 
 ### Bug Fixes
