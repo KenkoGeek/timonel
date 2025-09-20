@@ -1,3 +1,9 @@
+## [2.10.2](https://github.com/KenkoGeek/timonel/compare/v2.10.1...v2.10.2) (2025-09-20)
+
+### Bug Fixes
+
+- **cli:** consolidate path validation and improve error handling ([239a50f](https://github.com/KenkoGeek/timonel/commit/239a50fb30be451301d2af6a586b77748a3db6ec))
+
 ## [2.10.1](https://github.com/KenkoGeek/timonel/compare/v2.10.0...v2.10.1) (2025-09-20)
 
 ### Bug Fixes
