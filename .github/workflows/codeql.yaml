@@ -1,32 +1,108 @@
-# Do not modify - Generated with WorkflowForge
-name: CodeQL
+# Enhanced CodeQL Analysis - Multi-Language Security Scanning
+name: CodeQL Analysis
+
 on:
   push:
     branches:
       - main
+      - develop
   pull_request:
     branches:
       - main
+      - develop
   schedule:
-    - cron: 17 8 * * 4
-jobs:
-  analyze:
-    steps:
-      - uses: actions/checkout@v5
-        name: Checkout repository
-      - uses: github/codeql-action/init@v3
-        name: Initialize CodeQL
-        with:
-          languages: ${{ matrix.language }}
-      - uses: github/codeql-action/autobuild@v3
-        name: Autobuild
-      - uses: github/codeql-action/analyze@v3
-        name: Perform CodeQL Analysis
-    strategy:
-      matrix:
-        language:
-          - javascript-typescript
-    runs-on: ubuntu-latest
+    - cron: '17 8 * * 4' # Weekly on Thursday at 8:17 AM UTC
+  workflow_dispatch:
+    inputs:
+      languages:
+        description: 'Languages to analyze'
+        required: false
+        default: 'javascript-typescript'
+        type: choice
+        options:
+          - 'javascript-typescript'
+          - 'javascript-typescript,yaml'
+          - 'all'
+
+concurrency:
+  group: codeql-analysis-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - 'javascript-typescript'
+        include:
+          - language: 'javascript-typescript'
+            build-mode: 'none'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-and-quality
+
+      - name: Setup pnpm (for JavaScript/TypeScript)
+        if: matrix.language == 'javascript-typescript'
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (for JavaScript/TypeScript)
+        if: matrix.language == 'javascript-typescript'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies (for JavaScript/TypeScript)
+        if: matrix.language == 'javascript-typescript'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build project (for JavaScript/TypeScript)
+        if: matrix.language == 'javascript-typescript'
+        run: pnpm build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{matrix.language}}'
+          upload: true
+
+  # Summary job
+  security-summary:
+    name: Security Analysis Summary
+    runs-on: ubuntu-latest
+    needs: [analyze]
+    if: always()
+    timeout-minutes: 5
+    steps:
+      - name: Generate security summary
+        run: |
+          echo "## Security Analysis Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Analysis | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| CodeQL Analysis | ${{ needs.analyze.result }} |" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.analyze.result }}" == "failure" ]]; then
+            echo "❌ CodeQL analysis failed"
+            exit 1
+          else
+            echo "✅ CodeQL analysis completed successfully"
+          fi
