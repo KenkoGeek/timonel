@@ -16,6 +16,20 @@ const UMBRELLA_FILE_NAME = 'umbrella.ts';
 
 // Helper functions
 /**
+ * Get version from package.json
+ * @returns Version string
+ */
+function getVersion(): string {
+  try {
+    const packagePath = path.join(__dirname, '..', 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    return packageJson.version || '0.1.0';
+  } catch {
+    return '0.1.0';
+  }
+}
+
+/**
  * Enhanced logging function that respects silent flag globally
  * @param msg - Message to log
  * @param silent - Whether to suppress output
@@ -371,7 +385,7 @@ async function cmdUmbrellaInit(name?: string, silent = false) {
   // Create umbrella.config.json
   const config = {
     name: validName,
-    version: '0.1.0',
+    version: getVersion(),
     description: `${validName} umbrella chart`,
     subcharts: [] as SubchartProps[],
   };
@@ -531,7 +545,7 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
   // Update config
   config.subcharts.push({
     name: subchartName,
-    version: '0.1.0',
+    version: getVersion(),
     path: `./charts/${validSubchartPath}/chart.ts`,
   } as SubchartProps);
 
@@ -641,7 +655,7 @@ function parseFlags(args: string[]): CliFlags {
       case '--version':
       case '-v':
         if (!flags.silent) {
-          console.log('Timonel v0.1.0');
+          console.log(`Timonel v${getVersion()}`);
         }
         process.exit(0);
         break;
@@ -708,7 +722,7 @@ async function main() {
   // Handle version flags first
   if (args.includes('--version') || args.includes('-v')) {
     if (!isSilent) {
-      console.log('Timonel v0.1.0');
+      console.log(`Timonel v${getVersion()}`);
     }
     process.exit(0);
   }

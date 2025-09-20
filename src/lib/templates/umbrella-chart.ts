@@ -153,8 +153,8 @@ export class UmbrellaChartTemplate extends Chart {
       } = subchart;
       const flexibleSubchart = createFlexibleSubchart(this, `${subchart.name}-${index}`, {
         name: subchart.name,
-        version: subchart.version || '1.0.0',
-        description: subchart.description || `${subchart.name} subchart`,
+        version: (subchart.version as string) || '1.0.0',
+        description: (subchart.description as string) || `${subchart.name} subchart`,
         ...subchartProps,
       });
 
@@ -194,7 +194,7 @@ export class UmbrellaChartTemplate extends Chart {
       // Create a basic flexible subchart as fallback
       const _fallbackSubchart = createFlexibleSubchart(this, `${subchart.name}-fallback-${index}`, {
         name: subchart.name,
-        version: subchart.version || '1.0.0',
+        version: (subchart.version as string) || '1.0.0',
         description: `${subchart.name} subchart (fallback)`,
       });
       // Note: Don't add dependency to avoid circular dependencies
@@ -330,8 +330,8 @@ export class UmbrellaChartTemplate extends Chart {
       } = subchart;
       const flexibleSubchart = createFlexibleSubchart(this, `${subchart.name}-chart`, {
         name: subchart.name,
-        version: subchart.version || '1.0.0',
-        description: subchart.description || `${subchart.name} subchart`,
+        version: (subchart.version as string) || '1.0.0',
+        description: (subchart.description as string) || `${subchart.name} subchart`,
         ...subchartProps,
       });
 
@@ -343,8 +343,10 @@ export class UmbrellaChartTemplate extends Chart {
             this,
             `${subchart.name}-chart`,
           );
-          if (chartInstance && typeof (chartInstance as unknown).writeHelmChart === 'function') {
-            (chartInstance as unknown).writeHelmChart(subchartDir);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if (chartInstance && typeof (chartInstance as any).writeHelmChart === 'function') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (chartInstance as any).writeHelmChart(subchartDir);
           } else {
             flexibleSubchart.writeHelmChart(subchartDir);
           }
@@ -352,8 +354,10 @@ export class UmbrellaChartTemplate extends Chart {
           // If that fails, try calling without parameters
           try {
             const chartInstance = (subchart.chart as () => Chart)();
-            if (chartInstance && typeof (chartInstance as unknown).writeHelmChart === 'function') {
-              (chartInstance as unknown).writeHelmChart(subchartDir);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if (chartInstance && typeof (chartInstance as any).writeHelmChart === 'function') {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (chartInstance as any).writeHelmChart(subchartDir);
             } else {
               flexibleSubchart.writeHelmChart(subchartDir);
             }
