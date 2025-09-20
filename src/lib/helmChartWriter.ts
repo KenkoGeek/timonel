@@ -436,13 +436,6 @@ function writeSingleAssetFile(
   assetId: string,
   yaml: string,
 ): void {
-  // Debug: Log content being written for ingress files
-  if (assetId === 'ingress' && yaml.includes('number:')) {
-    console.log('Writing ingress file with number fields');
-    const numberLines = yaml.split('\n').filter((line) => line.includes('number:'));
-    console.log('Number lines:', numberLines);
-  }
-
   const filename = `${assetId}.yaml`;
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
   fs.mkdirSync(path.join(outDir, targetDir), { recursive: true });
@@ -466,24 +459,9 @@ function writeMultipleAssetFiles(
   assetId: string,
   yaml: string,
 ): void {
-  // Debug: Log content being written for ingress files
-  if (assetId === 'ingress' && yaml.includes('number:')) {
-    console.log('🔍 Writing ingress file (multiple) with content:');
-    const numberLines = yaml.split('\n').filter((line) => line.includes('number:'));
-    console.log('Number lines:', numberLines);
-  }
-
   const parts = splitDocs(yaml);
   parts.forEach((doc, index) => {
     const filename = `${assetId}${parts.length > 1 ? `-${index + 1}` : ''}.yaml`;
-
-    // Debug: Log each document being written
-    if (assetId === 'ingress' && doc.includes('number:')) {
-      console.log(
-        `🔍 Writing document ${index + 1} for ingress:`,
-        doc.split('\n').filter((line) => line.includes('number:')),
-      );
-    }
 
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
     fs.mkdirSync(path.join(outDir, targetDir), { recursive: true });

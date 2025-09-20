@@ -645,7 +645,7 @@ ${yamlContent.trim()}
    * @since 2.8.0+
    */
   private toSynthArray(): SynthAsset[] {
-    console.log(`📦 Synthesizing chart assets for: ${this.meta.name}`);
+    console.log(`Synthesizing chart assets for: ${this.meta.name}`);
 
     // Get ApiObject IDs before synthesis, excluding placeholders
     const apiObjectIds: string[] = [];
@@ -666,7 +666,7 @@ ${yamlContent.trim()}
       return true;
     });
 
-    console.log(`📋 Found ${manifestObjs.length} manifest objects to process`);
+    console.log(`Found ${manifestObjs.length} manifest objects to process`);
     // Enforce common labels best-practice on all rendered objects
     const enriched = manifestObjs.map((obj: unknown) => {
       if (obj && typeof obj === 'object') {
@@ -1204,7 +1204,7 @@ ${helper.template}
     }
 
     const synthAssets = this.toSynthArray();
-    console.log(`📄 Generated ${synthAssets.length} assets for chart`);
+    console.log(`Generated ${synthAssets.length} assets for chart`);
 
     HelmChartWriter.write({
       outDir,
