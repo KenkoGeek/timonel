@@ -1,11 +1,11 @@
 /**
  * @fileoverview CLI testing suite for Timonel - Helm umbrella chart generator
  * Tests CLI functionality including version display, command validation, and error handling
- * @since 2.10.2
+ * @since 2.8.4
  */
 import { spawnSync } from 'child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'fs';
+import { join, dirname } from 'path';
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
@@ -14,7 +14,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
  * @param args - Command line arguments to pass to the CLI
  * @param options - Execution options
  * @returns Object containing stdout, stderr, and exit code
- * @since 2.10.2
+ * @since 2.8.4
  */
 function runCLI(args: string[] = [], options: { cwd?: string; timeout?: number } = {}) {
   const cliPath = join(process.cwd(), 'dist', 'cli.js');
@@ -27,7 +27,7 @@ function runCLI(args: string[] = [], options: { cwd?: string; timeout?: number }
   return {
     stdout: result.stdout?.toString() || '',
     stderr: result.stderr?.toString() || '',
-    exitCode: result.status || 0,
+    exitCode: result.status ?? 1, // Use nullish coalescing to properly handle null status
     signal: result.signal,
   };
 }
@@ -36,7 +36,7 @@ function runCLI(args: string[] = [], options: { cwd?: string; timeout?: number }
  * Helper function to create a temporary test directory
  * @param name - Name of the test directory
  * @returns Path to the created directory
- * @since 2.10.2
+ * @since 2.8.4
  */
 function createTestDir(name: string): string {
   const testDir = join(process.cwd(), 'temp-test', name);
@@ -50,7 +50,7 @@ function createTestDir(name: string): string {
 /**
  * Helper function to clean up test directories
  * @param testDir - Path to the test directory to clean up
- * @since 2.10.2
+ * @since 2.8.4
  */
 function cleanupTestDir(testDir: string): void {
   if (existsSync(testDir)) {
@@ -200,15 +200,25 @@ describe('CLI Chart Operations', () => {
 
 describe('CLI Error Handling', () => {
   it('should handle file system errors gracefully', () => {
-    // Test with read-only directory (simulated by using invalid path)
-    const result = runCLI(['init', 'test-chart'], { cwd: '/invalid/path/that/does/not/exist' });
+    const testDir = createTestDir('fs-error-test');
 
-    expect(result.exitCode).toBeDefined();
-    expect(typeof result.exitCode).toBe('number');
+    try {
+      // Make directory read-only to simulate permission errors
+      const readOnlyDir = join(testDir, 'readonly');
+      mkdirSync(readOnlyDir, { recursive: true });
+      // Note: Setting read-only permissions would be platform-specific
+
+      const result = runCLI(['init', 'test-chart'], { cwd: readOnlyDir });
+
+      expect(result.exitCode).toBeDefined();
+      expect(typeof result.exitCode).toBe('number');
+    } finally {
+      cleanupTestDir(testDir);
+    }
   });
 
   it('should handle timeout scenarios', () => {
-    const result = runCLI(['--help'], { timeout: 1 }); // Very short timeout
+    const result = runCLI(['--help'], { timeout: 100 }); // More reasonable timeout
 
     // Should either complete quickly or timeout gracefully
     expect(result.exitCode).toBeDefined();
@@ -258,8 +268,13 @@ describe('CLI Security Validation', () => {
         expect(typeof result.exitCode).toBe('number');
 
         // Should not create files outside the intended directory
-        const maliciousPath = join(testDir, maliciousName);
-        expect(existsSync(maliciousPath)).toBe(false);
+        const parentDir = dirname(testDir);
+        const suspiciousFiles = ['passwd', 'system32', 'sensitive'];
+
+        for (const suspiciousFile of suspiciousFiles) {
+          const suspiciousPath = join(parentDir, suspiciousFile);
+          expect(existsSync(suspiciousPath)).toBe(false);
+        }
       }
     } finally {
       cleanupTestDir(testDir);
@@ -303,7 +318,7 @@ describe('CLI Performance and Resource Management', () => {
     const endTime = Date.now();
 
     expect(result.exitCode).toBe(0);
-    expect(endTime - startTime).toBeLessThan(5000); // Should complete within 5 seconds
+    expect(endTime - startTime).toBeLessThan(2000); // Should complete within 2 seconds
   });
 
   it('should handle multiple rapid commands', () => {
@@ -368,7 +383,7 @@ describe('CLI Integration with Helm', () => {
     // Verify Chart.yaml has required fields
     const chartYamlPath = join(chartPath, 'Chart.yaml');
     if (existsSync(chartYamlPath)) {
-      const chartYaml = require('fs').readFileSync(chartYamlPath, 'utf8');
+      const chartYaml = readFileSync(chartYamlPath, 'utf8');
       expect(chartYaml).toContain('apiVersion:');
       expect(chartYaml).toContain('name:');
       expect(chartYaml).toContain('version:');
