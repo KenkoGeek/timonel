@@ -676,7 +676,7 @@ ${yamlContent.trim()}
         const labels = o.metadata.labels as Record<string, unknown>;
         const defaults: Record<string, string> = {
           'helm.sh/chart': `{{ .Chart.Name }}-{{ .Chart.Version }}`,
-          'app.kubernetes.io/name': `{{ ${include} "${Rutter.HELPER_NAME}" . }}`,
+          'app.kubernetes.io/name': include(Rutter.HELPER_NAME),
           'app.kubernetes.io/instance': '{{ .Release.Name }}',
           'app.kubernetes.io/version': '{{ .Chart.Version }}',
           'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
