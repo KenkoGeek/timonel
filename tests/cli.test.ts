@@ -1,7 +1,7 @@
 /**
  * @fileoverview CLI testing suite for Timonel - Helm umbrella chart generator
  * Tests CLI functionality including version display, command validation, and error handling
- * @since 2.8.4
+ * @since 2.10.2
  */
 import { spawnSync } from 'child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'fs';
@@ -14,7 +14,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
  * @param args - Command line arguments to pass to the CLI
  * @param options - Execution options
  * @returns Object containing stdout, stderr, and exit code
- * @since 2.8.4
+ * @since 2.10.2
  */
 function runCLI(args: string[] = [], options: { cwd?: string; timeout?: number } = {}) {
   const cliPath = join(process.cwd(), 'dist', 'cli.js');
@@ -36,7 +36,7 @@ function runCLI(args: string[] = [], options: { cwd?: string; timeout?: number }
  * Helper function to create a temporary test directory
  * @param name - Name of the test directory
  * @returns Path to the created directory
- * @since 2.8.4
+ * @since 2.10.2
  */
 function createTestDir(name: string): string {
   const testDir = join(process.cwd(), 'temp-test', name);
@@ -50,7 +50,7 @@ function createTestDir(name: string): string {
 /**
  * Helper function to clean up test directories
  * @param testDir - Path to the test directory to clean up
- * @since 2.8.4
+ * @since 2.10.2
  */
 function cleanupTestDir(testDir: string): void {
   if (existsSync(testDir)) {
