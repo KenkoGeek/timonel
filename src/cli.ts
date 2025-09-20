@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 // Constants
 const UMBRELLA_CONFIG_FILE = 'umbrella.config.json';
 const UMBRELLA_FILE_NAME = 'umbrella.ts';
+const PACKAGE_JSON_FILE = 'package.json';
 
 // Helper functions
 /**
@@ -21,11 +22,31 @@ const UMBRELLA_FILE_NAME = 'umbrella.ts';
  */
 function getVersion(): string {
   try {
-    const packagePath = path.join(__dirname, '..', 'package.json');
-    const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-    return packageJson.version || '0.1.0';
+    // Try multiple possible locations for package.json
+    const possiblePaths = [
+      path.join(__dirname, '..', PACKAGE_JSON_FILE), // dist/../package.json
+      path.join(__dirname, '..', '..', PACKAGE_JSON_FILE), // dist/../../package.json
+      path.join(process.cwd(), PACKAGE_JSON_FILE), // Current working directory
+      path.join(__dirname, PACKAGE_JSON_FILE), // dist/package.json
+    ];
+
+    for (const packagePath of possiblePaths) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+      if (fs.existsSync(packagePath)) {
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+        const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+        return packageJson.version || 'unknown';
+      }
+    }
+
+    // Fallback: try to read from process.env if available
+    if (process.env.npm_package_version) {
+      return process.env.npm_package_version;
+    }
+
+    return 'unknown';
   } catch {
-    return '0.1.0';
+    return 'unknown';
   }
 }
 
