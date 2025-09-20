@@ -58,10 +58,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-          queries: |
-            security-and-quality
-            security-extended
-            security-and-quality,security-extended
+          queries: security-and-quality
 
       - name: Setup Node.js (for JavaScript/TypeScript)
         if: matrix.language == 'javascript-typescript'
@@ -74,7 +71,7 @@ jobs:
         if: matrix.language == 'javascript-typescript'
         uses: pnpm/action-setup@v4
         with:
-          version: 10.15.0.15.0
+          version: 10.15.0
 
       - name: Install dependencies (for JavaScript/TypeScript)
         if: matrix.language == 'javascript-typescript'
