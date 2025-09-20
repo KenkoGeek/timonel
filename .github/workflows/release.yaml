@@ -1,5 +1,5 @@
 # Simple Release Pipeline
-# 
+#
 # This workflow automatically triggers when both Test Suite and CodeQL Analysis
 # complete successfully on the main branch. Only publishes the release.
 #
@@ -7,7 +7,7 @@ name: Release
 
 on:
   workflow_run:
-    workflows: ["Test Suite", "CodeQL Analysis"]
+    workflows: ['Test Suite', 'CodeQL Analysis']
     branches: [main]
     types: [completed]
 
