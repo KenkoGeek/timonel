@@ -35,7 +35,7 @@
 We provide security updates for the following versions:
 
 | Version | Supported      | Security Updates | End of Life |
-|---------|----------------|------------------|-------------|
+| ------- | -------------- | ---------------- | ----------- |
 | 2.4.0+  | ✅ Current     | Full support     | TBD         |
 | 2.3.x   | ✅ Supported   | Full support     | TBD         |
 | 2.0-2.2 | ⚠️ Limited     | Critical only    | 2024-12-31  |
@@ -43,6 +43,7 @@ We provide security updates for the following versions:
 | < 1.0   | ❌ End of life | None             | 2024-01-01  |
 
 **Update policy:**
+
 - **Current versions**: All security updates within 48 hours
 - **Supported versions**: Critical updates within 1 week
 - **Limited versions**: Critical updates only, within 2 weeks
