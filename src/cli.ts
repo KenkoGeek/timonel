@@ -17,25 +17,66 @@ const PACKAGE_JSON_FILE = 'package.json';
 
 // Helper functions
 /**
- * Get version from package.json
- * @returns Version string
+ * Validates that a file path is safe and within expected boundaries
+ * @param filePath - The file path to validate
+ * @param expectedFileName - The expected filename to end with
+ * @returns True if the path is safe, false otherwise
+ * @since 2.10.1
+ */
+function isValidPath(filePath: string, expectedFileName: string): boolean {
+  try {
+    const resolvedPath = path.resolve(filePath);
+    const normalizedPath = path.normalize(resolvedPath);
+
+    // Check for path traversal attempts
+    if (normalizedPath.includes('..') || normalizedPath.includes('~')) {
+      return false;
+    }
+
+    // Ensure the path ends with the expected filename
+    if (!normalizedPath.endsWith(expectedFileName)) {
+      return false;
+    }
+
+    // Additional security: ensure path doesn't contain suspicious patterns
+    const suspiciousPatterns = ['\\', '..', '~', '$', '`', '|', '&', ';', '(', ')'];
+    return !suspiciousPatterns.some((pattern) => normalizedPath.includes(pattern));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Retrieves the version from the nearest package.json file with security validation
+ * @returns The version number or 'unknown' if not found
+ * @since 2.10.1
  */
 function getVersion(): string {
   try {
-    // Try multiple possible locations for package.json
+    // Define possible locations for package.json with systematic path resolution
     const possiblePaths = [
-      path.join(__dirname, '..', PACKAGE_JSON_FILE), // dist/../package.json
-      path.join(__dirname, '..', '..', PACKAGE_JSON_FILE), // dist/../../package.json
-      path.join(process.cwd(), PACKAGE_JSON_FILE), // Current working directory
-      path.join(__dirname, PACKAGE_JSON_FILE), // dist/package.json
+      path.resolve(__dirname, '..', PACKAGE_JSON_FILE), // dist/../package.json
+      path.resolve(__dirname, '..', '..', PACKAGE_JSON_FILE), // dist/../../package.json
+      path.resolve(process.cwd(), PACKAGE_JSON_FILE), // Current working directory
+      path.resolve(__dirname, PACKAGE_JSON_FILE), // dist/package.json
     ];
 
     for (const packagePath of possiblePaths) {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+      // Validate path is within expected boundaries before file operations
+      if (!isValidPath(packagePath, PACKAGE_JSON_FILE)) {
+        continue;
+      }
+
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by isValidPath() function
       if (fs.existsSync(packagePath)) {
-        // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-        const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-        return packageJson.version || 'unknown';
+        try {
+          // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by isValidPath() function
+          const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+          return packageJson.version || 'unknown';
+        } catch {
+          // Continue to next path if JSON parsing fails
+          continue;
+        }
       }
     }
 
