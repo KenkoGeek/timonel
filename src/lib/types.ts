@@ -11,7 +11,11 @@ export interface ChartProps {
   }>;
   subcharts?: Array<{
     name: string;
-    chart: Chart | (() => Chart);
+    chart: Chart | ((scope: Chart, id: string) => Chart) | unknown;
+    version?: string;
+    enabled?: boolean;
+    // Allow any additional properties for flexibility
+    [key: string]: unknown;
   }>;
 }
 
