@@ -155,7 +155,8 @@ jobs:
                 'Final Validation',
                 'Test Matrix (Node 20)',
                 'Test Matrix (Node 22)',
-                'Security & Quality'
+                'Security & Quality',
+                'CodeQL Analysis'
               ];
 
               const pendingChecks = [];
