@@ -102,7 +102,7 @@ jobs:
 
       - name: Run unit tests
         if: matrix.test-type == 'unit'
-        run: pnpm test:integration
+        run: pnpm test:unit
         env:
           NODE_ENV: test
 
