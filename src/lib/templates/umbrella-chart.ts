@@ -162,13 +162,29 @@ export class UmbrellaChartTemplate extends Chart {
       if (typeof subchart.chart === 'function') {
         try {
           // Try calling with scope and id parameters
-          _subchartInstance = (subchart.chart as (scope: Chart, id: string) => Chart)(
+          const subchartInstance = (subchart.chart as (scope: Chart, id: string) => Chart)(
             this,
             `${subchart.name}-${index}`,
           );
+          // Add constructs from the subchart to flexible subchart
+          if (subchartInstance.node.children) {
+            subchartInstance.node.children.forEach((child) => {
+              if (child instanceof Chart) {
+                flexibleSubchart.addConstruct(child);
+              }
+            });
+          }
         } catch {
           // If that fails, try calling without parameters
-          _subchartInstance = (subchart.chart as () => Chart)();
+          const subchartInstance = (subchart.chart as () => Chart)();
+          // Add constructs from the subchart to flexible subchart
+          if (subchartInstance.node.children) {
+            subchartInstance.node.children.forEach((child) => {
+              if (child instanceof Chart) {
+                flexibleSubchart.addConstruct(child);
+              }
+            });
+          }
         }
       } else if (subchart.chart && typeof subchart.chart === 'object') {
         // If it's an object, try to use it as a construct
@@ -179,10 +195,6 @@ export class UmbrellaChartTemplate extends Chart {
           // It's a manifest object, add it as a manifest
           flexibleSubchart.addManifest(subchart.chart);
         }
-        _subchartInstance = flexibleSubchart;
-      } else {
-        // Use the flexible subchart as fallback
-        _subchartInstance = flexibleSubchart;
       }
 
       // Note: Don't add dependency to avoid circular dependencies
