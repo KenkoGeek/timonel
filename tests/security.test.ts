@@ -42,7 +42,7 @@ function runCLI(args: string[] = [], options: { cwd?: string; timeout?: number }
  * @since 2.10.2
  */
 function createTestDir(name: string): string {
-  const testDir = join(process.cwd(), 'temp-security-test', name);
+  const testDir = join(process.cwd(), 'temp-test', name);
   if (existsSync(testDir)) {
     rmSync(testDir, { recursive: true, force: true });
   }
