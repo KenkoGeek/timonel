@@ -152,11 +152,8 @@ jobs:
               console.log(`Found ${checks.check_runs.length} check runs`);
 
               const requiredChecks = [
-                'Final Validation',
-                'Test Matrix (Node 20)',
-                'Test Matrix (Node 22)',
-                'Security & Quality',
-                'CodeQL Analysis'
+                'Test Suite',
+                'CodeQL Analysis (javascript-typescript)'
               ];
 
               const pendingChecks = [];
