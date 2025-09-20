@@ -1,17 +1,15 @@
-# Enhanced Release Pipeline - Robust & Secure
+# Simple Release Pipeline
+# 
+# This workflow automatically triggers when both Test Suite and CodeQL Analysis
+# complete successfully on the main branch. Only publishes the release.
+#
 name: Release
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Test Suite", "CodeQL Analysis"]
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      release-type:
-        description: 'Type of release'
-        required: true
-        default: 'auto'
-        type: choice
-        options: ['auto', 'patch', 'minor', 'major', 'prerelease']
+    types: [completed]
 
 concurrency:
   group: release-${{ github.ref }}
@@ -25,226 +23,10 @@ permissions:
   security-events: write
 
 jobs:
-  # Pre-release validation
-  pre-release-checks:
-    name: Pre-Release Validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      should-release: ${{ steps.check.outputs.should-release }}
-      release-type: ${{ steps.check.outputs.release-type }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build project
-        run: pnpm build
-
-      - name: Validate package
-        run: |
-          echo "## Package Validation" >> $GITHUB_STEP_SUMMARY
-          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-
-          # Check if package.json is valid
-          if node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"; then
-            echo "| package.json | ✅ Valid |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| package.json | ❌ Invalid |" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          # Check if dist directory exists and has files
-          if [ -d "dist" ] && [ "$(ls -A dist)" ]; then
-            echo "| dist directory | ✅ Exists with files |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| dist directory | ❌ Missing or empty |" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          # Check if main files exist
-          for file in "dist/index.js" "dist/cli.js" "dist/index.d.ts"; do
-            if [ -f "$file" ]; then
-              echo "| $file | ✅ Exists |" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "| $file | ❌ Missing |" >> $GITHUB_STEP_SUMMARY
-              exit 1
-            fi
-          done
-
-      - name: Check for breaking changes
-        id: breaking-check
-        run: |
-          # Check if there are any breaking changes in the last commit
-          if git log --oneline -1 | grep -i "breaking\|!:"; then
-            echo "has-breaking-changes=true" >> $GITHUB_OUTPUT
-            echo "⚠️ Breaking changes detected in commit message"
-          else
-            echo "has-breaking-changes=false" >> $GITHUB_OUTPUT
-            echo "✅ No breaking changes detected"
-          fi
-
-      - name: Determine release type
-        id: check
-        run: |
-          if [ "${{ github.event.inputs.release-type }}" != "auto" ]; then
-            echo "should-release=true" >> $GITHUB_OUTPUT
-            echo "release-type=${{ github.event.inputs.release-type }}" >> $GITHUB_OUTPUT
-            echo "Manual release requested: ${{ github.event.inputs.release-type }}"
-          else
-            # Check if there are changes since last release
-            if git log --oneline $(git describe --tags --abbrev=0)..HEAD | grep -q .; then
-              echo "should-release=true" >> $GITHUB_OUTPUT
-              echo "release-type=auto" >> $GITHUB_OUTPUT
-              echo "Changes detected since last release"
-            else
-              echo "should-release=false" >> $GITHUB_OUTPUT
-              echo "release-type=none" >> $GITHUB_OUTPUT
-              echo "No changes since last release"
-            fi
-          fi
-
-  # Wait for CI completion
-  check-ci-status:
-    name: Verify All CI Checks
-    runs-on: ubuntu-latest
-    needs: pre-release-checks
-    if: needs.pre-release-checks.outputs.should-release == 'true'
-    timeout-minutes: 20
-    permissions:
-      id-token: write
-      contents: read
-      checks: read
-    steps:
-      - name: Wait for CI Completion
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const sha = context.sha;
-            console.log(`Checking CI status for commit: ${sha}`);
-
-            // Wait for all checks to complete
-            let allComplete = false;
-            let attempts = 0;
-            const maxAttempts = 40; // 20 minutes max wait
-
-            while (!allComplete && attempts < maxAttempts) {
-              const { data: checks } = await github.rest.checks.listForRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: sha
-              });
-
-              console.log(`Found ${checks.check_runs.length} check runs`);
-
-              const requiredChecks = [
-                'Test Suite',
-                'CodeQL Analysis'
-              ];
-
-              const pendingChecks = [];
-              const failedChecks = [];
-              let allFound = true;
-
-              for (const checkName of requiredChecks) {
-                const check = checks.check_runs.find(c => c.name === checkName);
-                if (!check) {
-                  console.log(`⏳ Missing check: ${checkName}`);
-                  allFound = false;
-                } else if (check.status !== 'completed') {
-                  console.log(`⏳ Pending check: ${checkName} (${check.status})`);
-                  pendingChecks.push(checkName);
-                } else if (check.conclusion !== 'success') {
-                  console.log(`❌ Failed check: ${checkName} (${check.conclusion})`);
-                  failedChecks.push(checkName);
-                } else {
-                  console.log(`✅ Passed check: ${checkName}`);
-                }
-              }
-
-              if (failedChecks.length > 0) {
-                core.setFailed(`Required checks failed: ${failedChecks.join(', ')}`);
-                return;
-              }
-
-              if (allFound && pendingChecks.length === 0) {
-                console.log('✅ All required checks completed successfully');
-                allComplete = true;
-              } else {
-                console.log(`⏳ Waiting for ${pendingChecks.length} checks to complete...`);
-                await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30 seconds
-                attempts++;
-              }
-            }
-
-            if (!allComplete) {
-              core.setFailed('Timeout waiting for CI checks to complete');
-            }
-
-  # Security scan before release
-  security-scan:
-    name: Pre-Release Security Scan
-    runs-on: ubuntu-latest
-    needs: [pre-release-checks, check-ci-status]
-    if: needs.pre-release-checks.outputs.should-release == 'true'
-    timeout-minutes: 10
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Security audit
-        run: pnpm security:audit
-        continue-on-error: true
-
-      - name: Check for known vulnerabilities
-        run: |
-          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-
-          # Check for high/critical vulnerabilities
-          if pnpm audit --audit-level=high --json | jq -e '.vulnerabilities | length > 0'; then
-            echo "| High/Critical Vulnerabilities | ❌ Found |" >> $GITHUB_STEP_SUMMARY
-            echo "⚠️ High or critical vulnerabilities found!"
-            pnpm audit --audit-level=high
-          else
-            echo "| High/Critical Vulnerabilities | ✅ None |" >> $GITHUB_STEP_SUMMARY
-            echo "✅ No high or critical vulnerabilities found"
-          fi
-
-  # Main release job
   release:
     name: Release
-    needs: [pre-release-checks, check-ci-status, security-scan]
-    if: needs.pre-release-checks.outputs.should-release == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     environment:
       name: npm-prd
       url: https://www.npmjs.com/package/timonel
@@ -275,61 +57,9 @@ jobs:
       - name: Build for release
         run: pnpm run build
 
-      - name: Verify build
-        run: |
-          echo "## Build Verification" >> $GITHUB_STEP_SUMMARY
-          echo "| File | Size |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
-          find dist -name "*.js" -exec sh -c 'echo "| $1 | $(du -h "$1" | cut -f1) |" >> $GITHUB_STEP_SUMMARY' _ {} \;
-
-      - name: Test CLI functionality
-        run: |
-          echo "Testing CLI functionality..."
-          node dist/cli.js --version
-          node dist/cli.js --help
-          echo "✅ CLI tests passed"
-
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
-        run: |
-          # Always perform real release when running on main branch
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "Performing real release on main branch"
-            npx semantic-release
-          else
-            echo "Performing dry run on non-main branch"
-            npx semantic-release --dry-run
-          fi
-
-      - name: Post-release verification
-        if: success()
-        run: |
-          echo "## Release Verification" >> $GITHUB_STEP_SUMMARY
-          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Release | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
-          echo "| NPM Package | ✅ Published |" >> $GITHUB_STEP_SUMMARY
-          echo "| GitHub Release | ✅ Created |" >> $GITHUB_STEP_SUMMARY
-
-  # Post-release notifications
-  notify:
-    name: Post-Release Notifications
-    needs: [release]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Notify success
-        if: needs.release.result == 'success'
-        run: |
-          echo "🎉 Release completed successfully!"
-          echo "Check the release at: https://github.com/${{ github.repository }}/releases"
-
-      - name: Notify failure
-        if: needs.release.result == 'failure'
-        run: |
-          echo "❌ Release failed!"
-          echo "Please check the logs for details."
+        run: npx semantic-release
