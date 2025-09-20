@@ -295,11 +295,13 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
         run: |
-          if [ "${{ needs.pre-release-checks.outputs.release-type }}" == "auto" ]; then
+          # Always perform real release when running on main branch
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "Performing real release on main branch"
             npx semantic-release
           else
+            echo "Performing dry run on non-main branch"
             npx semantic-release --dry-run
-            echo "Dry run completed. Manual release type: ${{ needs.pre-release-checks.outputs.release-type }}"
           fi
 
       - name: Post-release verification
