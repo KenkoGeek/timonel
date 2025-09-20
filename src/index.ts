@@ -15,6 +15,9 @@ export { FlexibleSubchart, createFlexibleSubchart } from './lib/templates/flexib
 export { Subchart } from './lib/templates/subchart.js';
 export { UmbrellaChartTemplate as UmbrellaChart } from './lib/templates/umbrella-chart.js';
 
+// Types
+export type { ChartProps, SubchartProps } from './lib/types.js';
+
 // AWS Resources
 export type {
   AWSALBIngressSpec,
