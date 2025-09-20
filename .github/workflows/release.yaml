@@ -103,7 +103,7 @@ jobs:
           fi
 
           # Check CodeQL Analysis workflow
-          if ! check_workflow_status "codeql.yaml" "CodeQL Analysis"; then
+          if ! check_workflow_status "codeql.yml" "CodeQL Analysis"; then
             echo "ci-valid=false" >> $GITHUB_OUTPUT
             exit 1
           fi
