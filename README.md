@@ -88,19 +88,21 @@ export class WebAppChart extends Chart {
 
     // Create deployment
     new Deployment(this, 'web-deployment', {
-      containers: [{
-        image: 'nginx:latest',
-        port: 80,
-        env: {
-          NGINX_PORT: '80'
-        }
-      }]
+      containers: [
+        {
+          image: 'nginx:latest',
+          port: 80,
+          env: {
+            NGINX_PORT: '80',
+          },
+        },
+      ],
     });
 
     // Create service
     new Service(this, 'web-service', {
       selector: { app: 'web' },
-      ports: [{ port: 80, targetPort: 80 }]
+      ports: [{ port: 80, targetPort: 80 }],
     });
   }
 }
@@ -118,14 +120,14 @@ const umbrellaConfig = {
     {
       name: 'frontend',
       version: '1.0.0',
-      chart: frontendChartFunction
+      chart: frontendChartFunction,
     },
     {
       name: 'backend',
       version: '1.0.0',
-      chart: backendChartFunction
-    }
-  ]
+      chart: backendChartFunction,
+    },
+  ],
 };
 
 export const umbrella = new UmbrellaChartTemplate(umbrellaConfig);
@@ -206,14 +208,14 @@ const subchart = {
   name: 'my-service',
   version: '1.0.0' as string,
   description: 'My service' as string,
-  chart: myChartFunction
+  chart: myChartFunction,
 };
 
 // ❌ Incorrect
 const subchart = {
   name: 'my-service',
-  version: someUnknownValue,  // This will cause TypeScript errors
-  chart: myChartFunction
+  version: someUnknownValue, // This will cause TypeScript errors
+  chart: myChartFunction,
 };
 ```
 
