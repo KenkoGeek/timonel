@@ -1,3 +1,10 @@
+## [2.10.1](https://github.com/KenkoGeek/timonel/compare/v2.10.0...v2.10.1) (2025-09-20)
+
+### Bug Fixes
+
+- **cli:** improve version display and fallback handling ([#117](https://github.com/KenkoGeek/timonel/issues/117)) ([7ad67e2](https://github.com/KenkoGeek/timonel/commit/7ad67e23f936edcc6e9e7d886c257046ca4dccc6))
+- **helm:** remove debug logs from helmChartWriter ([742e1c9](https://github.com/KenkoGeek/timonel/commit/742e1c94f2858ec1afaf90cf5f2955b692e18f6b))
+
 # [2.10.0](https://github.com/KenkoGeek/timonel/compare/v2.9.2...v2.10.0) (2025-09-20)
 
 ### Bug Fixes
