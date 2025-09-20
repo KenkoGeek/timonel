@@ -23,8 +23,49 @@ permissions:
   security-events: write
 
 jobs:
+  check-workflows:
+    name: Check All Required Workflows
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    outputs:
+      test-suite-success: ${{ steps.check.outputs.test-suite-success }}
+      codeql-success: ${{ steps.check.outputs.codeql-success }}
+      all-workflows-success: ${{ steps.check.outputs.all-workflows-success }}
+    steps:
+      - name: Check workflow statuses
+        id: check
+        run: |
+          # Get the current commit SHA
+          COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
+
+          # Check if Test Suite completed successfully for this commit
+          TEST_SUITE_SUCCESS=$(gh api repos/${{ github.repository }}/actions/workflows/test.yaml/runs \
+            --jq ".workflow_runs[] | select(.head_sha == \"$COMMIT_SHA\" and .conclusion == \"success\") | length" || echo "0")
+
+          # Check if CodeQL Analysis completed successfully for this commit  
+          CODEQL_SUCCESS=$(gh api repos/${{ github.repository }}/actions/workflows/codeql.yaml/runs \
+            --jq ".workflow_runs[] | select(.head_sha == \"$COMMIT_SHA\" and .conclusion == \"success\") | length" || echo "0")
+
+          if [ "$TEST_SUITE_SUCCESS" -gt 0 ] && [ "$CODEQL_SUCCESS" -gt 0 ]; then
+            echo "test-suite-success=true" >> $GITHUB_OUTPUT
+            echo "codeql-success=true" >> $GITHUB_OUTPUT
+            echo "all-workflows-success=true" >> $GITHUB_OUTPUT
+            echo "✅ Both Test Suite and CodeQL Analysis completed successfully"
+          else
+            echo "test-suite-success=false" >> $GITHUB_OUTPUT
+            echo "codeql-success=false" >> $GITHUB_OUTPUT
+            echo "all-workflows-success=false" >> $GITHUB_OUTPUT
+            echo "❌ Not all required workflows completed successfully"
+            echo "Test Suite success: $TEST_SUITE_SUCCESS"
+            echo "CodeQL success: $CODEQL_SUCCESS"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   release:
     name: Release
+    needs: check-workflows
+    if: needs.check-workflows.outputs.all-workflows-success == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
