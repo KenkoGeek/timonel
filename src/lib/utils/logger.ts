@@ -93,18 +93,67 @@ export class TimonelLogger {
         ...this.config.base,
       },
       timestamp: pino.stdTimeFunctions.isoTime,
-      // Security: redact sensitive fields
+      // Security: redact sensitive fields (CWE-532 prevention)
       redact: {
         paths: [
+          // Generic secrets
           'password',
+          'passphrase',
           'secret',
+          'secrets',
           'token',
+          'accessToken',
+          'refreshToken',
+          'idToken',
           'apiKey',
-          'authorization',
+          'clientSecret',
+          'privateKey',
+          'sshKey',
           'credentials',
+          'authorization',
+          'sessionId',
+          'sessionToken',
+
+          // Nested (one level)
           '*.password',
+          '*.passphrase',
           '*.secret',
+          '*.secrets',
           '*.token',
+          '*.accessToken',
+          '*.refreshToken',
+          '*.idToken',
+          '*.apiKey',
+          '*.clientSecret',
+          '*.privateKey',
+          '*.sshKey',
+          '*.credentials',
+          '*.authorization',
+          '*.sessionId',
+          '*.sessionToken',
+
+          // HTTP specifics (request/response shapes)
+          'req.headers.authorization',
+          'req.headers.cookie',
+          'req.headers.cookies',
+          'res.headers["set-cookie"]',
+
+          // Common payload locations
+          'body.password',
+          'body.token',
+          'body.apiKey',
+          'body.secret',
+          'query.password',
+          'query.token',
+          'query.apiKey',
+          'query.secret',
+
+          // Configuration objects
+          'config.password',
+          'config.secret',
+          'config.clientSecret',
+          'config.privateKey',
+          'config.apiKey',
         ],
         censor: '[REDACTED]',
       },
