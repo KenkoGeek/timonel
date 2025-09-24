@@ -437,12 +437,19 @@ export class TimonelLogger {
    * @since 2.10.3
    */
   child(context: LogContext): TimonelLogger {
-    const childLogger = new TimonelLogger(this.config);
     const sanitizedContext = this.sanitizeContext(context);
-
-    // Use Pino's efficient child logger
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (childLogger as any).logger = this.logger.child(sanitizedContext);
+    
+    // Create a new logger instance with the same config
+    const childLogger = new TimonelLogger(this.config);
+    
+    // Replace the internal logger with a Pino child logger using Object.defineProperty
+    // This is type-safe and prevents accidental modification
+    Object.defineProperty(childLogger, 'logger', {
+      value: this.logger.child(sanitizedContext),
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    });
 
     return childLogger;
   }
