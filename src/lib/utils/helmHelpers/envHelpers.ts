@@ -18,14 +18,8 @@ export const ENV_HELPERS: HelperDefinition[] = [
   {
     name: 'env.required',
     template: `{{- $key := . -}}
-{{- $value := env $key -}}
+{{- $value := index .Values.env $key -}}
 {{- required (printf "Environment variable %s is required" $key) $value }}`,
-  },
-  {
-    name: 'env.getOrDefault',
-    template: `{{- $key := index . 0 -}}
-{{- $default := index . 1 -}}
-{{- $default }}`,
   },
   {
     name: 'env.isDev',
@@ -96,13 +90,20 @@ secretRef:
     name: 'config.featureFlag',
     template: `{{- $flag := .flag -}}
 {{- $default := .default | default false -}}
-{{- $envFlag := env (printf "FEATURE_%s" ($flag | upper)) -}}
-{{- $valueFlag := index .Values.features $flag -}}
-{{- or $valueFlag ($envFlag | default $default) }}`,
+{{- $envKey := printf "FEATURE_%s" ($flag | upper) -}}
+{{- $envFlag := index .Values.env $envKey | default "" -}}
+{{- $valueFlag := index .Values.features $flag | default "" -}}
+{{- if $valueFlag }}
+{{- $valueFlag }}
+{{- else if $envFlag }}
+{{- $envFlag }}
+{{- else }}
+{{- $default }}
+{{- end }}`,
   },
   {
     name: 'config.debugMode',
-    template: `{{- $debug := .Values.debug | default (env "DEBUG") | default false -}}
+    template: `{{- $debug := .Values.debug | default (index .Values.env "DEBUG") | default false -}}
 {{- if or $debug (include "env.isDev" .) -}}
 true
 {{- else -}}

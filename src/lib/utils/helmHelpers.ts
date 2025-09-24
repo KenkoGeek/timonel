@@ -129,12 +129,6 @@ export const TEMPLATE_FUNCTION_HELPERS: HelperDefinition[] = [
 {{- tpl $template $context -}}`,
   },
   {
-    name: 'validation.required',
-    template: `{{- $value := .value -}}
-{{- $message := .message | default (printf "Value %s is required" .key) -}}
-{{- required $message $value -}}`,
-  },
-  {
     name: 'validation.requireAny',
     template: `{{- $values := .values -}}
 {{- $message := .message | default "At least one value is required" -}}
@@ -176,7 +170,8 @@ export const SPRIG_HELPERS: HelperDefinition[] = [
     name: 'env.getOrDefault',
     template: `{{- $key := .key -}}
 {{- $default := .default | default "" -}}
-{{- env $key | default $default }}`,
+{{- $value := index .Values.env $key -}}
+{{- $value | default $default }}`,
   },
   {
     name: 'list.compact',
