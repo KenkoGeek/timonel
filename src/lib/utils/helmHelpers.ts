@@ -3,6 +3,15 @@
  * @since 2.8.0+
  */
 
+// Import new helper categories
+import {
+  ENV_HELPERS,
+  GITOPS_HELPERS,
+  OBSERVABILITY_HELPERS,
+  VALIDATION_HELPERS,
+  getNewHelpersByCategory,
+} from './helmHelpers/index.js';
+
 /**
  * Helper definition for Helm templates
  * @interface HelperDefinition
@@ -167,7 +176,7 @@ export const SPRIG_HELPERS: HelperDefinition[] = [
     name: 'env.getOrDefault',
     template: `{{- $key := .key -}}
 {{- $default := .default | default "" -}}
-{{- $default }}`,
+{{- env $key | default $default }}`,
   },
   {
     name: 'list.compact',
@@ -343,6 +352,10 @@ export function getDefaultHelpers(
     includeTemplateFunction?: boolean;
     includeSprig?: boolean;
     includeKubernetes?: boolean;
+    includeEnv?: boolean;
+    includeGitops?: boolean;
+    includeObservability?: boolean;
+    includeValidation?: boolean;
   },
 ): HelperDefinition[] {
   const helpers = [...STANDARD_HELPERS];
@@ -365,6 +378,26 @@ export function getDefaultHelpers(
   // Add Kubernetes helpers by default
   if (options?.includeKubernetes !== false) {
     helpers.push(...KUBERNETES_HELPERS);
+  }
+
+  // Add environment and configuration helpers
+  if (options?.includeEnv !== false) {
+    helpers.push(...ENV_HELPERS);
+  }
+
+  // Add GitOps and CI/CD helpers
+  if (options?.includeGitops !== false) {
+    helpers.push(...GITOPS_HELPERS);
+  }
+
+  // Add observability helpers
+  if (options?.includeObservability !== false) {
+    helpers.push(...OBSERVABILITY_HELPERS);
+  }
+
+  // Add validation helpers
+  if (options?.includeValidation !== false) {
+    helpers.push(...VALIDATION_HELPERS);
   }
 
   // Add cloud-specific helpers
@@ -391,6 +424,10 @@ export function generateHelpersTemplate(
     includeTemplateFunction?: boolean;
     includeSprig?: boolean;
     includeKubernetes?: boolean;
+    includeEnv?: boolean;
+    includeGitops?: boolean;
+    includeObservability?: boolean;
+    includeValidation?: boolean;
   },
 ): string {
   const helpers = getDefaultHelpers(cloudProvider, options);
@@ -409,8 +446,24 @@ export function generateHelpersTemplate(
  * @since 2.8.4+
  */
 export function getHelpersByCategory(
-  category: 'standard' | 'fileAccess' | 'templateFunction' | 'sprig' | 'kubernetes' | 'aws',
+  category:
+    | 'standard'
+    | 'fileAccess'
+    | 'templateFunction'
+    | 'sprig'
+    | 'kubernetes'
+    | 'aws'
+    | 'env'
+    | 'gitops'
+    | 'observability'
+    | 'validation',
 ): HelperDefinition[] {
+  // Handle new categories with imported helpers
+  if (['env', 'gitops', 'observability', 'validation'].includes(category)) {
+    return getNewHelpersByCategory(category as 'env' | 'gitops' | 'observability' | 'validation');
+  }
+
+  // Handle existing categories
   switch (category) {
     case 'standard':
       return [...STANDARD_HELPERS];
@@ -439,3 +492,26 @@ export function getHelpersByCategory(
 export function createHelper(name: string, template: string): HelperDefinition {
   return { name, template };
 }
+
+// Re-export new helper functions for convenience
+export {
+  getNewHelpersByCategory,
+  getAvailableHelperCategories,
+  getHelpersByCategories,
+  getHelpersByOptions,
+  formatNewHelpers,
+  generateNewHelpersTemplate,
+  getCachedNewHelpersTemplate,
+  createNewHelper,
+  validateHelperNames,
+  filterHelpersByPattern,
+  getHelperStatistics,
+} from './helmHelpers/index.js';
+
+// Export the new helper constants for direct access
+export {
+  ENV_HELPERS,
+  GITOPS_HELPERS,
+  OBSERVABILITY_HELPERS,
+  VALIDATION_HELPERS,
+} from './helmHelpers/index.js';
