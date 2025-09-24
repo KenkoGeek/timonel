@@ -22,7 +22,7 @@ directory.
 - **🌍 Multi-environment support** with automatic values files generation
 - **☂️ Umbrella Charts** for managing multiple subcharts as a single unit
 - **☁️ Cloud integrations**:
-  - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount, and Karpenter
+  - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount, ECR, and Karpenter
 - **🛡️ Security-first approach** with NetworkPolicies and best practices
 - **⚡ Minimal CLI** (`tl`) for scaffolding and chart generation
 - **📦 Flexible subchart templates** supporting cdk8s and cdk8s-plus-33
