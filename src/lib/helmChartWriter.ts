@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { SecurityUtils } from './security.js';
+import { createLogger } from './utils/logger.js';
 import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
 
 /**
@@ -159,7 +160,16 @@ export class HelmChartWriter {
       valuesSchema,
     } = opts;
 
-    console.log(`Writing chart: ${meta.name} v${meta.version} to ${outDir}`);
+    const logger = createLogger('helm-chart-writer');
+    const timer = logger.time('helm_chart_write');
+
+    logger.info('Starting Helm chart write operation', {
+      chartName: meta.name,
+      version: meta.version,
+      outputDirectory: outDir,
+      assetCount: assets.length,
+      operation: 'helm_write_start',
+    });
 
     // Validate output directory path
     const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd());
@@ -179,7 +189,14 @@ export class HelmChartWriter {
     this.writeSchema(validatedOutDir, valuesSchema);
     this.writeHelmIgnore(validatedOutDir);
 
-    console.log(`Chart written successfully to ${validatedOutDir}`);
+    logger.info('Helm chart write operation completed successfully', {
+      chartName: meta.name,
+      version: meta.version,
+      outputDirectory: validatedOutDir,
+      operation: 'helm_write_complete',
+    });
+
+    timer(); // Complete timing measurement
   }
 
   /**

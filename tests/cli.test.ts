@@ -181,7 +181,8 @@ describe('CLI Chart Operations', () => {
     const result = runCLI(['synth', 'test-chart'], { cwd: testDir });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('Synthesizing');
+    // With structured logging, we now get JSON output instead of "Synthesizing"
+    expect(result.stdout).toContain('chart_initialization');
     expect(result.stderr).toBe('');
 
     // Verify synthesis output
