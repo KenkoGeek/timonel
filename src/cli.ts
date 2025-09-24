@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { SecurityUtils } from './lib/security.js';
+import { createLogger } from './lib/utils/logger.js';
 import type { SubchartProps } from './lib/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -65,15 +66,18 @@ function getVersion(): string {
   }
 }
 
+// Create CLI logger instance
+const cliLogger = createLogger('cli');
+
 /**
  * Enhanced logging function that respects silent flag globally
  * @param msg - Message to log
  * @param silent - Whether to suppress output
- * @since 2.9.2
+ * @since 2.10.3
  */
 function log(msg: string, silent = false) {
   if (!silent) {
-    console.log(msg);
+    cliLogger.info(msg, { operation: 'cli_log' });
   }
 }
 
@@ -81,11 +85,11 @@ function log(msg: string, silent = false) {
  * Enhanced error logging function that respects silent flag
  * @param msg - Error message to log
  * @param silent - Whether to suppress output
- * @since 2.9.2
+ * @since 2.10.3
  */
 function logError(msg: string, silent = false) {
   if (!silent) {
-    console.error(SecurityUtils.sanitizeLogMessage(msg));
+    cliLogger.error(msg, { operation: 'cli_error' });
   }
 }
 

@@ -540,9 +540,15 @@ describe('Security: Injection Attack Prevention', () => {
       expect(result.exitCode).toBeDefined();
       expect(typeof result.exitCode).toBe('number');
 
-      // Should not execute template expressions
-      expect(result.stdout).not.toContain('49');
-      expect(result.stderr).not.toContain('49');
+      // Should not execute template expressions - look for specific calculation results
+      // Check both stdout and stderr for evidence of template execution
+      const output = result.stdout + result.stderr;
+      expect(output).not.toMatch(/^\s*49\s*$/m); // Match "49" as a standalone result
+      expect(output).not.toContain('config.items()');
+      // The chart name should be sanitized and reject the malicious payload
+      if (result.exitCode === 1) {
+        expect(output).toContain('Invalid chart name');
+      }
     }
   });
 

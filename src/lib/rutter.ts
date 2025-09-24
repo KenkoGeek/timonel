@@ -7,6 +7,7 @@ import * as jsYaml from 'js-yaml';
 import { include } from './helm.js';
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
+import { createLogger } from './utils/logger.js';
 import type {
   AWSALBIngressSpec,
   AWSEBSStorageClassSpec,
@@ -45,14 +46,20 @@ export class Rutter {
   private readonly karpenterResources: KarpenterResources;
   private readonly meta: ChartMetadata;
   private readonly props: RutterProps;
+  private readonly logger = createLogger('rutter');
 
   constructor(props: RutterProps) {
-    console.log(`Initializing chart: ${props.meta.name} v${props.meta.version}`);
-
     this.defaultValues = props.defaultValues ?? {};
     this.envValues = props.envValues ?? {};
     this.meta = props.meta;
     this.props = props;
+
+    this.logger.info('Initializing chart', {
+      chartName: props.meta.name,
+      version: props.meta.version,
+      namespace: props.namespace,
+      operation: 'chart_initialization',
+    });
 
     // Create CDK8s infrastructure
     this.app = new App();
@@ -571,29 +578,45 @@ ${yamlContent.trim()}
    */
   private validateManifestStructure(manifest: Record<string, unknown>): void {
     if (!manifest.apiVersion) {
-      console.error('Validation failed: Missing apiVersion');
+      this.logger.error('Validation failed: Missing apiVersion', {
+        operation: 'manifest_validation',
+        issue: 'missing_api_version',
+      });
       throw new Error('Manifest must have an apiVersion');
     }
 
     if (!manifest.kind) {
-      console.error('Validation failed: Missing kind');
+      this.logger.error('Validation failed: Missing kind', {
+        operation: 'manifest_validation',
+        issue: 'missing_kind',
+      });
       throw new Error('Manifest must have a kind');
     }
 
     if (!manifest.metadata) {
-      console.error('Validation failed: Missing metadata');
+      this.logger.error('Validation failed: Missing metadata', {
+        operation: 'manifest_validation',
+        issue: 'missing_metadata',
+      });
       throw new Error('Manifest must have metadata');
     }
 
     const metadata = manifest.metadata as Record<string, unknown>;
     if (!metadata.name) {
-      console.error('Validation failed: Missing metadata.name');
+      this.logger.error('Validation failed: Missing metadata.name', {
+        operation: 'manifest_validation',
+        issue: 'missing_metadata_name',
+      });
       throw new Error('Manifest metadata must have a name');
     }
 
     // Validate that metadata.name is a string
     if (typeof metadata.name !== 'string') {
-      console.error('Validation failed: metadata.name must be a string');
+      this.logger.error('Validation failed: metadata.name must be a string', {
+        operation: 'manifest_validation',
+        issue: 'invalid_metadata_name_type',
+        actual_type: typeof metadata.name,
+      });
       throw new Error('Manifest metadata.name must be a string');
     }
   }
@@ -645,7 +668,12 @@ ${yamlContent.trim()}
    * @since 2.8.0+
    */
   private toSynthArray(): SynthAsset[] {
-    console.log(`Synthesizing chart assets for: ${this.meta.name}`);
+    const timer = this.logger.time('chart_synthesis');
+
+    this.logger.debug('Starting chart synthesis', {
+      chartName: this.meta.name,
+      operation: 'synthesis_start',
+    });
 
     // Get ApiObject IDs before synthesis, excluding placeholders
     const apiObjectIds: string[] = [];
@@ -666,7 +694,12 @@ ${yamlContent.trim()}
       return true;
     });
 
-    console.log(`Found ${manifestObjs.length} manifest objects to process`);
+    this.logger.info('Processing manifest objects', {
+      chartName: this.meta.name,
+      manifestCount: manifestObjs.length,
+      apiObjectCount: apiObjectIds.length,
+      operation: 'manifest_processing',
+    });
     // Enforce common labels best-practice on all rendered objects
     const enriched = manifestObjs.map((obj: unknown) => {
       if (obj && typeof obj === 'object') {
@@ -725,6 +758,14 @@ ${yamlContent.trim()}
       synthAssets.push({ id: asset.id, yaml: asset.yaml });
     });
 
+    this.logger.info('Chart synthesis completed', {
+      chartName: this.meta.name,
+      totalAssets: synthAssets.length,
+      additionalAssets: this.assets.length,
+      operation: 'synthesis_complete',
+    });
+
+    timer(); // Complete timing measurement
     return synthAssets;
   }
 
@@ -1179,7 +1220,13 @@ ${yamlContent.trim()}
    * @since 1.0.0
    */
   write(outDir: string): void {
-    console.log(`Writing chart '${this.meta.name}' to: ${outDir}`);
+    const timer = this.logger.time('chart_write');
+
+    this.logger.info('Starting chart write operation', {
+      chartName: this.meta.name,
+      outputDirectory: outDir,
+      operation: 'chart_write_start',
+    });
 
     // Generate helpers template
     let helpersContent: string | undefined;
@@ -1204,7 +1251,12 @@ ${helper.template}
     }
 
     const synthAssets = this.toSynthArray();
-    console.log(`Generated ${synthAssets.length} assets for chart`);
+
+    this.logger.info('Generated assets for chart', {
+      chartName: this.meta.name,
+      assetCount: synthAssets.length,
+      operation: 'assets_generated',
+    });
 
     HelmChartWriter.write({
       outDir,
@@ -1215,7 +1267,13 @@ ${helper.template}
       helpersTpl: helpersContent,
     });
 
-    console.log(`Chart '${this.meta.name}' written successfully`);
+    this.logger.info('Chart write operation completed successfully', {
+      chartName: this.meta.name,
+      outputDirectory: outDir,
+      operation: 'chart_write_complete',
+    });
+
+    timer(); // Complete timing measurement
   }
 }
 
