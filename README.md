@@ -15,9 +15,6 @@ Helm charts using cdk8s. Define Kubernetes resources with type-safe classes and 
 Helm charts with `Chart.yaml`, `values.yaml`, environment-specific values files, and `templates/`
 directory.
 
-> 🚀 **New in v2.9.2**: Enhanced umbrella chart support with flexible subchart templates, improved
-> CLI version handling, and optimized GitHub workflows.
-
 ## ✨ Key Features
 
 - **🔒 Type-safe API** with strict TypeScript and cdk8s constructs
@@ -25,12 +22,10 @@ directory.
 - **🌍 Multi-environment support** with automatic values files generation
 - **☂️ Umbrella Charts** for managing multiple subcharts as a single unit
 - **☁️ Cloud integrations**:
-  - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount
-  - **Azure**: Azure Disk, Azure Files, AKS integrations
-  - **GCP**: GCE Persistent Disk, GKE integrations
+  - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount, and Karpenter
 - **🛡️ Security-first approach** with NetworkPolicies and best practices
 - **⚡ Minimal CLI** (`tl`) for scaffolding and chart generation
-- **📦 Flexible subchart templates** supporting cdk8s, cdk8s-plus-33, and raw manifests
+- **📦 Flexible subchart templates** supporting cdk8s and cdk8s-plus-33
 
 ## 🚀 Quick Start
 
@@ -246,5 +241,5 @@ MIT
 [maintained-url]: https://github.com/kenkogeek/
 [ci-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/test.yaml/badge.svg?branch=main
 [ci-url]: https://github.com/KenkoGeek/timonel/actions/workflows/test.yaml
-[codeql-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yaml/badge.svg
-[codeql-url]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yaml
+[codeql-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yml/badge.svg
+[codeql-url]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yml
