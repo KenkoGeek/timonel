@@ -438,10 +438,10 @@ export class TimonelLogger {
    */
   child(context: LogContext): TimonelLogger {
     const sanitizedContext = this.sanitizeContext(context);
-    
+
     // Create a new logger instance with the same config
     const childLogger = new TimonelLogger(this.config);
-    
+
     // Replace the internal logger with a Pino child logger using Object.defineProperty
     // This is type-safe and prevents accidental modification
     Object.defineProperty(childLogger, 'logger', {
