@@ -1,0 +1,49 @@
+name: 'Timonel CodeQL Configuration'
+
+# CodeQL configuration for JavaScript/TypeScript project
+# This file configures CodeQL analysis for the Timonel project
+
+# Disable default queries and enable security-and-quality queries
+disable-default-queries: false
+
+# Enable additional security queries
+queries:
+  - name: security-and-quality
+    uses: security-and-quality
+
+# Paths to exclude from analysis
+paths-ignore:
+  - '**/node_modules/**'
+  - '**/dist/**'
+  - '**/coverage/**'
+  - '**/.nyc_output/**'
+  - '**/temp-test/**'
+  - '**/examples/**'
+  - '**/timonel.wiki/**'
+
+# Paths to include in analysis
+paths:
+  - 'src/**'
+  - 'tests/**'
+  - '*.ts'
+  - '*.js'
+  - '*.json'
+  - 'package.json'
+  - 'tsconfig*.json'
+
+# Build configuration
+build-mode: none
+
+# Additional configuration for TypeScript projects
+packs:
+  - javascript
+  - typescript
+
+# Custom queries for security analysis
+query-filters:
+  - exclude:
+      id: js/unused-local-variable
+      message: 'Unused local variables are common in development'
+  - exclude:
+      id: js/unused-import
+      message: 'Unused imports are common in development'
