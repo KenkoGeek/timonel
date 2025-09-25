@@ -74,6 +74,50 @@ export class TimonelLogger {
   private readonly logger: Logger;
   private readonly config: LoggerConfig;
 
+  // Performance-optimized sensitive field detection using Set for O(1) lookups
+  private static readonly SENSITIVE_FIELDS = new Set([
+    'password',
+    'passphrase',
+    'secret',
+    'secrets',
+    'token',
+    'accessToken',
+    'refreshToken',
+    'idToken',
+    'apiKey',
+    'api_key',
+    'clientSecret',
+    'client_secret',
+    'privateKey',
+    'private_key',
+    'sshKey',
+    'ssh_key',
+    'credentials',
+    'authorization',
+    'sessionId',
+    'session_id',
+    'sessionToken',
+    'session_token',
+    'bearer',
+    'auth',
+    'authToken',
+    'auth_token',
+    'jwt',
+    'jwtToken',
+    'jwt_token',
+    'oauth',
+    'oauthToken',
+    'oauth_token',
+    'key',
+    'keys',
+    'cert',
+    'certificate',
+    'certificates',
+    'pem',
+    'p12',
+    'pfx',
+  ]);
+
   constructor(config: Partial<LoggerConfig> = {}) {
     this.config = {
       level: LogLevel.INFO,
@@ -106,13 +150,37 @@ export class TimonelLogger {
           'refreshToken',
           'idToken',
           'apiKey',
+          'api_key',
           'clientSecret',
+          'client_secret',
           'privateKey',
+          'private_key',
           'sshKey',
+          'ssh_key',
           'credentials',
           'authorization',
           'sessionId',
+          'session_id',
           'sessionToken',
+          'session_token',
+          'bearer',
+          'auth',
+          'authToken',
+          'auth_token',
+          'jwt',
+          'jwtToken',
+          'jwt_token',
+          'oauth',
+          'oauthToken',
+          'oauth_token',
+          'key',
+          'keys',
+          'cert',
+          'certificate',
+          'certificates',
+          'pem',
+          'p12',
+          'pfx',
 
           // Nested (one level)
           '*.password',
@@ -124,24 +192,54 @@ export class TimonelLogger {
           '*.refreshToken',
           '*.idToken',
           '*.apiKey',
+          '*.api_key',
           '*.clientSecret',
+          '*.client_secret',
           '*.privateKey',
+          '*.private_key',
           '*.sshKey',
+          '*.ssh_key',
           '*.credentials',
           '*.authorization',
           '*.sessionId',
+          '*.session_id',
           '*.sessionToken',
+          '*.session_token',
+          '*.bearer',
+          '*.auth',
+          '*.authToken',
+          '*.auth_token',
+          '*.jwt',
+          '*.jwtToken',
+          '*.jwt_token',
+          '*.oauth',
+          '*.oauthToken',
+          '*.oauth_token',
+          '*.key',
+          '*.keys',
+          '*.cert',
+          '*.certificate',
+          '*.certificates',
+          '*.pem',
+          '*.p12',
+          '*.pfx',
 
           // HTTP specifics (request/response shapes)
           'req.headers.authorization',
           'req.headers.cookie',
           'req.headers.cookies',
+          'req.headers["set-cookie"]',
+          'req.headers["authorization"]',
+          'req.headers["x-api-key"]',
+          'req.headers["x-auth-token"]',
           'res.headers["set-cookie"]',
+          'res.headers["authorization"]',
 
           // Common payload locations
           'body.password',
           'body.token',
           'body.apiKey',
+          'body.api_key',
           'body.secret',
           'query.password',
           'query.token',
@@ -381,7 +479,10 @@ export class TimonelLogger {
     const sanitized: LogContext = {};
 
     for (const [key, value] of Object.entries(context)) {
-      if (typeof value === 'string') {
+      if (TimonelLogger.SENSITIVE_FIELDS.has(key.toLowerCase())) {
+        // eslint-disable-next-line security/detect-object-injection
+        sanitized[key] = '[REDACTED]';
+      } else if (typeof value === 'string') {
         // Safe assignment - key comes from Object.entries
         // eslint-disable-next-line security/detect-object-injection
         sanitized[key] = SecurityUtils.sanitizeLogMessage(value);
@@ -492,8 +593,12 @@ export class TimonelLogger {
    */
   setSilent(silent: boolean): void {
     this.config.silent = silent;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this.logger as any).silent = silent;
+    // Pino doesn't have a direct silent property, we need to enable/disable the logger
+    if (silent) {
+      this.logger.level = 'silent';
+    } else {
+      this.logger.level = this.mapLogLevel(this.config.level);
+    }
   }
 
   /**

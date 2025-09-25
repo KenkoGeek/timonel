@@ -18,7 +18,7 @@ export const ENV_HELPERS: HelperDefinition[] = [
   {
     name: 'env.required',
     template: `{{- $key := . -}}
-{{- $value := index .Values.env $key -}}
+{{- $value := index $.Values.env $key -}}
 {{- required (printf "Environment variable %s is required" $key) $value }}`,
   },
   {

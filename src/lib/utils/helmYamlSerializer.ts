@@ -131,13 +131,14 @@ function detectHelmExpressions(str: string): HelmExpressionMatch[] {
  * Uses optimized traversal with minimal cloning.
  * @param obj Object or value to preprocess.
  * @param depth Internal recursion depth to avoid runaway recursion.
+ * @param maxDepth Maximum recursion depth (default: 200 for complex Kubernetes manifests).
  * @returns New object structure with marked Helm expressions.
- * @throws Error if recursion depth exceeds 100.
+ * @throws Error if recursion depth exceeds maxDepth.
  * @since 2.11.0
  */
-function preprocessHelmExpressions(obj: unknown, depth = 0): unknown {
-  if (depth > 100) {
-    throw new Error('Maximum recursion depth exceeded during Helm preprocessing');
+function preprocessHelmExpressions(obj: unknown, depth = 0, maxDepth = 200): unknown {
+  if (depth > maxDepth) {
+    throw new Error(`Maximum recursion depth of ${maxDepth} exceeded during Helm preprocessing`);
   }
   if (typeof obj === 'string') {
     if (detectHelmExpressions(obj).length > 0) {
@@ -502,7 +503,7 @@ function checkCommonIssues(yaml: string, warnings: HelmValidationError[]): void 
  * @since 2.11.0
  */
 function checkQuotedExpressions(yaml: string, warnings: HelmValidationError[]): void {
-  const quotedPatterns = [/'\(\\{\\{[^}]+\\}\\}\)'/g, /"\(\\{\\{[^}]+\\}\\}\)"/g];
+  const quotedPatterns = [/'(\{\{[^}]+\}\})'/g, /"(\{\{[^}]+\}\})"/g];
   for (const pattern of quotedPatterns) {
     let match;
     pattern.lastIndex = 0;

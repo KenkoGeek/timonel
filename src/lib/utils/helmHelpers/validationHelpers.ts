@@ -18,7 +18,7 @@ export const VALIDATION_HELPERS: HelperDefinition[] = [
   {
     name: 'validation.semver',
     template: `{{- $version := . -}}
-{{- if not (regexMatch "^(0|[1-9]\\\\d*)\\\\.(0|[1-9]\\\\d*)\\\\.(0|[1-9]\\\\d*)(?:-((?:0|[1-9]\\\\d*|\\\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\\\.(?:0|[1-9]\\\\d*|\\\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\\\+([0-9a-zA-Z-]+(?:\\\\.[0-9a-zA-Z-]+)*))?$" $version) -}}
+{{- if not (regexMatch "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" $version) -}}
 {{- fail (printf "Invalid semantic version: %s. Must follow semver format (e.g., 1.2.3, 1.0.0-alpha.1)" $version) -}}
 {{- end -}}
 {{- $version }}`,
