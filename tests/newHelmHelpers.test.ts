@@ -19,6 +19,7 @@ import {
   getHelperStatistics,
   type HelperDefinition,
 } from '../src/lib/utils/helmHelpers/index.js';
+import { SPRIG_HELPERS } from '../src/lib/utils/helmHelpers.js';
 
 describe('New Helm Helpers', () => {
   describe('Helper Categories', () => {
@@ -196,10 +197,10 @@ describe('New Helm Helpers', () => {
 
   describe('Specific Helper Content', () => {
     it('should have fixed env.getOrDefault helper', () => {
-      const envHelper = ENV_HELPERS.find((h) => h.name === 'env.getOrDefault');
+      // Check that env.getOrDefault helper is in SPRIG_HELPERS (moved from ENV_HELPERS to avoid duplication)
+      const envHelper = SPRIG_HELPERS.find((h) => h.name === 'env.getOrDefault');
       expect(envHelper).toBeDefined();
-      expect(envHelper?.template).toContain('index . 0');
-      expect(envHelper?.template).toContain('index . 1');
+      expect(envHelper?.template).toContain('.Values.env');
       expect(envHelper?.template).toContain('$default');
     });
 
