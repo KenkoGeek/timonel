@@ -21,6 +21,7 @@ directory.
 - **🔧 Flexible resource creation** with built-in methods and `addManifest()` for custom resources
 - **🌍 Multi-environment support** with automatic values files generation
 - **☂️ Umbrella Charts** for managing multiple subcharts as a single unit
+- **🛠️ Enhanced Helm Helpers** with environment, GitOps, observability, and validation helpers
 - **☁️ Cloud integrations**:
   - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount, ECR, and Karpenter
 - **🛡️ Security-first approach** with NetworkPolicies and best practices
