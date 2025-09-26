@@ -751,7 +751,6 @@ async function main() {
     return;
   }
 
-
   const command = args.shift();
   const flags = parseFlags(args);
   await executeCommand(command, args, flags);

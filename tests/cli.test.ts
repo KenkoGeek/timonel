@@ -59,20 +59,18 @@ function cleanupTestDir(testDir: string): void {
 }
 
 describe('CLI Version Display', () => {
-  it('should display correct version from package.json', () => {
+  it('should not support --version flag (removed)', () => {
     const result = runCLI(['--version']);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toMatch(/Timonel v\d+\.\d+\.\d+/);
-    expect(result.stderr).toBe('');
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toMatch(/Unknown command: --version/);
   });
 
-  it('should display version with -v flag', () => {
+  it('should not support -v flag (removed)', () => {
     const result = runCLI(['-v']);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toMatch(/Timonel v\d+\.\d+\.\d+/);
-    expect(result.stderr).toBe('');
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toMatch(/Unknown command: -v/);
   });
 
   it('should handle version display in different working directories', () => {
@@ -81,9 +79,8 @@ describe('CLI Version Display', () => {
     try {
       const result = runCLI(['--version'], { cwd: testDir });
 
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toMatch(/Timonel v\d+\.\d+\.\d+/);
-      expect(result.stderr).toBe('');
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toMatch(/Unknown command: --version/);
     } finally {
       cleanupTestDir(testDir);
     }
@@ -315,7 +312,7 @@ describe('CLI Security Validation', () => {
 describe('CLI Performance and Resource Management', () => {
   it('should complete operations within reasonable time', () => {
     const startTime = Date.now();
-    const result = runCLI(['--version']);
+    const result = runCLI(['--help']);
     const endTime = Date.now();
 
     expect(result.exitCode).toBe(0);
@@ -323,7 +320,7 @@ describe('CLI Performance and Resource Management', () => {
   });
 
   it('should handle multiple rapid commands', () => {
-    const commands = [['--version'], ['--help'], ['-v'], ['-h']];
+    const commands = [['--help'], ['-h']];
 
     for (const command of commands) {
       const result = runCLI(command);
@@ -334,7 +331,7 @@ describe('CLI Performance and Resource Management', () => {
   it('should not leak file handles or memory', () => {
     // Run multiple operations to check for resource leaks
     for (let i = 0; i < 10; i++) {
-      const result = runCLI(['--version']);
+      const result = runCLI(['--help']);
       expect(result.exitCode).toBe(0);
     }
 

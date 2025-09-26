@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync, existsSync, copyFileSync, readdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import * as jsYaml from 'js-yaml';
 
+import * as jsYaml from 'js-yaml';
 import { App, Chart, ApiObject } from 'cdk8s';
 
 import type { ChartProps } from '../types.js';
@@ -9,7 +9,7 @@ import type { UmbrellaRutter } from '../umbrellaRutter.js';
 import { dumpHelmAwareYaml } from '../utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from '../utils/helmHelpers.js';
 
-import { createFlexibleSubchart, generateFlexibleSubchartTemplate } from './flexible-subchart.js';
+import { createFlexibleSubchart } from './flexible-subchart.js';
 
 // Interface for charts that support Helm generation
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -149,129 +149,181 @@ export class UmbrellaChartTemplate extends Chart {
     subchart: { name: string; chart: unknown; [key: string]: unknown },
     index: number,
   ) {
-    // eslint-disable-next-line sonarjs/cognitive-complexity -- Complex but necessary for subchart processing
     try {
-      let _subchartInstance: Chart;
+      const flexibleSubchart = this._createFlexibleSubchart(subchart, index);
 
-      // Create a flexible subchart that can handle any type of input
-      const {
-        name: _name,
-        version: _version,
-        description: _description,
-        ...subchartProps
-      } = subchart;
-      const flexibleSubchart = createFlexibleSubchart(this, `${subchart.name}-${index}`, {
-        name: subchart.name,
-        version: (subchart.version as string) || '1.0.0',
-        description: (subchart.description as string) || `${subchart.name} subchart`,
-        ...subchartProps,
-      });
-
-      // Handle different types of chart inputs
       if (typeof subchart.chart === 'function') {
-        try {
-          // Create a temporary App for the Rutter instance
-          const tempApp = new App({ outdir: 'temp' });
-          
-          // Try calling with the tempApp as scope to get Rutter instance
-          const rutterInstance = (subchart.chart as (scope: App) => unknown)(tempApp);
-          
-          // Check if it's a Rutter instance
-          if (rutterInstance && typeof rutterInstance.addManifest === 'function') {
-            // Write the Rutter to get the assets, then read them
-            const tempDir = `temp-${subchart.name}-${index}`;
-            rutterInstance.write(tempDir);
-            
-            // Copy templates from temp directory to subchart directory
-            const tempTemplatesDir = join(tempDir, 'templates');
-            const subchartTemplatesDir = join('dist', 'charts', subchart.name, 'templates');
-            
-            // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-            if (existsSync(tempTemplatesDir)) {
-              // Ensure subchart templates directory exists
-              // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-              if (!existsSync(join('dist', 'charts', subchart.name))) {
-                // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-                mkdirSync(join('dist', 'charts', subchart.name), { recursive: true });
-              }
-              // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-              if (!existsSync(subchartTemplatesDir)) {
-                // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-                mkdirSync(subchartTemplatesDir, { recursive: true });
-              }
-              
-              // Copy all template files
-              // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-              const templateFiles = readdirSync(tempTemplatesDir);
-              templateFiles.forEach(file => {
-                if (file.endsWith('.yaml') || file.endsWith('.yml') || file.endsWith('.tpl')) {
-                  const sourceFile = join(tempTemplatesDir, file);
-                  const targetFile = join(subchartTemplatesDir, file);
-                  copyFileSync(sourceFile, targetFile);
-                }
-              });
-            }
-            
-            // Get assets from Rutter and add them to flexible subchart
-            const assets = rutterInstance.getAssets ? rutterInstance.getAssets() : [];
-            assets.forEach((asset: { id: string; yaml: string }, assetIndex: number) => {
-              try {
-                // Parse YAML to get manifest object
-                const manifest = jsYaml.load(asset.yaml) as { apiVersion?: string; kind?: string; metadata?: Record<string, unknown>; spec?: Record<string, unknown> };
-                if (manifest && manifest.apiVersion && manifest.kind) {
-                  new ApiObject(flexibleSubchart, `${manifest.kind.toLowerCase()}-${assetIndex}`, {
-                    apiVersion: manifest.apiVersion,
-                    kind: manifest.kind,
-                    metadata: manifest.metadata || {},
-                    spec: manifest.spec || {},
-                  });
-                }
-              } catch (error) {
-                console.log(`Failed to parse asset ${asset.id}:`, error);
-              }
-            });
-            
-            // Clean up temporary directory
-            // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-            if (existsSync(tempDir)) {
-              rmSync(tempDir, { recursive: true, force: true });
-            }
-          } else if (rutterInstance && rutterInstance.node && rutterInstance.node.children) {
-            // Handle Chart instances
-            rutterInstance.node.children.forEach((child: unknown) => {
-              if (child instanceof Chart) {
-                flexibleSubchart.addConstruct(child);
-              }
-            });
-          }
-        } catch (error) {
-          console.log(`Failed to process subchart ${subchart.name}:`, error);
-        }
+        this._handleFunctionChart(subchart, index, flexibleSubchart);
       } else if (subchart.chart && typeof subchart.chart === 'object') {
-        // If it's an object, try to use it as a construct
-        if (subchart.chart.constructor && subchart.chart.constructor.name !== 'Object') {
-          // It's a cdk8s construct, add it to the flexible subchart
-          flexibleSubchart.addConstruct(subchart.chart);
-        } else {
-          // It's a manifest object, add it as a manifest
-          flexibleSubchart.addManifest(subchart.chart);
-        }
+        this._handleObjectChart(subchart, flexibleSubchart);
       }
-
-      // Note: Don't add dependency to avoid circular dependencies
-      // The subchart is already a child of this umbrella chart
 
       console.log(`Added flexible subchart: ${subchart.name}`);
     } catch (_error) {
       console.warn(`Failed to add subchart ${subchart.name}:`, _error);
-      // Create a basic flexible subchart as fallback
-      const _fallbackSubchart = createFlexibleSubchart(this, `${subchart.name}-fallback-${index}`, {
-        name: subchart.name,
-        version: (subchart.version as string) || '1.0.0',
-        description: `${subchart.name} subchart (fallback)`,
+      this._createFallbackSubchart(subchart, index);
+    }
+  }
+
+  private _createFlexibleSubchart(
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
+    index: number,
+  ) {
+    const {
+      name: _name,
+      version: _version,
+      description: _description,
+      ...subchartProps
+    } = subchart;
+
+    return createFlexibleSubchart(this, `${subchart.name}-${index}`, {
+      name: subchart.name,
+      version: (subchart.version as string) || '1.0.0',
+      description: (subchart.description as string) || `${subchart.name} subchart`,
+      ...subchartProps,
+    });
+  }
+
+  private _createFallbackSubchart(
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
+    index: number,
+  ) {
+    const _fallbackSubchart = createFlexibleSubchart(this, `${subchart.name}-fallback-${index}`, {
+      name: subchart.name,
+      version: (subchart.version as string) || '1.0.0',
+      description: `${subchart.name} subchart (fallback)`,
+    });
+    console.log(`Created fallback subchart: ${subchart.name}`);
+  }
+
+  private _handleFunctionChart(
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
+    index: number,
+    flexibleSubchart: Chart,
+  ) {
+    try {
+      const tempApp = new App({ outdir: 'temp' });
+      const rutterInstance = (subchart.chart as (scope: App) => unknown)(tempApp);
+
+      if (this._isRutterInstance(rutterInstance)) {
+        this._processRutterInstance(subchart, index, rutterInstance, flexibleSubchart);
+      } else if (this._isChartInstance(rutterInstance)) {
+        this._processChartInstance(rutterInstance, flexibleSubchart);
+      }
+    } catch (error) {
+      console.log(`Failed to process subchart ${subchart.name}:`, error);
+    }
+  }
+
+  private _handleObjectChart(
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
+    flexibleSubchart: Chart,
+  ) {
+    const chartObj = subchart.chart as Record<string, unknown>;
+    if (chartObj.constructor && chartObj.constructor.name !== 'Object') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FlexibleSubchart method
+      (flexibleSubchart as any).addConstruct(subchart.chart);
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FlexibleSubchart method
+      (flexibleSubchart as any).addManifest(subchart.chart);
+    }
+  }
+
+  private _isRutterInstance(instance: unknown): boolean {
+    return !!(instance && typeof (instance as Record<string, unknown>).addManifest === 'function');
+  }
+
+  private _isChartInstance(instance: unknown): boolean {
+    const obj = instance as Record<string, unknown>;
+    const node = obj?.node as Record<string, unknown> | undefined;
+    return !!(node && node.children);
+  }
+
+  private _processRutterInstance(
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
+    index: number,
+    rutterInstance: unknown,
+    flexibleSubchart: Chart,
+  ) {
+    const tempDir = `temp-${subchart.name}-${index}`;
+    const write = (rutterInstance as Record<string, unknown>).write as
+      | ((dir: string) => void)
+      | undefined;
+    write?.(tempDir);
+
+    this._copyTemplates(subchart.name, tempDir);
+    this._processAssets(rutterInstance, flexibleSubchart);
+    this._cleanupTempDir(tempDir);
+  }
+
+  private _processChartInstance(rutterInstance: unknown, flexibleSubchart: Chart) {
+    const obj = rutterInstance as Record<string, unknown>;
+    const node = obj?.node as Record<string, unknown> | undefined;
+    const children = node?.children as unknown[] | undefined;
+    children?.forEach((child: unknown) => {
+      if (child instanceof Chart) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FlexibleSubchart method
+        (flexibleSubchart as any).addConstruct(child);
+      }
+    });
+  }
+
+  private _copyTemplates(subchartName: string, tempDir: string) {
+    const tempTemplatesDir = join(tempDir, 'templates');
+    const subchartTemplatesDir = join('dist', 'charts', subchartName, 'templates');
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+    if (existsSync(tempTemplatesDir)) {
+      this._ensureDirectoryExists(join('dist', 'charts', subchartName));
+      this._ensureDirectoryExists(subchartTemplatesDir);
+
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+      const templateFiles = readdirSync(tempTemplatesDir);
+      templateFiles.forEach((file) => {
+        if (file.endsWith('.yaml') || file.endsWith('.yml') || file.endsWith('.tpl')) {
+          const sourceFile = join(tempTemplatesDir, file);
+          const targetFile = join(subchartTemplatesDir, file);
+          copyFileSync(sourceFile, targetFile);
+        }
       });
-      // Note: Don't add dependency to avoid circular dependencies
-      console.log(`Created fallback subchart: ${subchart.name}`);
+    }
+  }
+
+  private _ensureDirectoryExists(dirPath: string) {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+    if (!existsSync(dirPath)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+      mkdirSync(dirPath, { recursive: true });
+    }
+  }
+
+  private _processAssets(rutterInstance: unknown, flexibleSubchart: Chart) {
+    const getAssets = (rutterInstance as Record<string, unknown>).getAssets as
+      | (() => Array<{ id: string; yaml: string }>)
+      | undefined;
+    const assets = getAssets?.() || [];
+
+    assets.forEach((asset, assetIndex) => {
+      try {
+        const manifest = jsYaml.load(asset.yaml) as Record<string, unknown>;
+        if (manifest?.apiVersion && manifest?.kind) {
+          new ApiObject(flexibleSubchart, `${String(manifest.kind).toLowerCase()}-${assetIndex}`, {
+            apiVersion: String(manifest.apiVersion),
+            kind: String(manifest.kind),
+            metadata: (manifest.metadata as Record<string, unknown>) || {},
+            spec: (manifest.spec as Record<string, unknown>) || {},
+          });
+        }
+      } catch (error) {
+        console.log(`Failed to parse asset ${asset.id}:`, error);
+      }
+    });
+  }
+
+  private _cleanupTempDir(tempDir: string) {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+    if (existsSync(tempDir)) {
+      rmSync(tempDir, { recursive: true, force: true });
     }
   }
 
