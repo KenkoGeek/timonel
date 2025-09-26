@@ -480,18 +480,18 @@ export class TimonelLogger {
 
     for (const [key, value] of Object.entries(context)) {
       if (TimonelLogger.SENSITIVE_FIELDS.has(key.toLowerCase())) {
-        // eslint-disable-next-line security/detect-object-injection
+        // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
         sanitized[key] = '[REDACTED]';
       } else if (typeof value === 'string') {
         // Safe assignment - key comes from Object.entries
-        // eslint-disable-next-line security/detect-object-injection
+        // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
         sanitized[key] = SecurityUtils.sanitizeLogMessage(value);
       } else if (value && typeof value === 'object') {
         // Recursively sanitize nested objects (limited depth)
-        // eslint-disable-next-line security/detect-object-injection
+        // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
         sanitized[key] = this.sanitizeNestedObject(value, 2);
       } else {
-        // eslint-disable-next-line security/detect-object-injection
+        // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
         sanitized[key] = value;
       }
     }

@@ -106,7 +106,7 @@ environment: "{{ .Values.environment | default "development" }}"`,
   {
     name: 'semver.parse',
     template: `{{- $version := . -}}
-{{- $parts := regexSplit "\\." $version -1 -}}
+{{- $parts := regexSplit "\\\\." $version -1 -}}
 {{- if eq (len $parts) 3 -}}
 {{- printf "{\\"major\\": %s, \\"minor\\": %s, \\"patch\\": %s}" (index $parts 0) (index $parts 1) (index $parts 2) -}}
 {{- else -}}
@@ -117,7 +117,7 @@ environment: "{{ .Values.environment | default "development" }}"`,
     name: 'semver.bump',
     template: `{{- $version := .version -}}
 {{- $type := .type | default "patch" -}}
-{{- $parts := regexSplit "\\." $version -1 -}}
+{{- $parts := regexSplit "\\\\." $version -1 -}}
 {{- if eq (len $parts) 3 -}}
 {{- $major := index $parts 0 | int -}}
 {{- $minor := index $parts 1 | int -}}
