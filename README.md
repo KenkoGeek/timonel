@@ -173,31 +173,6 @@ npm install
 tl umbrella synth  # Now it works!
 ```
 
-### TypeScript Compilation Errors
-
-If you encounter TypeScript errors when using umbrella charts:
-
-**Problem**: Type mismatches in subchart configurations.
-
-**Solution**: Ensure proper type casting for version and description fields:
-
-```typescript
-// ✅ Correct
-const subchart = {
-  name: 'my-service',
-  version: '1.0.0' as string,
-  description: 'My service' as string,
-  chart: myChartFunction,
-};
-
-// ❌ Incorrect
-const subchart = {
-  name: 'my-service',
-  version: someUnknownValue, // This will cause TypeScript errors
-  chart: myChartFunction,
-};
-```
-
 ## 🤝 Contributing
 
 See our [Contributing Guide](https://github.com/KenkoGeek/timonel/wiki/Contributing) for development
