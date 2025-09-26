@@ -38,9 +38,6 @@ npm install -g timonel
 
 # Or use with pnpm
 pnpm add -g timonel
-
-# Verify installation
-tl --version
 ```
 
 ### Basic Usage
@@ -157,10 +154,10 @@ If you get `Error: Cannot find module 'cdk8s'` when running `tl umbrella synth`:
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "cdk8s": "^2.70.15",
-    "cdk8s-plus-33": "^2.3.6",
+    "cdk8s": "^2.70.16",
+    "cdk8s-plus-33": "^2.3.8",
     "constructs": "^10.4.2",
-    "timonel": "^2.9.2"
+    "timonel": "^2.11.0"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
@@ -174,20 +171,6 @@ Then run:
 ```bash
 npm install
 tl umbrella synth  # Now it works!
-```
-
-### Version Display Issues
-
-If the CLI shows an incorrect version:
-
-**Problem**: The CLI might be using cached or hardcoded version information.
-
-**Solution**: Rebuild the project:
-
-```bash
-# In the Timonel project directory
-pnpm build
-tl --version  # Should show correct version
 ```
 
 ### TypeScript Compilation Errors
