@@ -128,7 +128,6 @@ function usageAndExit(msg?: string, silent = false) {
         '  --env <environment>                  Use environment-specific values',
         '  --set <key=value>                    Override values (can be used multiple times)',
         '  --help, -h                           Show this help message',
-        '  --version, -v                        Show version information',
         '',
         'Examples:',
         '  tl init my-app',
@@ -167,11 +166,11 @@ async function cmdInit(name?: string, silent = false) {
   fs.mkdirSync(base, { recursive: true });
 
   // Import template generator
-  const { generateBasicChart } = await import('./lib/templates/basic-chart.js');
+  const { generateFlexibleSubchartTemplate } = await import('./lib/templates/flexible-subchart.js');
 
   // Write chart file only - following CDK8s best practices
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  fs.writeFileSync(chartFile, generateBasicChart(validName));
+  fs.writeFileSync(chartFile, generateFlexibleSubchartTemplate(validName));
 
   log(`Chart created at ${base}`, silent);
   log(`Generated chart.ts file`, silent);
@@ -577,8 +576,8 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
   fs.mkdirSync(subchartDir, { recursive: true });
 
   const chartFile = path.join(subchartDir, 'chart.ts');
-  const { generateSubchartTemplate } = await import('./lib/templates/subchart.js');
-  const subchartContent = generateSubchartTemplate(subchartName);
+  const { generateFlexibleSubchartTemplate } = await import('./lib/templates/flexible-subchart.js');
+  const subchartContent = generateFlexibleSubchartTemplate(subchartName);
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.writeFileSync(chartFile, subchartContent);
 
@@ -692,13 +691,6 @@ function parseFlags(args: string[]): CliFlags {
         }
         break;
       }
-      case '--version':
-      case '-v':
-        if (!flags.silent) {
-          console.log(`Timonel v${getVersion()}`);
-        }
-        process.exit(0);
-        break;
       case '--help':
       case '-h':
         usageAndExit(undefined, flags.silent);
@@ -757,14 +749,6 @@ async function main() {
   if (args.includes('--help') || args.includes('-h')) {
     usageAndExit(undefined, isSilent);
     return;
-  }
-
-  // Handle version flags first
-  if (args.includes('--version') || args.includes('-v')) {
-    if (!isSilent) {
-      console.log(`Timonel v${getVersion()}`);
-    }
-    process.exit(0);
   }
 
   const command = args.shift();

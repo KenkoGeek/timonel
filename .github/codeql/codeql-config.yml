@@ -1,0 +1,34 @@
+name: 'Timonel CodeQL Configuration'
+
+# CodeQL configuration for JavaScript/TypeScript project
+# This file configures CodeQL analysis for the Timonel project
+
+# Paths to exclude from analysis
+paths-ignore:
+  - '**/node_modules/**'
+  - '**/dist/**'
+  - '**/coverage/**'
+  - '**/.nyc_output/**'
+  - '**/temp-test/**'
+  - '**/examples/**'
+  - '**/timonel.wiki/**'
+
+# Paths to include in analysis
+paths:
+  - 'src/**'
+  - 'tests/**'
+  - '*.ts'
+  - '*.js'
+  - '*.json'
+  - 'package.json'
+  - 'tsconfig*.json'
+
+# Build configuration
+build-mode: none
+
+# Query filters to exclude common development warnings
+query-filters:
+  - exclude:
+      id: js/unused-local-variable
+  - exclude:
+      id: js/unused-import

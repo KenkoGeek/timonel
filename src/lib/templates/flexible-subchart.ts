@@ -218,3 +218,111 @@ export function createFlexibleSubchart(
 ): FlexibleSubchart {
   return new FlexibleSubchart(scope, id, config);
 }
+
+/**
+ * Generate a simple subchart template using Rutter addManifest()
+ * @param name Subchart name
+ * @returns Template string for chart.ts with simple Rutter implementation
+ * @since 2.11.0
+ */
+export function generateFlexibleSubchartTemplate(name: string): string {
+  return `import { App } from 'cdk8s';
+import { Rutter } from 'timonel';
+
+/**
+ * Creates a new chart with simple Rutter implementation
+ * @returns Rutter instance for Helm chart generation
+ * @since 2.11.0
+ */
+export default function createChart() {
+  const app = new App({ outdir: 'dist' });
+  
+  const rutter = new Rutter({
+    meta: { 
+      name: '${name}', 
+      version: '1.0.0',
+      description: '${name} subchart'
+    },
+    scope: app,
+    defaultValues: {
+      appName: '${name}',
+      image: 'nginx:latest',
+      port: 80,
+      replicas: 1,
+    },
+  });
+
+  // Add simple deployment
+  rutter.addManifest({
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: { 
+      name: '${name}',
+      labels: {
+        'app.kubernetes.io/name': '${name}'
+      }
+    },
+    spec: {
+      replicas: 1,
+      selector: {
+        matchLabels: {
+          'app.kubernetes.io/name': '${name}'
+        }
+      },
+      template: {
+        metadata: {
+          labels: {
+            'app.kubernetes.io/name': '${name}'
+          }
+        },
+        spec: {
+          containers: [{
+            name: '${name}',
+            image: 'nginx:latest',
+            ports: [{
+              containerPort: 80
+            }],
+            env: [
+              { name: 'APP_NAME', value: '${name}' },
+              { name: 'PORT', value: '80' }
+            ]
+          }]
+        }
+      }
+    }
+  }, 'deployment');
+
+  // Add Service
+  rutter.addManifest({
+    apiVersion: 'v1',
+    kind: 'Service',
+    metadata: {
+      name: '${name}',
+      labels: {
+        'app.kubernetes.io/name': '${name}'
+      }
+    },
+    spec: {
+      type: 'ClusterIP',
+      ports: [{
+        port: 80,
+        targetPort: 80,
+        protocol: 'TCP',
+        name: 'http'
+      }],
+      selector: {
+        'app.kubernetes.io/name': '${name}'
+      }
+    }
+  }, 'service');
+
+  return rutter;
+}
+
+// Auto-execute when run directly
+if (import.meta.url === new URL(import.meta.url).href) {
+  const chart = createChart();
+  chart.write('dist');
+}
+`;
+}
