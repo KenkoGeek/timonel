@@ -10,9 +10,7 @@ export * from './lib/security.js';
 export * from './lib/umbrella.js';
 
 // Templates
-export { BasicChart } from './lib/templates/basic-chart.js';
 export { FlexibleSubchart, createFlexibleSubchart } from './lib/templates/flexible-subchart.js';
-export { Subchart } from './lib/templates/subchart.js';
 export { UmbrellaChartTemplate as UmbrellaChart } from './lib/templates/umbrella-chart.js';
 
 // Types
