@@ -1,3 +1,9 @@
+# [2.11.0](https://github.com/KenkoGeek/timonel/compare/v2.10.2...v2.11.0) (2025-09-26)
+
+### Features
+
+- **helm:** add comprehensive helm helpers with Helm template validation ([#123](https://github.com/KenkoGeek/timonel/issues/123)) ([bda8115](https://github.com/KenkoGeek/timonel/commit/bda811546d308eaa3ee5aec7fd8356b4a508940e))
+
 ## [2.10.2](https://github.com/KenkoGeek/timonel/compare/v2.10.1...v2.10.2) (2025-09-20)
 
 ### Bug Fixes
