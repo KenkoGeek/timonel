@@ -51,7 +51,14 @@ export class Rutter {
   constructor(props: RutterProps) {
     this.defaultValues = props.defaultValues ?? {};
     this.envValues = props.envValues ?? {};
-    this.meta = props.meta;
+
+    // Set default values for ChartMetadata
+    this.meta = {
+      apiVersion: 'v2',
+      type: 'application',
+      ...props.meta,
+    };
+
     this.props = props;
 
     this.logger.info('Initializing chart', {
@@ -428,8 +435,39 @@ export class Rutter {
    * @param yamlTemplate - The YAML template string with Helm expressions
    * @param id - Unique identifier for the manifest
    * @returns A placeholder ApiObject
+   * @since 2.10.2
    */
   addTemplateManifest(yamlTemplate: string, id: string): ApiObject {
+    // Store the template as an asset that will be processed during write
+    const templateAsset = {
+      id,
+      yaml: yamlTemplate,
+      target: 'templates',
+    };
+
+    this.assets.push(templateAsset);
+
+    // Return a placeholder ApiObject for compatibility
+    return new ApiObject(this.chart, id, {
+      apiVersion: 'v1',
+      kind: 'ConfigMap',
+      metadata: { name: id },
+    });
+  }
+
+  /**
+   * Adds a TypeScript manifest object to the chart with Helm templating support.
+   * Converts TypeScript objects to YAML while preserving Helm template expressions.
+   *
+   * @param manifest - The Kubernetes manifest object with optional Helm templates
+   * @param id - Unique identifier for the manifest
+   * @returns A placeholder ApiObject
+   * @since 2.11.0
+   */
+  addTemplateManifestFromObject(manifest: Record<string, unknown>, id: string): ApiObject {
+    // Convert TypeScript object to YAML with Helm templating preserved
+    const yamlTemplate = dumpHelmAwareYaml(manifest);
+
     // Store the template as an asset that will be processed during write
     const templateAsset = {
       id,
@@ -629,6 +667,42 @@ ${yamlContent.trim()}
    */
   getMeta(): ChartMetadata {
     return { ...this.meta };
+  }
+
+  /**
+   * Updates chart metadata including dependencies and repositories.
+   * @param metadata - Updated chart metadata
+   * @since 2.11.0
+   */
+  setChartMetadata(metadata: Partial<ChartMetadata>): void {
+    Object.assign(this.meta, metadata);
+    this.logger.debug('Chart metadata updated', { metadata });
+  }
+
+  /**
+   * Adds a Helm chart dependency.
+   * @param dependency - Chart dependency configuration
+   * @since 2.11.0
+   */
+  addDependency(dependency: NonNullable<ChartMetadata['dependencies']>[0]): void {
+    if (!this.meta.dependencies) {
+      this.meta.dependencies = [];
+    }
+    this.meta.dependencies.push(dependency);
+    this.logger.debug('Dependency added', { dependency });
+  }
+
+  /**
+   * Adds a Helm repository.
+   * @param repository - Repository configuration
+   * @since 2.11.0
+   */
+  addRepository(repository: NonNullable<ChartMetadata['repositories']>[0]): void {
+    if (!this.meta.repositories) {
+      this.meta.repositories = [];
+    }
+    this.meta.repositories.push(repository);
+    this.logger.debug('Repository added', { repository });
   }
 
   /**
@@ -1279,6 +1353,16 @@ ${helper.template}
 
 // Type definitions
 export interface ChartMetadata {
+  apiVersion?: string;
+  appVersion?: string;
+  dependencies?: Array<{
+    alias?: string;
+    condition?: string;
+    name: string;
+    repository: string;
+    tags?: string[];
+    version: string;
+  }>;
   description?: string;
   home?: string;
   keywords?: string[];
@@ -1288,7 +1372,12 @@ export interface ChartMetadata {
     url?: string;
   }>;
   name: string;
+  repositories?: Array<{
+    name: string;
+    url: string;
+  }>;
   sources?: string[];
+  type?: 'application' | 'library';
   version: string;
 }
 

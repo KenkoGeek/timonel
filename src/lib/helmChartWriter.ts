@@ -52,6 +52,11 @@ export interface HelmChartMeta {
     tags?: string[];
     importValues?: unknown;
   }>;
+  /** Chart repositories */
+  repositories?: Array<{
+    name: string;
+    url: string;
+  }>;
 }
 
 /**
@@ -237,6 +242,7 @@ export class HelmChartWriter {
       maintainers: meta.maintainers,
       icon: meta.icon,
       dependencies: meta.dependencies,
+      repositories: meta.repositories,
     });
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
     fs.writeFileSync(path.join(outDir, 'Chart.yaml'), chartYaml);
