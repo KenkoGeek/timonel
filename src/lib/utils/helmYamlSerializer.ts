@@ -478,7 +478,7 @@ function validateFunctionCalls(_content: string): void {
  * @since 2.11.0
  */
 function checkCommonIssues(yaml: string, warnings: HelmValidationError[]): void {
-  const deprecatedFunctions = ['template', 'default'];
+  const deprecatedFunctions = ['template'];
   for (const func of deprecatedFunctions) {
     // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: controlled function names from predefined list
     const pattern = new RegExp(`\\{\\{[^}]*\\b${func}\\b[^}]*\\}\\}`, 'g');
@@ -500,9 +500,10 @@ function checkCommonIssues(yaml: string, warnings: HelmValidationError[]): void 
  * @param yaml YAML string content.
  * @param warnings Array to populate warnings.
  * @since 2.11.0
+ * @since 2.11.1 Corrected pattern matching to capture quoted Helm templates
  */
 function checkQuotedExpressions(yaml: string, warnings: HelmValidationError[]): void {
-  const quotedPatterns = [/'\(\\{\\{[^}]+\\}\\}\)'/g, /"\(\\{\\{[^}]+\\}\\}\)"/g];
+  const quotedPatterns = [/'(\{\{[^}]+\}\})'/g, /"(\{\{[^}]+\}\})"/g];
   for (const pattern of quotedPatterns) {
     let match;
     pattern.lastIndex = 0;
