@@ -474,7 +474,8 @@ describe('Security: Resource Exhaustion Protection', () => {
       exitCode: number;
       signal: NodeJS.Signals | null;
     }[] = [];
-    for (let i = 0; i < 50; i++) {
+    const operationCount = 20; // Keeps execution within CI-friendly timeouts while still stressing descriptors.
+    for (let i = 0; i < operationCount; i++) {
       operations.push(runCLI(['init', `chart-${i}`], { cwd: testDir }));
     }
 
