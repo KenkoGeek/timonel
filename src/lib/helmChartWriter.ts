@@ -9,6 +9,13 @@ import * as path from 'path';
 import { SecurityUtils } from './security.js';
 import { createLogger } from './utils/logger.js';
 import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
+import type { HelperDefinition as ExternalHelperDefinition } from './utils/helmHelpers/types.js';
+
+/**
+ * Helm template helper definition shared across helper modules.
+ * @since 2.8.0+ (unified with utils helper definitions in 2.12.2)
+ */
+export type HelperDefinition = ExternalHelperDefinition;
 
 /**
  * Metadata for a Helm chart
@@ -110,19 +117,6 @@ export interface HelmChartWriteOptions {
 }
 
 /**
- * Helm template helper definition
- *
- * @interface HelperDefinition
- * @since 2.8.0+
- */
-export interface HelperDefinition {
-  /** Template name */
-  name: string;
-  /** Template body content */
-  body: string;
-}
-
-/**
  * Helm chart writer for generating complete chart structures
  *
  * This class provides static methods to generate a complete Helm chart
@@ -172,7 +166,9 @@ export class HelmChartWriter {
     });
 
     // Validate output directory path
-    const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd());
+    const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd(), {
+      allowAbsolute: true,
+    });
 
     // Create directory structure
     this.createDirectories(validatedOutDir);
@@ -295,7 +291,9 @@ export class HelmChartWriter {
       content = helpersTpl.endsWith('\n') ? helpersTpl : helpersTpl + '\n';
     } else if (Array.isArray(helpersTpl)) {
       content = helpersTpl
-        .map((h) => [`{{- define "${h.name}" -}}`, h.body.trimEnd(), '{{- end }}', ''].join('\n'))
+        .map((h) =>
+          [`{{- define "${h.name}" -}}`, h.template.trimEnd(), '{{- end }}', ''].join('\n'),
+        )
         .join('\n');
     }
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
@@ -403,20 +401,15 @@ function splitDocs(yamlStr: string): string[] {
  */
 function writeAssets(outDir: string, assets: SynthAsset[]) {
   for (const asset of assets) {
-    // Sanitize asset ID to prevent path traversal
-    const sanitizedId = asset.id.replace(/[^a-zA-Z0-9-_]/g, '');
-    if (sanitizedId !== asset.id) {
-      console.error(`Invalid asset ID detected: ${SecurityUtils.sanitizeLogMessage(asset.id)}`);
-      throw new Error(`Invalid asset ID: ${SecurityUtils.sanitizeLogMessage(asset.id)}`);
-    }
-
     const targetDir = getTargetDirectory(asset.target);
 
     try {
+      const { directorySegments, fileBaseName } = resolveAssetPath(asset.id);
+
       if (asset.singleFile) {
-        writeSingleAssetFile(outDir, targetDir, sanitizedId, asset.yaml);
+        writeSingleAssetFile(outDir, targetDir, directorySegments, fileBaseName, asset.yaml);
       } else {
-        writeMultipleAssetFiles(outDir, targetDir, sanitizedId, asset.yaml);
+        writeMultipleAssetFiles(outDir, targetDir, directorySegments, fileBaseName, asset.yaml);
       }
     } catch (error) {
       console.error(`Failed to write asset ${asset.id}:`, error);
@@ -450,14 +443,20 @@ function getTargetDirectory(target?: 'templates' | 'crds'): string {
 function writeSingleAssetFile(
   outDir: string,
   targetDir: string,
-  assetId: string,
+  directorySegments: string[],
+  fileBaseName: string,
   yaml: string,
 ): void {
-  const filename = `${assetId}.yaml`;
+  const chartSubdir = path.join(outDir, targetDir, ...directorySegments);
+  SecurityUtils.validatePath(chartSubdir, outDir);
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-  fs.mkdirSync(path.join(outDir, targetDir), { recursive: true });
+  fs.mkdirSync(chartSubdir, { recursive: true });
+
+  const filename = `${fileBaseName}.yaml`;
+  const absolutePath = path.join(chartSubdir, filename);
+  SecurityUtils.validatePath(absolutePath, outDir);
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-  fs.writeFileSync(path.join(outDir, targetDir, filename), yaml + '\n');
+  fs.writeFileSync(absolutePath, yaml.endsWith('\n') ? yaml : `${yaml}\n`);
 }
 
 /**
@@ -473,16 +472,78 @@ function writeSingleAssetFile(
 function writeMultipleAssetFiles(
   outDir: string,
   targetDir: string,
-  assetId: string,
+  directorySegments: string[],
+  fileBaseName: string,
   yaml: string,
 ): void {
+  const chartSubdir = path.join(outDir, targetDir, ...directorySegments);
+  SecurityUtils.validatePath(chartSubdir, outDir);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+  fs.mkdirSync(chartSubdir, { recursive: true });
+
   const parts = splitDocs(yaml);
   parts.forEach((doc, index) => {
-    const filename = `${assetId}${parts.length > 1 ? `-${index + 1}` : ''}.yaml`;
-
+    const suffix = parts.length > 1 ? `-${index + 1}` : '';
+    const filename = `${fileBaseName}${suffix}.yaml`;
+    const absolutePath = path.join(chartSubdir, filename);
+    SecurityUtils.validatePath(absolutePath, outDir);
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.mkdirSync(path.join(outDir, targetDir), { recursive: true });
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(path.join(outDir, targetDir, filename), doc + '\n');
+    fs.writeFileSync(absolutePath, doc.endsWith('\n') ? doc : `${doc}\n`);
   });
+}
+
+/**
+ * Validates an asset identifier and converts it into directory segments and file basename.
+ * @param assetId - Identifier provided by the synthesizer.
+ * @returns Normalized directory segments and filename stem.
+ * @since 2.12.2 Preserves human-friendly asset identifiers without compromising safety.
+ */
+function resolveAssetPath(assetId: string): { directorySegments: string[]; fileBaseName: string } {
+  if (!assetId || typeof assetId !== 'string') {
+    throw new Error('Asset ID must be a non-empty string');
+  }
+
+  if (assetId.includes('\0')) {
+    throw new Error('Asset ID cannot contain null bytes');
+  }
+
+  const normalized = assetId.replace(/\\+/g, '/');
+  const rawSegments = normalized.split('/');
+  if (rawSegments.length === 0) {
+    throw new Error('Asset ID must resolve to at least one segment');
+  }
+
+  const segments = rawSegments.map((segment) => {
+    if (!segment || segment.trim().length === 0) {
+      throw new Error('Asset path segments cannot be empty');
+    }
+
+    if (segment === '.' || segment === '..') {
+      throw new Error('Asset path segments cannot be relative references');
+    }
+
+    if (/[<>:"|?*]/.test(segment)) {
+      throw new Error('Asset path contains unsupported characters');
+    }
+
+    const hasControlCharacters = Array.from(segment).some((character) => {
+      const codePoint = character.codePointAt(0);
+      return typeof codePoint === 'number' && (codePoint < 0x20 || codePoint === 0x7f);
+    });
+
+    if (hasControlCharacters) {
+      throw new Error('Asset path contains control characters');
+    }
+
+    return segment;
+  });
+
+  const fileBaseName = segments[segments.length - 1];
+  const directorySegments = segments.slice(0, -1);
+
+  if (!fileBaseName) {
+    throw new Error('Asset ID must include a filename segment');
+  }
+
+  return { directorySegments, fileBaseName };
 }

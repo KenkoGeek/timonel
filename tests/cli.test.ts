@@ -5,9 +5,42 @@
  */
 import { spawnSync } from 'child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, beforeAll } from 'vitest';
+
+const CLI_ENTRY = join(process.cwd(), 'dist', 'cli.js');
+let cliBuilt = false;
+
+/**
+ * Ensures the compiled CLI artifact is available before executing tests.
+ * @since 2.12.2 Eliminates reliance on manual pre-build steps in CI.
+ */
+function ensureCliBuilt(): void {
+  if (cliBuilt && existsSync(CLI_ENTRY)) {
+    return;
+  }
+
+  const sanitizedEnv = { ...process.env };
+  for (const key of Object.keys(sanitizedEnv)) {
+    if (key.toLowerCase().startsWith('npm_config_')) {
+      delete sanitizedEnv[key];
+    }
+  }
+
+  const result = spawnSync('pnpm', ['build'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    stdio: 'pipe',
+    env: sanitizedEnv,
+  });
+
+  if (result.status !== 0) {
+    throw new Error(`Failed to build CLI before tests: ${result.stderr || result.stdout}`);
+  }
+
+  cliBuilt = true;
+}
 
 /**
  * Helper function to execute CLI commands and capture output
@@ -17,7 +50,9 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
  * @since 2.10.2
  */
 function runCLI(args: string[] = [], options: { cwd?: string; timeout?: number } = {}) {
-  const cliPath = join(process.cwd(), 'dist', 'cli.js');
+  ensureCliBuilt();
+
+  const cliPath = CLI_ENTRY;
   const sanitizedEnv = { ...process.env };
   for (const key of Object.keys(sanitizedEnv)) {
     // Strip npm_config_* variables to avoid npm CLI warnings during tests.
@@ -65,6 +100,10 @@ function cleanupTestDir(testDir: string): void {
     rmSync(testDir, { recursive: true, force: true });
   }
 }
+
+beforeAll(() => {
+  ensureCliBuilt();
+});
 
 describe('CLI Version Display', () => {
   it('should not support --version flag (removed)', () => {
@@ -173,9 +212,8 @@ describe('CLI Chart Operations', () => {
   it('should handle chart initialization with invalid names', () => {
     const result = runCLI(['init', 'invalid@chart#name'], { cwd: testDir });
 
-    // Should either succeed with sanitized name or fail gracefully
-    expect(result.exitCode).toBeDefined();
-    expect(typeof result.exitCode).toBe('number');
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('Invalid chart name');
   });
 
   it('should synthesize chart successfully', () => {
@@ -198,9 +236,24 @@ describe('CLI Chart Operations', () => {
   it('should handle synthesis of non-existent chart', () => {
     const result = runCLI(['synth', 'non-existent-chart'], { cwd: testDir });
 
-    // Should handle gracefully without crashing
-    expect(result.exitCode).toBeDefined();
-    expect(typeof result.exitCode).toBe('number');
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr || result.stdout).toContain('chart.ts not found');
+  });
+
+  it('should allow synthesis into absolute output directories securely', () => {
+    runCLI(['init', 'test-chart'], { cwd: testDir });
+    const absoluteOutDir = resolve(testDir, '..', 'absolute-output');
+
+    try {
+      const result = runCLI(['synth', 'test-chart', absoluteOutDir], { cwd: testDir });
+
+      expect(result.exitCode).toBe(0);
+      expect(existsSync(join(absoluteOutDir, 'Chart.yaml'))).toBe(true);
+    } finally {
+      if (existsSync(absoluteOutDir)) {
+        rmSync(absoluteOutDir, { recursive: true, force: true });
+      }
+    }
   });
 
   it('should synthesize umbrella chart with dependencies by default', () => {
