@@ -137,6 +137,8 @@ export const umbrella = new UmbrellaChartTemplate(umbrellaConfig);
   patterns and practices
 - **[Contributing](https://github.com/KenkoGeek/timonel/wiki/Contributing)** - Development setup
   and guidelines
+- **[Timonel Examples Repository](https://github.com/KenkoGeek/timonel-examples)** - Curated
+  collection of ready-to-run Timonel sample projects
 
 ## 🔧 Troubleshooting
 

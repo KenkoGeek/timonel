@@ -21,7 +21,6 @@ const PACKAGE_JSON_FILE = 'package.json';
 /**
  * Retrieves the version from the package manifest located next to the compiled CLI file
  * @returns The version number or 'unknown' if not found
- * @since 2.10.1
  * @since 2.11.1 Uses the CLI directory as the base for manifest lookup in installed scenarios
  */
 function getVersion(): string {
@@ -107,6 +106,7 @@ function usageAndExit(msg?: string, silent = false) {
         '  --silent                             Suppress output (useful for CI)',
         '  --env <environment>                  Use environment-specific values',
         '  --set <key=value>                    Override values (can be used multiple times)',
+        '  --mode <dependencies|inline>         Umbrella synth mode (default: dependencies)',
         '  --help, -h                           Show this help message',
         '',
         'Examples:',
@@ -373,11 +373,15 @@ async function cmdTemplates(flags?: CliFlags) {
   }
 }
 
+const UMBRELLA_SYNTH_MODES = ['dependencies', 'inline'] as const;
+type UmbrellaSynthMode = (typeof UMBRELLA_SYNTH_MODES)[number];
+
 interface CliFlags {
   dryRun?: boolean;
   silent?: boolean;
   env?: string;
   set?: string[];
+  mode?: UmbrellaSynthMode;
 }
 
 /**
@@ -392,15 +396,19 @@ interface CliFlags {
 async function cmdUmbrella(subcommand?: string, args?: string[], flags?: CliFlags) {
   if (!subcommand) usageAndExit('Missing umbrella subcommand');
 
+  const workingArgs = [...(args ?? [])];
+  const subcommandFlags = parseFlags(workingArgs);
+  const mergedFlags = mergeCliFlags(flags, subcommandFlags);
+
   switch (subcommand) {
     case 'init':
-      await cmdUmbrellaInit(args?.[0], flags?.silent);
+      await cmdUmbrellaInit(workingArgs[0], mergedFlags.silent);
       break;
     case 'add':
-      await cmdUmbrellaAdd(args?.[0], flags?.silent);
+      await cmdUmbrellaAdd(workingArgs[0], mergedFlags.silent);
       break;
     case 'synth':
-      await cmdUmbrellaSynth(args?.[0], flags);
+      await cmdUmbrellaSynth(workingArgs[0], mergedFlags);
       break;
     default:
       usageAndExit(`Unknown umbrella subcommand: ${subcommand}`);
@@ -498,36 +506,64 @@ function buildSubchartsContent(
   subchartsContent: string | undefined,
   subchartEntry: string,
 ): string {
-  const hasExistingEntries = /\{\s*name:\s*['"]/.test(subchartsContent || '');
+  const existingEntries = (subchartsContent || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('//'))
+    .map((line) => line.replace(/,$/, ''));
 
-  if (!hasExistingEntries) {
-    return `\n    // Add your subcharts here:\n    ${subchartEntry},\n  `;
+  if (existingEntries.includes(subchartEntry)) {
+    return subchartsContent ?? '';
   }
 
-  const trimmedContent = subchartsContent?.trimEnd() ?? '';
-  const needsComma = !trimmedContent.endsWith(',');
-  const comma = needsComma ? ',' : '';
-  return trimmedContent + `${comma}\n    ${subchartEntry}`;
+  const entries = [...existingEntries, subchartEntry];
+  const lines = ['  // Add your subcharts here:'];
+  for (const entry of entries) {
+    lines.push(`  ${entry},`);
+  }
+
+  return `\n${lines.join('\n')}\n`;
 }
 
 function addSubchartToArray(content: string, chartName: string, camelCaseName: string): string {
-  const subchartsRegex = /subcharts:\s*\[([\s\S]*?)\]/;
+  const subchartsRegex = /(const SUBCHARTS[\s\S]*?=\s*\[)([\s\S]*?)(\];)/;
   const match = content.match(subchartsRegex);
 
   if (!match) {
     return content;
   }
 
-  const subchartsContent = match[1];
+  const [, prefix, body, suffix] = match;
 
-  if (subchartsContent?.includes(`name: '${chartName}'`)) {
+  if (body?.includes(`name: '${chartName}'`)) {
     return content;
   }
 
-  const subchartEntry = `{ name: '${chartName}', chart: ${camelCaseName} }`;
-  const newSubchartsContent = buildSubchartsContent(subchartsContent, subchartEntry);
+  const subchartEntry = `{ name: '${chartName}', factory: ${camelCaseName} }`;
+  const newBody = buildSubchartsContent(body, subchartEntry);
 
-  return content.replace(subchartsRegex, `subcharts: [${newSubchartsContent}\n  ]`);
+  return content.replace(subchartsRegex, `${prefix}${newBody}${suffix}`);
+}
+
+function mergeCliFlags(base?: CliFlags, override?: CliFlags): CliFlags {
+  const merged: CliFlags = { ...(base || {}) };
+
+  if (!override) {
+    return merged;
+  }
+
+  if (override.dryRun !== undefined) merged.dryRun = override.dryRun;
+  if (override.silent !== undefined) merged.silent = override.silent;
+  if (override.env !== undefined) merged.env = override.env;
+  if (override.mode !== undefined) merged.mode = override.mode;
+
+  const baseSet = base?.set ?? [];
+  const overrideSet = override.set ?? [];
+  if (baseSet.length || overrideSet.length) {
+    merged.set = [...baseSet, ...overrideSet];
+  }
+
+  return merged;
 }
 
 function updateUmbrellaTs(subchartPath: string, chartName: string) {
@@ -643,10 +679,19 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
   }
 
   const resolvedOutDir = outDir ? path.resolve(outDir) : defaultOutDir;
-  await executeTypeScriptUmbrella(umbrellaFile, resolvedOutDir, flags);
+  const synthMode: UmbrellaSynthMode = flags?.mode ?? 'dependencies';
+  if (!UMBRELLA_SYNTH_MODES.includes(synthMode)) {
+    usageAndExit('Invalid mode. Use "dependencies" or "inline".', flags?.silent);
+  }
+  await executeTypeScriptUmbrella(umbrellaFile, resolvedOutDir, synthMode, flags);
 }
 
-async function executeTypeScriptUmbrella(resolvedPath: string, outDir: string, flags?: CliFlags) {
+async function executeTypeScriptUmbrella(
+  resolvedPath: string,
+  outDir: string,
+  mode: UmbrellaSynthMode,
+  flags?: CliFlags,
+) {
   const wrapperScript = `
 import { pathToFileURL } from 'url';
 
@@ -658,9 +703,10 @@ if (typeof runner !== 'function') {
 }
 
 const output = '${outDir}';
+const synthOptions = { mode: '${mode}' };
 const fs = await import('fs');
 fs.mkdirSync(output, { recursive: true });
-await Promise.resolve(runner(output));
+await Promise.resolve(runner(output, synthOptions));
 console.log('Umbrella chart written to ' + output);
 `;
 
@@ -718,6 +764,14 @@ function parseFlags(args: string[]): CliFlags {
           flags.set = flags.set || [];
           flags.set.push(setValue);
         }
+        break;
+      }
+      case '--mode': {
+        const modeValue = args.shift();
+        if (!modeValue || !UMBRELLA_SYNTH_MODES.includes(modeValue as UmbrellaSynthMode)) {
+          usageAndExit('Invalid mode. Use "dependencies" or "inline".', flags.silent);
+        }
+        flags.mode = modeValue as UmbrellaSynthMode;
         break;
       }
       case '--help':
