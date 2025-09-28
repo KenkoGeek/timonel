@@ -19,51 +19,31 @@ const PACKAGE_JSON_FILE = 'package.json';
 // Helper functions
 
 /**
- * Retrieves the version from the nearest package.json file with security validation
+ * Retrieves the version from the package manifest located next to the compiled CLI file
  * @returns The version number or 'unknown' if not found
  * @since 2.10.1
+ * @since 2.11.1 Uses the CLI directory as the base for manifest lookup in installed scenarios
  */
 function getVersion(): string {
   try {
-    // Define possible locations for package.json with systematic path resolution
-    const possiblePaths = [
-      path.resolve(__dirname, '..', PACKAGE_JSON_FILE), // dist/../package.json
-      path.resolve(__dirname, '..', '..', PACKAGE_JSON_FILE), // dist/../../package.json
-      path.resolve(process.cwd(), PACKAGE_JSON_FILE), // Current working directory
-      path.resolve(__dirname, PACKAGE_JSON_FILE), // dist/package.json
-    ];
+    const packagePath = path.resolve(__dirname, '..', PACKAGE_JSON_FILE);
+    const allowedBase = path.resolve(__dirname, '..');
+    const validatedPath = SecurityUtils.validatePath(packagePath, allowedBase);
 
-    for (const packagePath of possiblePaths) {
-      try {
-        // Use SecurityUtils for consistent path validation
-        const validatedPath = SecurityUtils.validatePath(packagePath, process.cwd());
-
-        // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
-        if (fs.existsSync(validatedPath)) {
-          try {
-            // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
-            const packageJson = JSON.parse(fs.readFileSync(validatedPath, 'utf8'));
-            return packageJson.version || 'unknown';
-          } catch {
-            // Continue to next path if JSON parsing fails
-            continue;
-          }
-        }
-      } catch {
-        // Skip invalid paths
-        continue;
-      }
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    const packageJson = JSON.parse(fs.readFileSync(validatedPath, 'utf8'));
+    if (packageJson.version) {
+      return packageJson.version;
     }
-
-    // Fallback: try to read from process.env if available
-    if (process.env.npm_package_version) {
-      return process.env.npm_package_version;
-    }
-
-    return 'unknown';
   } catch {
-    return 'unknown';
+    // Fallback handled below
   }
+
+  if (process.env.npm_package_version) {
+    return process.env.npm_package_version;
+  }
+
+  return 'unknown';
 }
 
 // Create CLI logger instance
@@ -271,9 +251,27 @@ await import(pathToFileURL('${tempChartFile}').href);
  *
  * @param flags - CLI flags for controlling validation behavior
  * @since 2.8.4
+ * @since 2.11.1 Supports --env and --set flags for environment-specific linting
  */
 async function cmdValidate(flags?: CliFlags) {
-  const result = spawnSync('helm', ['lint', '.'], {
+  const lintArgs = ['lint', '.'];
+  if (flags?.env) {
+    try {
+      const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(flags.env);
+      lintArgs.push('-f', `values-${sanitizedEnv}.yaml`);
+    } catch (error) {
+      console.error(SecurityUtils.sanitizeLogMessage((error as Error).message));
+      process.exit(1);
+    }
+  }
+
+  if (flags?.set) {
+    for (const setValue of flags.set) {
+      lintArgs.push('--set', setValue);
+    }
+  }
+
+  const result = spawnSync('helm', lintArgs, {
     stdio: flags?.silent ? 'pipe' : 'inherit',
     encoding: 'utf8',
   });
@@ -294,6 +292,7 @@ async function cmdValidate(flags?: CliFlags) {
  * @param namespace - Optional namespace for the deployment
  * @param flags - CLI flags for controlling deployment behavior
  * @since 2.8.4
+ * @since 2.11.1 Honors --env and --set flags when invoking helm upgrade
  */
 async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags) {
   if (!release) usageAndExit('Missing <release>');
@@ -301,6 +300,22 @@ async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags)
   const args = ['upgrade', '--install', release, '.'];
   if (namespace) {
     args.push('--namespace', namespace);
+  }
+
+  if (flags?.env) {
+    try {
+      const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(flags.env);
+      args.push('-f', `values-${sanitizedEnv}.yaml`);
+    } catch (error) {
+      console.error(SecurityUtils.sanitizeLogMessage((error as Error).message));
+      process.exit(1);
+    }
+  }
+
+  if (flags?.set) {
+    for (const setValue of flags.set) {
+      args.push('--set', setValue);
+    }
   }
 
   const result = spawnSync(
@@ -571,9 +586,23 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
   const subchartName = path.basename(validSubchartPath);
 
   // Create full subchart directory path
-  const subchartDir = path.join(process.cwd(), 'charts', validSubchartPath);
+  const chartsRoot = path.join(process.cwd(), 'charts');
+  const targetSubchartPath = path.join(chartsRoot, validSubchartPath);
+
+  let subchartDir: string;
+  try {
+    // @since 2.11.1 Ensure requested subchart path stays inside charts directory
+    subchartDir = SecurityUtils.validatePath(targetSubchartPath, chartsRoot);
+  } catch (error) {
+    console.error(SecurityUtils.sanitizeLogMessage((error as Error).message));
+    process.exit(1);
+  }
+
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   fs.mkdirSync(subchartDir, { recursive: true });
+
+  const relativeSubchartPath = path.relative(chartsRoot, subchartDir) || subchartName;
+  const normalizedSubchartPath = relativeSubchartPath.split(path.sep).join('/');
 
   const chartFile = path.join(subchartDir, 'chart.ts');
   const { generateFlexibleSubchartTemplate } = await import('./lib/templates/flexible-subchart.js');
@@ -585,15 +614,15 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
   config.subcharts.push({
     name: subchartName,
     version: getVersion(),
-    path: `./charts/${validSubchartPath}/chart.ts`,
+    path: `./charts/${normalizedSubchartPath}/chart.ts`,
   } as SubchartProps);
 
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
 
   // Update umbrella.ts file automatically with the path
-  updateUmbrellaTs(validSubchartPath, subchartName);
+  updateUmbrellaTs(normalizedSubchartPath, subchartName);
 
-  log(`Subchart ${subchartName} added to umbrella at path '${validSubchartPath}'`, silent);
+  log(`Subchart ${subchartName} added to umbrella at path '${normalizedSubchartPath}'`, silent);
 }
 
 /**
