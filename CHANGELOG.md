@@ -1,3 +1,14 @@
+# [2.12.0](https://github.com/KenkoGeek/timonel/compare/v2.11.0...v2.12.0) (2025-09-28)
+
+### Bug Fixes
+
+- **cli:** harden flag handling and path validation ([#130](https://github.com/KenkoGeek/timonel/issues/130)) ([2186d88](https://github.com/KenkoGeek/timonel/commit/2186d886428752025e7bf531c4a6541dade683a6))
+
+### Features
+
+- **docs:** update references and CLI [skip ci] ([23704d3](https://github.com/KenkoGeek/timonel/commit/23704d3164cfbb92d183af40c70e27a32b566d06))
+- **docs:** update references and CLI [skip ci] ([be4bcdc](https://github.com/KenkoGeek/timonel/commit/be4bcdca62cb3a9339e5ad70efc0ba31a6d9d5be))
+
 # [2.11.0](https://github.com/KenkoGeek/timonel/compare/v2.10.2...v2.11.0) (2025-09-26)
 
 ### Features
