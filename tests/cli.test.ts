@@ -194,6 +194,48 @@ describe('CLI Chart Operations', () => {
     expect(result.exitCode).toBeDefined();
     expect(typeof result.exitCode).toBe('number');
   });
+
+  it('should synthesize umbrella chart with dependencies by default', () => {
+    const baseDir = createTestDir('umbrella-dependencies');
+    const umbrellaRoot = join(baseDir, 'umbrella-app');
+
+    try {
+      runCLI(['umbrella', 'init', 'umbrella-app'], { cwd: baseDir });
+      runCLI(['umbrella', 'add', 'frontend'], { cwd: umbrellaRoot });
+
+      const result = runCLI(['umbrella', 'synth'], { cwd: umbrellaRoot });
+      expect(result.exitCode).toBe(0);
+
+      const dependencyChart = join(umbrellaRoot, 'dist', 'charts', 'frontend');
+      const inlineTemplates = join(umbrellaRoot, 'dist', 'templates', 'frontend');
+
+      expect(existsSync(dependencyChart)).toBe(true);
+      expect(existsSync(inlineTemplates)).toBe(false);
+    } finally {
+      cleanupTestDir(baseDir);
+    }
+  });
+
+  it('should synthesize umbrella chart inline when requested', () => {
+    const baseDir = createTestDir('umbrella-inline');
+    const umbrellaRoot = join(baseDir, 'umbrella-app');
+
+    try {
+      runCLI(['umbrella', 'init', 'umbrella-app'], { cwd: baseDir });
+      runCLI(['umbrella', 'add', 'frontend'], { cwd: umbrellaRoot });
+
+      const result = runCLI(['umbrella', 'synth', '--mode', 'inline'], { cwd: umbrellaRoot });
+      expect(result.exitCode).toBe(0);
+
+      const inlineTemplates = join(umbrellaRoot, 'dist', 'templates', 'frontend');
+      const dependencyChart = join(umbrellaRoot, 'dist', 'charts', 'frontend');
+
+      expect(existsSync(inlineTemplates)).toBe(true);
+      expect(existsSync(dependencyChart)).toBe(false);
+    } finally {
+      cleanupTestDir(baseDir);
+    }
+  });
 });
 
 describe('CLI Error Handling', () => {
