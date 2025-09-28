@@ -21,7 +21,6 @@ const PACKAGE_JSON_FILE = 'package.json';
 /**
  * Retrieves the version from the package manifest located next to the compiled CLI file
  * @returns The version number or 'unknown' if not found
- * @since 2.10.1
  * @since 2.11.1 Uses the CLI directory as the base for manifest lookup in installed scenarios
  */
 function getVersion(): string {
@@ -107,6 +106,7 @@ function usageAndExit(msg?: string, silent = false) {
         '  --silent                             Suppress output (useful for CI)',
         '  --env <environment>                  Use environment-specific values',
         '  --set <key=value>                    Override values (can be used multiple times)',
+        '  --mode <dependencies|inline>         Umbrella synth mode (default: dependencies)',
         '  --help, -h                           Show this help message',
         '',
         'Examples:',
