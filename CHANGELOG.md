@@ -1,3 +1,9 @@
+## [2.12.1](https://github.com/KenkoGeek/timonel/compare/v2.12.0...v2.12.1) (2025-09-28)
+
+### Bug Fixes
+
+- **cli:** new feature for cli ([a8c5326](https://github.com/KenkoGeek/timonel/commit/a8c532617616bfedada20d28bcc4fe94ea165321))
+
 # [2.12.0](https://github.com/KenkoGeek/timonel/compare/v2.11.0...v2.12.0) (2025-09-28)
 
 ### Bug Fixes
