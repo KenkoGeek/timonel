@@ -1,0 +1,6 @@
+image: wordpress:6.5.4-apache
+servicePort: 80
+ingressHost: wordpress.local
+minReplicas: 2
+maxReplicas: 5
+targetCpuUtilization: 60

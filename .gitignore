@@ -25,6 +25,8 @@ imports/
 cdk8s.out/
 DS_Store
 examples/**
+!examples/wordpress-stack/
+!examples/wordpress-stack/**
 timonel.wiki/
 charts/**
 temp-test*

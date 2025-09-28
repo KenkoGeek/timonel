@@ -18,10 +18,18 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
  */
 function runCLI(args: string[] = [], options: { cwd?: string; timeout?: number } = {}) {
   const cliPath = join(process.cwd(), 'dist', 'cli.js');
+  const sanitizedEnv = { ...process.env };
+  for (const key of Object.keys(sanitizedEnv)) {
+    // Strip npm_config_* variables to avoid npm CLI warnings during tests.
+    if (key.toLowerCase().startsWith('npm_config_')) {
+      delete sanitizedEnv[key];
+    }
+  }
   const result = spawnSync('node', [cliPath, ...args], {
     cwd: options.cwd || process.cwd(),
     timeout: options.timeout || 30000,
     encoding: 'utf8',
+    env: sanitizedEnv,
   });
 
   return {

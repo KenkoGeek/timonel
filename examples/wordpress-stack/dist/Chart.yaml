@@ -1,0 +1,13 @@
+apiVersion: v2
+name: wordpress-stack
+version: 0.1.0
+description: wordpress-stack umbrella chart
+type: application
+appVersion: 1.0.0
+dependencies:
+  - name: wordpress
+    version: 1.0.0
+    repository: file://./charts/wordpress
+  - name: mysql
+    version: 1.0.0
+    repository: file://./charts/mysql

@@ -1,0 +1,16 @@
+namespace: default
+createNamespace: false
+wordpress:
+  image: wordpress:6.5.4-apache
+  servicePort: 80
+  ingressHost: wordpress.local
+  minReplicas: 2
+  maxReplicas: 5
+  targetCpuUtilization: 60
+mysql:
+  storageClassName: standard
+  storageSize: 20Gi
+  mysqlRootPassword: rootpassword
+  mysqlDatabase: wordpress
+  mysqlUser: wordpress
+  mysqlPassword: changeme

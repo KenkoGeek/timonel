@@ -1,0 +1,6 @@
+storageClassName: standard
+storageSize: 20Gi
+mysqlRootPassword: rootpassword
+mysqlDatabase: wordpress
+mysqlUser: wordpress
+mysqlPassword: changeme

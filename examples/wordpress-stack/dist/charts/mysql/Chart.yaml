@@ -1,0 +1,5 @@
+apiVersion: v2
+name: mysql
+version: 1.0.0
+description: MySQL backend with persistent volume
+type: application

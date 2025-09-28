@@ -1,0 +1,5 @@
+apiVersion: v2
+name: wordpress
+version: 1.0.0
+description: WordPress frontend with ingress and autoscaling
+type: application
