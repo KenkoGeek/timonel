@@ -1,12 +1,12 @@
 # Contributing to Timonel
 
 Thanks for your interest in contributing! This guide explains how to set up your local environment,
-  follow our workflow, and submit high-quality changes that keep Timonel healthy.
+follow our workflow, and submit high-quality changes that keep Timonel healthy.
 
 ## Code of Conduct
 
 Participation in this project is governed by our [Code of Conduct](CODE_OF_CONDUCT.md).
-  Please read it before engaging with the community.
+Please read it before engaging with the community.
 
 ## Getting Started
 
@@ -29,10 +29,10 @@ pnpm install --frozen-lockfile
 ## Branching Model
 
 - `main`: production-ready code. Every merge here triggers semantic-release to publish the stable
-   npm package (`npm-prd`).
+  npm package (`npm-prd`).
 - `develop`: integration branch for upcoming changes. Merges here publish prerelease builds (`npm-beta`).
 - Feature and fix branches should be created from `develop` using descriptive names, e.g.
-   `feat/improve-synth-output` or `fix/helm-lint`.
+  `feat/improve-synth-output` or `fix/helm-lint`.
 - Hotfixes for production should branch from `main`, then be back-merged into `develop` after release.
 
 ## Development Workflow
@@ -58,19 +58,19 @@ pnpm build
 ```
 
 The CI pipeline will execute these same checks (and additional security audits) on every push and
-  pull request. Fix any failures locally before resubmitting.
+pull request. Fix any failures locally before resubmitting.
 
 ### Commit Messages
 
 We use [Conventional Commits](https://www.conventionalcommits.org/) enforced by commitlint and
-  semantic-release. Format every commit message as `type(scope): short description`, for example:
+semantic-release. Format every commit message as `type(scope): short description`, for example:
 
 - `feat(cli): add --output-dir flag`
 - `fix(helm): normalize chart names`
 - `chore(deps): update cdk8s`
 
 This convention allows semantic-release to produce accurate version bumps and changelog entries
-  automatically. Do **not** run `npm version` or edit `package.json` version fields manually.
+automatically. Do **not** run `npm version` or edit `package.json` version fields manually.
 
 ## Pull Requests
 
@@ -102,4 +102,4 @@ If you discover a bug or want to propose an enhancement:
 ## Questions or Support
 
 If you need help getting started or have questions about the contribution process, open a discussion
-  or issue on GitHub. We appreciate your contributions and look forward to collaborating!
+or issue on GitHub. We appreciate your contributions and look forward to collaborating!
