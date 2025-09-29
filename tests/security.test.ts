@@ -4,7 +4,7 @@
  * @since 2.10.2
  */
 import { spawnSync } from 'child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { join, resolve } from 'path';
 
 import { describe, expect, it, beforeEach, afterEach, beforeAll } from 'vitest';
@@ -14,9 +14,51 @@ import { SecurityUtils } from '../src/lib/security.js';
 const CLI_ENTRY = join(process.cwd(), 'dist', 'cli.js');
 let cliBuilt = false;
 
+function getLatestModificationTime(targetPath: string): number {
+  try {
+    const stats = statSync(targetPath);
+
+    if (stats.isDirectory()) {
+      let latest = stats.mtimeMs;
+      const entries = readdirSync(targetPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isSymbolicLink()) {
+          continue;
+        }
+        const childPath = join(targetPath, entry.name);
+        latest = Math.max(latest, getLatestModificationTime(childPath));
+      }
+      return latest;
+    }
+
+    return stats.mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
 function ensureCliBuilt(): void {
   if (cliBuilt && existsSync(CLI_ENTRY)) {
     return;
+  }
+
+  if (existsSync(CLI_ENTRY)) {
+    try {
+      const cliStat = statSync(CLI_ENTRY);
+      const latestSourceTimestamp = Math.max(
+        getLatestModificationTime(join(process.cwd(), 'src')),
+        getLatestModificationTime(join(process.cwd(), 'package.json')),
+        getLatestModificationTime(join(process.cwd(), 'tsconfig.cli.json')),
+        getLatestModificationTime(join(process.cwd(), 'tsconfig.json')),
+      );
+
+      if (cliStat.mtimeMs >= latestSourceTimestamp) {
+        cliBuilt = true;
+        return;
+      }
+    } catch {
+      // Rebuild when timestamps cannot be inspected.
+    }
   }
 
   const sanitizedEnv = { ...process.env };
@@ -33,8 +75,19 @@ function ensureCliBuilt(): void {
     env: sanitizedEnv,
   });
 
+  if (result.error) {
+    throw new Error(`Failed to spawn build process: ${result.error.message}`);
+  }
+
+  if (result.signal) {
+    throw new Error(`Build process terminated by signal: ${result.signal}`);
+  }
+
   if (result.status !== 0) {
-    throw new Error(`Failed to build CLI before security tests: ${result.stderr || result.stdout}`);
+    const stderrOutput = result.stderr?.toString().trim();
+    const stdoutOutput = result.stdout?.toString().trim();
+    const diagnostic = stderrOutput || stdoutOutput || 'unknown error';
+    throw new Error(`Failed to build CLI before security tests: ${diagnostic}`);
   }
 
   cliBuilt = true;
@@ -188,6 +241,26 @@ describe('Security: Path Validation Hardening', () => {
 
   it('should reject double-encoded traversal sequences', () => {
     expect(() => SecurityUtils.validatePath('%252e%252e%252fsecret', process.cwd())).toThrow(
+      /Invalid path/,
+    );
+  });
+
+  it('should reject Unicode-normalized traversal attempts', () => {
+    const unicodeTraversal = '．．/secret';
+    expect(() => SecurityUtils.validatePath(unicodeTraversal, process.cwd())).toThrow(
+      /Invalid path/,
+    );
+  });
+
+  it('should reject fullwidth dot traversal attempts after normalization', () => {
+    const normalizedTraversal = '．．/secret'.normalize('NFKC');
+    expect(() => SecurityUtils.validatePath(normalizedTraversal, process.cwd())).toThrow(
+      /Invalid path/,
+    );
+  });
+
+  it('should reject paths containing null bytes', () => {
+    expect(() => SecurityUtils.validatePath('valid\0segment', process.cwd())).toThrow(
       /Invalid path/,
     );
   });

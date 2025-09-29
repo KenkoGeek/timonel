@@ -20,7 +20,18 @@ const esmRequire = createRequire(import.meta.url);
  * @since 2.12.2 Prevents reliance on npx downloads during synthesis.
  */
 function getLocalTsxCliPath(): string {
-  return esmRequire.resolve('tsx/cli');
+  try {
+    return esmRequire.resolve('tsx/cli');
+  } catch (error) {
+    const sanitizedMessage = SecurityUtils.sanitizeLogMessage(
+      'Unable to locate the local tsx CLI module required to execute commands.',
+    );
+    console.error(sanitizedMessage);
+    if (error instanceof Error && error.message) {
+      console.error(SecurityUtils.sanitizeLogMessage(error.message));
+    }
+    process.exit(1);
+  }
 }
 
 /**
@@ -30,7 +41,12 @@ function getLocalTsxCliPath(): string {
  * @since 2.12.2 Avoids malformed chart.ts rewrites when directories contain quotes.
  */
 function escapeForSingleQuotedLiteral(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t');
 }
 
 /**

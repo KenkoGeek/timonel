@@ -47,18 +47,36 @@ export class SecurityUtils {
     const allowAbsolute = Boolean(options?.allowAbsolute);
 
     const candidates = new Set<string>();
-    const addCandidate = (value: string) => {
+    const registerCandidate = (value: string) => {
       if (typeof value === 'string' && value.length > 0) {
         candidates.add(value);
+      }
+    };
+    const addCandidate = (value: string) => {
+      if (typeof value !== 'string' || value.length === 0) {
+        return;
+      }
+
+      registerCandidate(value);
+
+      try {
+        const normalized = value.normalize('NFKC');
+        registerCandidate(normalized);
+      } catch {
+        // Ignore normalization errors and continue with existing candidates.
       }
     };
 
     addCandidate(inputPath);
 
     let decoded = inputPath;
-    for (let iteration = 0; iteration < 2; iteration += 1) {
+    for (let iteration = 0; iteration < 5; iteration += 1) {
       try {
-        decoded = decodeURIComponent(decoded);
+        const nextDecoded = decodeURIComponent(decoded);
+        if (nextDecoded === decoded) {
+          break;
+        }
+        decoded = nextDecoded;
         addCandidate(decoded);
       } catch {
         break;
@@ -73,7 +91,10 @@ export class SecurityUtils {
 
       const normalized = candidate.replace(/\\+/g, '/');
       const segments = normalized.split('/');
-      return segments.some((segment) => segment === '..');
+      return segments.some((segment) => {
+        const loweredSegment = segment.toLowerCase();
+        return loweredSegment === '..' || loweredSegment === '%2e%2e';
+      });
     };
 
     for (const candidate of candidates) {

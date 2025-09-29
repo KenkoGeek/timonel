@@ -4,13 +4,44 @@
  * @since 2.10.2
  */
 import { spawnSync } from 'child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+} from 'fs';
 import { join, dirname, resolve } from 'path';
 
 import { describe, expect, it, beforeEach, afterEach, beforeAll } from 'vitest';
 
 const CLI_ENTRY = join(process.cwd(), 'dist', 'cli.js');
 let cliBuilt = false;
+
+function getLatestModificationTime(targetPath: string): number {
+  try {
+    const stats = statSync(targetPath);
+
+    if (stats.isDirectory()) {
+      let latest = stats.mtimeMs;
+      const entries = readdirSync(targetPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isSymbolicLink()) {
+          continue;
+        }
+        const childPath = join(targetPath, entry.name);
+        latest = Math.max(latest, getLatestModificationTime(childPath));
+      }
+      return latest;
+    }
+
+    return stats.mtimeMs;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * Ensures the compiled CLI artifact is available before executing tests.
@@ -19,6 +50,25 @@ let cliBuilt = false;
 function ensureCliBuilt(): void {
   if (cliBuilt && existsSync(CLI_ENTRY)) {
     return;
+  }
+
+  if (existsSync(CLI_ENTRY)) {
+    try {
+      const cliStat = statSync(CLI_ENTRY);
+      const latestSourceTimestamp = Math.max(
+        getLatestModificationTime(join(process.cwd(), 'src')),
+        getLatestModificationTime(join(process.cwd(), 'package.json')),
+        getLatestModificationTime(join(process.cwd(), 'tsconfig.cli.json')),
+        getLatestModificationTime(join(process.cwd(), 'tsconfig.json')),
+      );
+
+      if (cliStat.mtimeMs >= latestSourceTimestamp) {
+        cliBuilt = true;
+        return;
+      }
+    } catch {
+      // Fall back to rebuilding when timestamps cannot be inspected.
+    }
   }
 
   const sanitizedEnv = { ...process.env };
@@ -35,8 +85,19 @@ function ensureCliBuilt(): void {
     env: sanitizedEnv,
   });
 
+  if (result.error) {
+    throw new Error(`Failed to spawn build process: ${result.error.message}`);
+  }
+
+  if (result.signal) {
+    throw new Error(`Build process terminated by signal: ${result.signal}`);
+  }
+
   if (result.status !== 0) {
-    throw new Error(`Failed to build CLI before tests: ${result.stderr || result.stdout}`);
+    const stderrOutput = result.stderr?.toString().trim();
+    const stdoutOutput = result.stdout?.toString().trim();
+    const diagnostic = stderrOutput || stdoutOutput || 'unknown error';
+    throw new Error(`Failed to build CLI before tests: ${diagnostic}`);
   }
 
   cliBuilt = true;

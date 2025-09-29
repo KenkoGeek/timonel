@@ -528,7 +528,19 @@ function resolveAssetPath(assetId: string): { directorySegments: string[]; fileB
 
     const hasControlCharacters = Array.from(segment).some((character) => {
       const codePoint = character.codePointAt(0);
-      return typeof codePoint === 'number' && (codePoint < 0x20 || codePoint === 0x7f);
+      if (typeof codePoint !== 'number') {
+        return false;
+      }
+
+      if (codePoint < 0x20 || codePoint === 0x7f) {
+        return true;
+      }
+
+      if (codePoint >= 0x80 && codePoint <= 0x9f) {
+        return true;
+      }
+
+      return false;
     });
 
     if (hasControlCharacters) {
