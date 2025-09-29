@@ -33,21 +33,13 @@ permissions:
 
 jobs:
   test:
-    name: Test Suite (Node ${{ matrix.node_version }} / ${{ matrix.test_type }})
+    name: Test Suite (Node ${{ matrix.node_version }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - node_version: 20
-            test_type: unit
-            test_command: pnpm test:unit
-            run_coverage: true
-          - node_version: 22
-            test_type: integration
-            test_command: pnpm test:integration
-            run_coverage: false
+        node_version: [20, 22]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -78,24 +70,29 @@ jobs:
       - name: Build project
         run: pnpm build
 
-      - name: Run ${{ matrix.test_type }} tests
-        run: ${{ matrix.test_command }}
+      - name: Run unit tests
+        run: pnpm test:unit
+        env:
+          NODE_ENV: test
+
+      - name: Run integration tests
+        run: pnpm test:integration
         env:
           NODE_ENV: test
 
       - name: Generate coverage report
-        if: matrix.run_coverage == true
+        if: matrix.node_version == 20
         run: pnpm test:coverage
         env:
           NODE_ENV: test
 
       - name: Upload coverage to Codecov
-        if: matrix.run_coverage == true
+        if: matrix.node_version == 20
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage/coverage-final.json
-          flags: ${{ matrix.test_type }}-tests
-          name: ${{ matrix.test_type }}-tests-node-${{ matrix.node_version }}
+          flags: node-${{ matrix.node_version }}
+          name: node-${{ matrix.node_version }}-tests
           fail_ci_if_error: false
 
   security:
