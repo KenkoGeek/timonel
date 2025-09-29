@@ -6,6 +6,15 @@
 
 import * as path from 'path';
 
+/** Options controlling path validation behaviour. */
+export interface PathValidationOptions {
+  /**
+   * When true, accepts absolute destinations even if they fall outside the allowed base.
+   * @since 2.12.2 Enables secure chart writes to system-level directories.
+   */
+  allowAbsolute?: boolean;
+}
+
 /**
  * Security utilities for input validation and sanitization
  * Focused on CLI tool security concerns: path traversal, injection prevention
@@ -22,27 +31,87 @@ export class SecurityUtils {
    *
    * @since 2.8.0+
    */
-  static validatePath(inputPath: string, allowedBasePath: string): string {
+  static validatePath(
+    inputPath: string,
+    allowedBasePath: string,
+    options?: PathValidationOptions,
+  ): string {
     if (!inputPath || typeof inputPath !== 'string') {
       throw new Error('Invalid path: path must be a non-empty string');
     }
 
-    // Check for path traversal sequences
-    if (
-      inputPath.includes('../') ||
-      inputPath.includes('..\\') ||
-      inputPath.includes('%2e%2e%2f') ||
-      inputPath.includes('%2e%2e%5c')
-    ) {
-      throw new Error('Invalid path: path traversal sequences detected');
+    if (inputPath.includes('\0')) {
+      throw new Error('Invalid path: null bytes are not permitted');
+    }
+
+    const allowAbsolute = Boolean(options?.allowAbsolute);
+
+    const candidates = new Set<string>();
+    const registerCandidate = (value: string) => {
+      if (typeof value === 'string' && value.length > 0) {
+        candidates.add(value);
+      }
+    };
+    const addCandidate = (value: string) => {
+      if (typeof value !== 'string' || value.length === 0) {
+        return;
+      }
+
+      registerCandidate(value);
+
+      try {
+        const normalized = value.normalize('NFKC');
+        registerCandidate(normalized);
+      } catch {
+        // Ignore normalization errors and continue with existing candidates.
+      }
+    };
+
+    addCandidate(inputPath);
+
+    let decoded = inputPath;
+    for (let iteration = 0; iteration < 5; iteration += 1) {
+      try {
+        const nextDecoded = decodeURIComponent(decoded);
+        if (nextDecoded === decoded) {
+          break;
+        }
+        decoded = nextDecoded;
+        addCandidate(decoded);
+      } catch {
+        break;
+      }
+    }
+
+    const containsTraversalSequence = (candidate: string): boolean => {
+      const lowered = candidate.toLowerCase();
+      if (lowered.includes('%2e%2f') || lowered.includes('%2e%5c') || lowered.includes('%2f%2e')) {
+        return true;
+      }
+
+      const normalized = candidate.replace(/\\+/g, '/');
+      const segments = normalized.split('/');
+      return segments.some((segment) => {
+        const loweredSegment = segment.toLowerCase();
+        return loweredSegment === '..' || loweredSegment === '%2e%2e';
+      });
+    };
+
+    for (const candidate of candidates) {
+      if (containsTraversalSequence(candidate)) {
+        throw new Error('Invalid path: path traversal sequences detected');
+      }
     }
 
     // Resolve and normalize paths
     const resolvedInput = path.resolve(inputPath);
     const resolvedBase = path.resolve(allowedBasePath);
 
-    // Ensure the resolved path is within the allowed base path
-    if (!resolvedInput.startsWith(resolvedBase + path.sep) && resolvedInput !== resolvedBase) {
+    const relativePath = path.relative(resolvedBase, resolvedInput);
+    const isInsideBase =
+      relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+
+    if (!(allowAbsolute && path.isAbsolute(inputPath)) && !isInsideBase) {
       throw new Error(`Invalid path: path must be within ${resolvedBase}`);
     }
 
@@ -107,7 +176,7 @@ export class SecurityUtils {
    * @since 2.8.0+
    */
   static isValidTypeScriptFile(filePath: string): boolean {
-    const allowedExtensions = ['.ts', '.tsx'];
+    const allowedExtensions = ['.ts', '.tsx', '.cts', '.mts'];
     const ext = path.extname(filePath);
     return allowedExtensions.includes(ext);
   }

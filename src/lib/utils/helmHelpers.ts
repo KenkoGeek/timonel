@@ -11,18 +11,9 @@ import {
   VALIDATION_HELPERS,
   getNewHelpersByCategory,
 } from './helmHelpers/index.js';
+import type { HelperDefinition } from './helmHelpers/types.js';
 
-/**
- * Helper definition for Helm templates
- * @interface HelperDefinition
- * @since 2.8.0+
- */
-export interface HelperDefinition {
-  /** Helper name (without quotes or hyphens) */
-  name: string;
-  /** Helper template content */
-  template: string;
-}
+export type { HelperDefinition } from './helmHelpers/types.js';
 
 /**
  * Standard Helm chart helpers following best practices

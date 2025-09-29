@@ -118,7 +118,9 @@ export class UmbrellaRutter {
    */
   write(outDir: string): void {
     // Validate output directory path
-    const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd());
+    const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd(), {
+      allowAbsolute: true,
+    });
 
     // Create output directory structure
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
