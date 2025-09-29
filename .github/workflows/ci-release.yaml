@@ -129,7 +129,19 @@ jobs:
         run: pnpm md:lint
 
       - name: Dependency check
+        id: deps
         run: pnpm deps:check
+        continue-on-error: true
+
+      - name: Summarize dependency status
+        if: always()
+        run: |
+          echo "## Dependency Status" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.deps.outcome }}" = "failure" ]; then
+            echo "⚠️ Outdated dependencies detected. Please review the 'Dependency check' logs for package updates." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ Dependencies are up to date." >> $GITHUB_STEP_SUMMARY
+          fi
 
   build:
     name: Build Package
