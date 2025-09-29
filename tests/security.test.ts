@@ -4,10 +4,94 @@
  * @since 2.10.2
  */
 import { spawnSync } from 'child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { join, resolve } from 'path';
 
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, beforeAll } from 'vitest';
+
+import { SecurityUtils } from '../src/lib/security.js';
+
+const CLI_ENTRY = join(process.cwd(), 'dist', 'cli.js');
+let cliBuilt = false;
+
+function getLatestModificationTime(targetPath: string): number {
+  try {
+    const stats = statSync(targetPath);
+
+    if (stats.isDirectory()) {
+      let latest = stats.mtimeMs;
+      const entries = readdirSync(targetPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isSymbolicLink()) {
+          continue;
+        }
+        const childPath = join(targetPath, entry.name);
+        latest = Math.max(latest, getLatestModificationTime(childPath));
+      }
+      return latest;
+    }
+
+    return stats.mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
+function ensureCliBuilt(): void {
+  if (cliBuilt && existsSync(CLI_ENTRY)) {
+    return;
+  }
+
+  if (existsSync(CLI_ENTRY)) {
+    try {
+      const cliStat = statSync(CLI_ENTRY);
+      const latestSourceTimestamp = Math.max(
+        getLatestModificationTime(join(process.cwd(), 'src')),
+        getLatestModificationTime(join(process.cwd(), 'package.json')),
+        getLatestModificationTime(join(process.cwd(), 'tsconfig.cli.json')),
+        getLatestModificationTime(join(process.cwd(), 'tsconfig.json')),
+      );
+
+      if (cliStat.mtimeMs >= latestSourceTimestamp) {
+        cliBuilt = true;
+        return;
+      }
+    } catch {
+      // Rebuild when timestamps cannot be inspected.
+    }
+  }
+
+  const sanitizedEnv = { ...process.env };
+  for (const key of Object.keys(sanitizedEnv)) {
+    if (key.toLowerCase().startsWith('npm_config_')) {
+      delete sanitizedEnv[key];
+    }
+  }
+
+  const result = spawnSync('pnpm', ['build'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    stdio: 'pipe',
+    env: sanitizedEnv,
+  });
+
+  if (result.error) {
+    throw new Error(`Failed to spawn build process: ${result.error.message}`);
+  }
+
+  if (result.signal) {
+    throw new Error(`Build process terminated by signal: ${result.signal}`);
+  }
+
+  if (result.status !== 0) {
+    const stderrOutput = result.stderr?.toString().trim();
+    const stdoutOutput = result.stdout?.toString().trim();
+    const diagnostic = stderrOutput || stdoutOutput || 'unknown error';
+    throw new Error(`Failed to build CLI before security tests: ${diagnostic}`);
+  }
+
+  cliBuilt = true;
+}
 
 /**
  * Helper function to execute CLI commands and capture output for security testing
@@ -17,14 +101,21 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
  * @since 2.10.2
  */
 function runCLI(args: string[] = [], options: { cwd?: string; timeout?: number } = {}) {
-  const cliPath = process.env.CLI_PATH || join(process.cwd(), 'dist', 'cli.js');
-  if (!existsSync(cliPath)) {
-    throw new Error(`CLI not found at ${cliPath}. Please build the project first.`);
+  ensureCliBuilt();
+
+  const cliPath = CLI_ENTRY;
+  const sanitizedEnv = { ...process.env };
+  for (const key of Object.keys(sanitizedEnv)) {
+    if (key.toLowerCase().startsWith('npm_config_')) {
+      delete sanitizedEnv[key];
+    }
   }
+
   const result = spawnSync('node', [cliPath, ...args], {
     cwd: options.cwd || process.cwd(),
     timeout: options.timeout || 30000,
     encoding: 'utf8',
+    env: sanitizedEnv,
   });
 
   return {
@@ -61,6 +152,10 @@ function cleanupTestDir(testDir: string): void {
   }
 }
 
+beforeAll(() => {
+  ensureCliBuilt();
+});
+
 /**
  * Malicious payloads for security testing
  * @since 2.10.2
@@ -74,7 +169,10 @@ const MALICIOUS_PAYLOADS = {
     'chart\\..\\..\\sensitive',
     '....//....//....//etc/passwd',
     '%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd',
+    '..%2F..%2F..%2Fetc%2Fpasswd',
+    '..%2E%2E%2F..%2E%2E%2Fetc%2Fshadow',
     '..%252f..%252f..%252fetc%252fpasswd',
+    '..%252F..%252F..%252Fetc%252Fshadow',
   ],
 
   // Command injection attempts (sanitized for testing)
@@ -135,6 +233,46 @@ const MALICIOUS_PAYLOADS = {
     'test-postgresql://user:password@localhost:5432/db',
   ],
 };
+
+describe('Security: Path Validation Hardening', () => {
+  it('should reject mixed-case encoded traversal sequences', () => {
+    expect(() => SecurityUtils.validatePath('%2E%2E%2Ffoo', process.cwd())).toThrow(/Invalid path/);
+  });
+
+  it('should reject double-encoded traversal sequences', () => {
+    expect(() => SecurityUtils.validatePath('%252e%252e%252fsecret', process.cwd())).toThrow(
+      /Invalid path/,
+    );
+  });
+
+  it('should reject Unicode-normalized traversal attempts', () => {
+    const unicodeTraversal = '．．/secret';
+    expect(() => SecurityUtils.validatePath(unicodeTraversal, process.cwd())).toThrow(
+      /Invalid path/,
+    );
+  });
+
+  it('should reject fullwidth dot traversal attempts after normalization', () => {
+    const normalizedTraversal = '．．/secret'.normalize('NFKC');
+    expect(() => SecurityUtils.validatePath(normalizedTraversal, process.cwd())).toThrow(
+      /Invalid path/,
+    );
+  });
+
+  it('should reject paths containing null bytes', () => {
+    expect(() => SecurityUtils.validatePath('valid\0segment', process.cwd())).toThrow(
+      /Invalid path/,
+    );
+  });
+
+  it('should allow absolute output destinations when permitted', () => {
+    const base = process.cwd();
+    const absoluteTarget = resolve(base, '..', 'validated-absolute');
+    const validated = SecurityUtils.validatePath(absoluteTarget, base, { allowAbsolute: true });
+
+    expect(validated).toBe(absoluteTarget);
+  });
+});
 
 describe('Security: Input Validation', () => {
   let testDir: string;

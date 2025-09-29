@@ -3,6 +3,7 @@ import { spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
 import { SecurityUtils } from './lib/security.js';
 import { createLogger } from './lib/utils/logger.js';
@@ -10,6 +11,96 @@ import type { SubchartProps } from './lib/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const esmRequire = createRequire(import.meta.url);
+
+/**
+ * Resolves the project-local tsx CLI entry point for spawning through Node.js.
+ * @returns Absolute filesystem path to the tsx CLI module.
+ * @since 2.12.2 Prevents reliance on npx downloads during synthesis.
+ */
+function getLocalTsxCliPath(): string {
+  try {
+    return esmRequire.resolve('tsx/cli');
+  } catch (error) {
+    const sanitizedMessage = SecurityUtils.sanitizeLogMessage(
+      'Unable to locate the local tsx CLI module required to execute commands.',
+    );
+    console.error(sanitizedMessage);
+    if (error instanceof Error && error.message) {
+      console.error(SecurityUtils.sanitizeLogMessage(error.message));
+    }
+    process.exit(1);
+  }
+}
+
+/**
+ * Escapes a string for safe inclusion inside single-quoted TypeScript literals.
+ * @param value - Path or text segment that needs escaping.
+ * @returns Escaped string suitable for single-quoted literals.
+ * @since 2.12.2 Avoids malformed chart.ts rewrites when directories contain quotes.
+ */
+function escapeForSingleQuotedLiteral(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t');
+}
+
+/**
+ * Resolves and validates an output directory against traversal and file misdirection attempts.
+ * @param requestedOutDir - Raw output directory provided via CLI arguments.
+ * @param baseDir - Directory that relative paths must remain within.
+ * @param silent - When true, suppresses console error output on failure.
+ * @returns Absolute, security-checked directory path.
+ * @since 2.12.2 Protects against traversal while permitting explicit absolute destinations.
+ */
+function resolveOutputDirectory(
+  requestedOutDir: string,
+  baseDir: string,
+  silent?: boolean,
+): string {
+  let validatedOutDir: string;
+  try {
+    validatedOutDir = SecurityUtils.validatePath(requestedOutDir, baseDir, {
+      allowAbsolute: true,
+    });
+  } catch (error) {
+    if (!silent) {
+      console.error(SecurityUtils.sanitizeLogMessage((error as Error).message));
+    }
+    process.exit(1);
+  }
+
+  if (
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    fs.existsSync(validatedOutDir)
+  ) {
+    try {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+      const stats = fs.statSync(validatedOutDir);
+      if (!stats.isDirectory()) {
+        if (!silent) {
+          console.error(
+            `Invalid output path: ${SecurityUtils.sanitizeLogMessage(validatedOutDir)} must be a directory`,
+          );
+        }
+        process.exit(1);
+      }
+    } catch (error) {
+      if (!silent) {
+        console.error(SecurityUtils.sanitizeLogMessage((error as Error).message));
+      }
+      process.exit(1);
+    }
+  }
+
+  return validatedOutDir;
+}
+
+const TSX_CLI_PATH = getLocalTsxCliPath();
 
 // Constants
 const UMBRELLA_CONFIG_FILE = 'umbrella.config.json';
@@ -164,9 +255,11 @@ async function cmdInit(name?: string, silent = false) {
  *
  * @param chartDirOrOutDir - Either the chart directory path or output directory path
  * @param flags - CLI flags for controlling synthesis behavior
+ * @param explicitOutDir - Optional explicit destination directory for generated charts
  * @since 2.8.4
+ * @since 2.12.2 Supports explicit output directory argument while retaining legacy behavior
  */
-async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags) {
+async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOutDir?: string) {
   let chartDir = process.cwd();
   let outDir: string | undefined;
 
@@ -179,6 +272,10 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags) {
     outDir = chartDirOrOutDir;
   }
 
+  if (explicitOutDir) {
+    outDir = explicitOutDir;
+  }
+
   const chartFile = path.join(chartDir, 'chart.ts');
   const defaultOutDir = path.join(chartDir, 'dist');
 
@@ -188,15 +285,24 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags) {
     process.exit(1);
   }
 
-  const resolvedOutDir = outDir ? path.resolve(outDir) : defaultOutDir;
+  const requestedOutDir = outDir ?? defaultOutDir;
+  const validatedOutDir = resolveOutputDirectory(requestedOutDir, chartDir, flags?.silent);
 
   // Read the original chart file and modify the writeHelmChart output directory
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
   const originalContent = fs.readFileSync(chartFile, 'utf8');
-  const modifiedContent = originalContent.replace(
+  const safeOutDirLiteral = escapeForSingleQuotedLiteral(validatedOutDir);
+  let modifiedContent = originalContent.replace(
     /chart\.writeHelmChart\(['"][^'"]*['"]\)/,
-    `chart.writeHelmChart('${resolvedOutDir}')`,
+    `chart.writeHelmChart('${safeOutDirLiteral}')`,
   );
+
+  if (modifiedContent === originalContent) {
+    modifiedContent = originalContent.replace(
+      /chart\.write\(['"][^'"]*['"]\)/,
+      `chart.write('${safeOutDirLiteral}')`,
+    );
+  }
 
   // Create a temporary modified chart file
   const tempChartFile = path.join(chartDir, '.timonel-temp-chart.ts');
@@ -208,7 +314,7 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags) {
 import { pathToFileURL } from 'url';
 
 // Import the modified chart file which should execute the synthesis directly
-await import(pathToFileURL('${tempChartFile}').href);
+await import(pathToFileURL(${JSON.stringify(tempChartFile)}).href);
 `;
 
   const wrapperFile = path.join(chartDir, '.timonel-wrapper.mjs');
@@ -217,7 +323,7 @@ await import(pathToFileURL('${tempChartFile}').href);
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
     fs.writeFileSync(wrapperFile, wrapperScript);
 
-    const result = spawnSync('npx', ['tsx', wrapperFile].filter(Boolean), {
+    const result = spawnSync(process.execPath, [TSX_CLI_PATH, wrapperFile], {
       stdio: flags?.silent ? 'pipe' : 'inherit',
       encoding: 'utf8',
       cwd: chartDir,
@@ -678,12 +784,11 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
     process.exit(1);
   }
 
-  const resolvedOutDir = outDir ? path.resolve(outDir) : defaultOutDir;
   const synthMode: UmbrellaSynthMode = flags?.mode ?? 'dependencies';
   if (!UMBRELLA_SYNTH_MODES.includes(synthMode)) {
     usageAndExit('Invalid mode. Use "dependencies" or "inline".', flags?.silent);
   }
-  await executeTypeScriptUmbrella(umbrellaFile, resolvedOutDir, synthMode, flags);
+  await executeTypeScriptUmbrella(umbrellaFile, outDir ?? defaultOutDir, synthMode, flags);
 }
 
 async function executeTypeScriptUmbrella(
@@ -692,18 +797,20 @@ async function executeTypeScriptUmbrella(
   mode: UmbrellaSynthMode,
   flags?: CliFlags,
 ) {
+  const umbrellaBase = path.dirname(resolvedPath);
+  const validatedOutDir = resolveOutputDirectory(outDir, umbrellaBase, flags?.silent);
   const wrapperScript = `
 import { pathToFileURL } from 'url';
 
-const mod = await import(pathToFileURL('${resolvedPath}').href);
+const mod = await import(pathToFileURL(${JSON.stringify(resolvedPath)}).href);
 const runner = mod.default || mod.run || mod.synth;
 if (typeof runner !== 'function') {
   console.error('umbrella.ts must export a default/run/synth function');
   process.exit(1);
 }
 
-const output = '${outDir}';
-const synthOptions = { mode: '${mode}' };
+const output = ${JSON.stringify(validatedOutDir)};
+const synthOptions = { mode: ${JSON.stringify(mode)} };
 const fs = await import('fs');
 fs.mkdirSync(output, { recursive: true });
 await Promise.resolve(runner(output, synthOptions));
@@ -715,7 +822,7 @@ console.log('Umbrella chart written to ' + output);
   try {
     fs.writeFileSync(wrapperFile, wrapperScript);
 
-    const result = spawnSync('npx', ['tsx', wrapperFile].filter(Boolean), {
+    const result = spawnSync(process.execPath, [TSX_CLI_PATH, wrapperFile], {
       stdio: flags?.silent ? 'pipe' : 'inherit',
       encoding: 'utf8',
     });
@@ -795,7 +902,7 @@ async function executeCommand(
       await cmdInit(args[0], flags.silent);
       break;
     case 'synth':
-      await cmdSynth(args[0], flags);
+      await cmdSynth(args[0], flags, args[1]);
       break;
     case 'validate':
       await cmdValidate(flags);
