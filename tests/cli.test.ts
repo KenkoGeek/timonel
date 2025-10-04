@@ -317,6 +317,23 @@ describe('CLI Chart Operations', () => {
     }
   });
 
+  it('should respect flags that appear after positional arguments', () => {
+    runCLI(['init', 'test-chart'], { cwd: testDir });
+
+    const result = runCLI(['synth', 'test-chart', '--silent'], { cwd: testDir });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe('');
+    expect(result.stderr).toBe('');
+  });
+
+  it('should display help when short help flag is provided after the command', () => {
+    const result = runCLI(['init', '-h'], { cwd: testDir });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Usage: tl');
+  });
+
   it('should synthesize umbrella chart with dependencies by default', () => {
     const baseDir = createTestDir('umbrella-dependencies');
     const umbrellaRoot = join(baseDir, 'umbrella-app');
