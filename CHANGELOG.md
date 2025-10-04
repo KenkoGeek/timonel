@@ -1,3 +1,9 @@
+## [2.12.2-beta.1](https://github.com/KenkoGeek/timonel/compare/v2.12.1...v2.12.2-beta.1) (2025-10-04)
+
+### Bug Fixes
+
+- **cli:** handle flags after positional arguments ([#142](https://github.com/KenkoGeek/timonel/issues/142)) ([36ac024](https://github.com/KenkoGeek/timonel/commit/36ac024fa7c2a454a184394337a65ebae46a65f9))
+
 ## [2.12.1](https://github.com/KenkoGeek/timonel/compare/v2.12.0...v2.12.1) (2025-09-28)
 
 ### Bug Fixes
