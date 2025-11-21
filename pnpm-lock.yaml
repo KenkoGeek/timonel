@@ -13,13 +13,13 @@ importers:
     dependencies:
       cdk8s:
         specifier: ^2.70.16
-        version: 2.70.26(constructs@10.4.2)
+        version: 2.70.26(constructs@10.4.3)
       cdk8s-plus-33:
         specifier: ^2.3.8
-        version: 2.4.3(cdk8s@2.70.26(constructs@10.4.2))(constructs@10.4.2)
+        version: 2.4.3(cdk8s@2.70.26(constructs@10.4.3))(constructs@10.4.3)
       constructs:
         specifier: ^10.4.2
-        version: 10.4.2
+        version: 10.4.3
       handlebars:
         specifier: ^4.7.8
         version: 4.7.8
@@ -1345,8 +1345,8 @@ packages:
   config-chain@1.1.13:
     resolution: {integrity: sha512-qj+f8APARXHrM0hraqXYb2/bOVSV4PvJQlNZ/DVj0QrmNM2q2euizkeuVckQ57J+W0mRH6Hvi+k50M4Jul2VRQ==}
 
-  constructs@10.4.2:
-    resolution: {integrity: sha512-wsNxBlAott2qg8Zv87q3eYZYgheb9lchtBfjHzzLHtXbttwSrHPs1NNQbBrmbb1YZvYg2+Vh0Dor76w4mFxJkA==}
+  constructs@10.4.3:
+    resolution: {integrity: sha512-3+ZB67qWGM1vEstNpj6pGaLNN1qz4gxC1CBhEUhZDZk0PqzQWY65IzC1Doq17MGPa9xa2wJ1G/DJ3swU8kWAHQ==}
 
   conventional-changelog-angular@7.0.0:
     resolution: {integrity: sha512-ROjNchA9LgfNMTTFSIWPzebCwOGFdgkEq45EnvvrmSLvCtAw0HSmrCs7/ty+wAeYUZyNay0YMUNYFTRL72PkBQ==}
@@ -4911,14 +4911,14 @@ snapshots:
 
   callsites@3.1.0: {}
 
-  cdk8s-plus-33@2.4.3(cdk8s@2.70.26(constructs@10.4.2))(constructs@10.4.2):
+  cdk8s-plus-33@2.4.3(cdk8s@2.70.26(constructs@10.4.3))(constructs@10.4.3):
     dependencies:
-      cdk8s: 2.70.26(constructs@10.4.2)
-      constructs: 10.4.2
+      cdk8s: 2.70.26(constructs@10.4.3)
+      constructs: 10.4.3
 
-  cdk8s@2.70.26(constructs@10.4.2):
+  cdk8s@2.70.26(constructs@10.4.3):
     dependencies:
-      constructs: 10.4.2
+      constructs: 10.4.3
 
   chai@5.3.3:
     dependencies:
@@ -5025,7 +5025,7 @@ snapshots:
       ini: 1.3.8
       proto-list: 1.2.4
 
-  constructs@10.4.2: {}
+  constructs@10.4.3: {}
 
   conventional-changelog-angular@7.0.0:
     dependencies:
