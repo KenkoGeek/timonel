@@ -1,3 +1,10 @@
+## [2.12.2-beta.2](https://github.com/KenkoGeek/timonel/compare/v2.12.2-beta.1...v2.12.2-beta.2) (2025-11-22)
+
+### Bug Fixes
+
+- **deps:** merge conflicts ([3f4e054](https://github.com/KenkoGeek/timonel/commit/3f4e054f89d121e59e6df90950223ec9a6019cae))
+- **deps:** merge conflicts ([063294e](https://github.com/KenkoGeek/timonel/commit/063294e0a81bee12997cdeef75229e482a896329))
+
 ## [2.12.2-beta.1](https://github.com/KenkoGeek/timonel/compare/v2.12.1...v2.12.2-beta.1) (2025-10-04)
 
 ### Bug Fixes
