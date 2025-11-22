@@ -250,6 +250,7 @@ export function stringify(
     lineWidth: options.lineWidth ?? 0,
     // Approximate quoting type: '"', or single quote fallback.
     quotingType: options.doubleQuotedAsJSON ? '"' : "'",
+    forceQuotes: options.doubleQuotedAsJSON,
   };
   return dumpHelmAwareYaml(obj, jsYamlOptions);
 }
@@ -300,6 +301,19 @@ export function validateHelmYaml(yaml: string): HelmValidationResult {
   const warnings: HelmValidationError[] = [];
   // Detect all Helm expressions with types and positions
   const expressions = parseHelmExpressions(yaml);
+
+  // Global check for unbalanced braces
+  const openBraces = (yaml.match(/\{\{/g) || []).length;
+  const closeBraces = (yaml.match(/\}\}/g) || []).length;
+  if (openBraces !== closeBraces) {
+    errors.push({
+      type: 'syntax',
+      message: 'Unbalanced Helm template braces detected in file',
+      line: 0,
+      column: 0,
+      expression: '',
+    });
+  }
 
   // Syntax validation with error capturing
   for (const expr of expressions) {

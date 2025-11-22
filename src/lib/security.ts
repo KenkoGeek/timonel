@@ -131,12 +131,13 @@ export class SecurityUtils {
     }
 
     // Remove control characters (ASCII 0-31 and 127) and normalize line endings
+    // Remove control characters (ASCII 0-31 and 127) and normalize line endings
     return (
       message
-        // eslint-disable-next-line no-control-regex -- Intentionally removing control characters for security
-        .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
         .replace(/\r\n/g, ' ') // Replace CRLF with space
         .replace(/[\r\n]/g, ' ') // Replace remaining CR/LF with space
+        // eslint-disable-next-line no-control-regex -- Intentionally removing control characters for security
+        .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
         .trim()
     );
   }
@@ -206,7 +207,7 @@ export class SecurityUtils {
     }
 
     // Check for valid characters only (safe regex)
-    if (!/^[a-zA-Z0-9._-]+$/.test(templatePath)) {
+    if (!/^[a-zA-Z0-9._\-/]+$/.test(templatePath)) {
       return false;
     }
 
@@ -218,16 +219,21 @@ export class SecurityUtils {
 
     // Prevent reserved words that could cause issues
     const reservedWords = ['nil', 'null', 'undefined', 'true', 'false'];
-    const pathSegments = templatePath.split('.');
+    // Split by directory separators first
+    const pathParts = templatePath.split('/');
 
-    for (const segment of pathSegments) {
-      if (reservedWords.includes(segment.toLowerCase())) {
-        return false;
-      }
-
-      // Each segment should not be empty
-      if (segment.length === 0) {
-        return false;
+    for (const part of pathParts) {
+      // Then split by dots for file extensions/parts
+      const segments = part.split('.');
+      for (const segment of segments) {
+        if (reservedWords.includes(segment.toLowerCase())) {
+          return false;
+        }
+        // Each segment should not be empty (except possibly for leading dot files, but split handles that)
+        if (segment.length === 0 && segments.length > 1) {
+          // Allow .gitignore (empty first segment)
+          continue;
+        }
       }
     }
 
