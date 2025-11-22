@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node_version: [20, 22]
+        node_version: ['22', '24']
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -53,6 +53,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node_version }}
+          check-latest: true
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -81,13 +82,13 @@ jobs:
           NODE_ENV: test
 
       - name: Generate coverage report
-        if: matrix.node_version == 20
+        if: matrix.node_version == '22'
         run: pnpm test:coverage
         env:
           NODE_ENV: test
 
       - name: Upload coverage to Codecov
-        if: matrix.node_version == 20
+        if: matrix.node_version == '22'
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage/coverage-final.json
@@ -110,6 +111,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          check-latest: true
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -162,7 +164,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          check-latest: true
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -209,7 +212,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
+          check-latest: true
           registry-url: https://registry.npmjs.org
           cache: 'pnpm'
 
@@ -259,7 +263,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
+          check-latest: true
           registry-url: https://registry.npmjs.org
           cache: 'pnpm'
 
