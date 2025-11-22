@@ -850,45 +850,91 @@ console.log('Umbrella chart written to ' + output);
  */
 function parseFlags(args: string[]): CliFlags {
   const flags: CliFlags = {};
+  const positionalArguments: string[] = [];
 
-  while (args.length > 0 && args[0]?.startsWith('-')) {
-    const flag = args.shift();
-    switch (flag) {
-      case '--dry-run':
+  const takeValue = (flagName: string): string => {
+    const value = args.shift();
+    if (value === undefined) {
+      usageAndExit(`Missing value for ${flagName}`, flags.silent);
+      return '';
+    }
+    return value;
+  };
+
+  const flagHandlers = new Map<string, () => void>([
+    [
+      '--dry-run',
+      () => {
         flags.dryRun = true;
-        break;
-      case '--silent':
+      },
+    ],
+    [
+      '--silent',
+      () => {
         flags.silent = true;
-        break;
-      case '--env': {
-        const envValue = args.shift();
-        if (envValue) flags.env = envValue;
-        break;
-      }
-      case '--set': {
-        const setValue = args.shift();
+      },
+    ],
+    [
+      '--env',
+      () => {
+        const envValue = takeValue('--env');
+        if (envValue) {
+          flags.env = envValue;
+        }
+      },
+    ],
+    [
+      '--set',
+      () => {
+        const setValue = takeValue('--set');
         if (setValue) {
           flags.set = flags.set || [];
           flags.set.push(setValue);
         }
-        break;
-      }
-      case '--mode': {
-        const modeValue = args.shift();
-        if (!modeValue || !UMBRELLA_SYNTH_MODES.includes(modeValue as UmbrellaSynthMode)) {
+      },
+    ],
+    [
+      '--mode',
+      () => {
+        const modeValue = takeValue('--mode');
+        if (!UMBRELLA_SYNTH_MODES.includes(modeValue as UmbrellaSynthMode)) {
           usageAndExit('Invalid mode. Use "dependencies" or "inline".', flags.silent);
         }
         flags.mode = modeValue as UmbrellaSynthMode;
-        break;
-      }
-      case '--help':
-      case '-h':
-        usageAndExit(undefined, flags.silent);
-        break;
-      default:
-        usageAndExit(`Unknown flag: ${flag}`, flags.silent);
+      },
+    ],
+  ]);
+
+  const helpFlags = new Set(['--help', '-h']);
+
+  while (args.length > 0) {
+    const token = args.shift();
+    if (token === undefined) {
+      break;
     }
+
+    if (!token.startsWith('-')) {
+      positionalArguments.push(token);
+      continue;
+    }
+
+    if (helpFlags.has(token)) {
+      usageAndExit(undefined, flags.silent);
+      return flags;
+    }
+
+    const handler = flagHandlers.get(token);
+    if (handler) {
+      handler();
+      continue;
+    }
+
+    usageAndExit(`Unknown flag: ${token}`, flags.silent);
   }
+
+  args.length = 0;
+  args.push(...positionalArguments);
+
   return flags;
 }
 
