@@ -131,13 +131,13 @@ export class SecurityUtils {
     }
 
     // Remove control characters (ASCII 0-31 and 127) and normalize line endings
-    // Remove control characters (ASCII 0-31 and 127) and normalize line endings
     return (
       message
-        .replace(/\r\n/g, ' ') // Replace CRLF with space
-        .replace(/[\r\n]/g, ' ') // Replace remaining CR/LF with space
+        .replace(/\r\n/g, '\n') // Normalize CRLF to LF
         // eslint-disable-next-line no-control-regex -- Intentionally removing control characters for security
-        .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+        .replace(/[\x00-\x09\x0B-\x0C\x0E-\x1F\x7F]/g, '') // Strip control chars except LF/CR
+        .replace(/[\r\n]/g, ' ') // Normalize remaining line breaks
+        .replace(/\s+/g, ' ') // Collapse repeated whitespace
         .trim()
     );
   }

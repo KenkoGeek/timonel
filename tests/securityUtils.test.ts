@@ -1,6 +1,6 @@
 import * as path from 'path';
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { SecurityUtils } from '../src/lib/security.js';
 
@@ -34,6 +34,11 @@ describe('SecurityUtils Unit Tests', () => {
     it('should remove control characters', () => {
       const msg = 'Hello\x00World';
       expect(SecurityUtils.sanitizeLogMessage(msg)).toBe('HelloWorld');
+    });
+
+    it('should collapse whitespace after stripping control characters', () => {
+      const msg = 'A\x00 \nB\tC';
+      expect(SecurityUtils.sanitizeLogMessage(msg)).toBe('A BC');
     });
 
     it('should normalize newlines', () => {
@@ -106,11 +111,25 @@ describe('SecurityUtils Unit Tests', () => {
     it('should reject dangerous values', () => {
       expect(() => SecurityUtils.sanitizeEnvVar('KEY', '$(command)')).toThrow('dangerous pattern');
     });
+
+    it('should reject overly long values', () => {
+      expect(() => SecurityUtils.sanitizeEnvVar('KEY', 'a'.repeat(40000))).toThrow(
+        'maximum length',
+      );
+    });
   });
 
   describe('validateImageTag', () => {
     it('should accept valid tags', () => {
       expect(SecurityUtils.validateImageTag('v1.0.0')).toBe(true);
+    });
+
+    it('should reject empty tags', () => {
+      expect(() => SecurityUtils.validateImageTag('')).toThrow('non-empty string');
+    });
+
+    it('should accept non-standard but safe tags', () => {
+      expect(SecurityUtils.validateImageTag('custom-tag')).toBe(true);
     });
 
     it('should reject dangerous tags', () => {
@@ -119,6 +138,11 @@ describe('SecurityUtils Unit Tests', () => {
 
     it('should reject invalid format', () => {
       expect(() => SecurityUtils.validateImageTag('v1.0.0!')).toThrow('Invalid image tag format');
+    });
+
+    it('should reject overly long tags', () => {
+      const longTag = 'a'.repeat(129);
+      expect(() => SecurityUtils.validateImageTag(longTag)).toThrow('maximum length');
     });
   });
 
@@ -135,6 +159,42 @@ describe('SecurityUtils Unit Tests', () => {
       const longName = 'a'.repeat(100);
       const secretName = SecurityUtils.generateSecretName(longName);
       expect(secretName.length).toBeLessThan(64);
+    });
+
+    it('should prepend s when base starts with digit', () => {
+      expect(SecurityUtils.generateSecretName('1app')).toBe('s1app');
+    });
+
+    it('should sanitize suffix and preserve it on truncation', () => {
+      const base = 'a'.repeat(70);
+      const name = SecurityUtils.generateSecretName(base, 'Suf$Fix');
+      expect(name.length).toBeLessThanOrEqual(63);
+      expect(name.endsWith('-suf-fix')).toBe(true);
+    });
+
+    it('should throw when base has no valid characters', () => {
+      expect(() => SecurityUtils.generateSecretName('***')).toThrow('no valid characters');
+    });
+
+    it('should throw when suffix is not a string', () => {
+      // @ts-expect-error intentional bad input for coverage
+      expect(() => SecurityUtils.generateSecretName('abc', 123)).toThrow('Suffix must be a string');
+    });
+
+    it('should not append sanitized empty suffix', () => {
+      expect(SecurityUtils.generateSecretName('abc', '!!!')).toBe('abc');
+    });
+
+    it('should reject empty base name', () => {
+      expect(() => SecurityUtils.generateSecretName('')).toThrow(
+        'Base name must be a non-empty string',
+      );
+    });
+
+    it('should throw if final name fails validation', () => {
+      const spy = vi.spyOn(SecurityUtils, 'isValidChartName').mockReturnValue(false);
+      expect(() => SecurityUtils.generateSecretName('valid')).toThrow('Generated secret name');
+      spy.mockRestore();
     });
   });
 });

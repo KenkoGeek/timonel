@@ -85,7 +85,6 @@ export class UmbrellaRutter {
    * @since 2.8.0+
    */
   constructor(props: UmbrellaRutterProps) {
-    this.props = props;
     this.logger = props.logger ?? createLogger('umbrella-rutter');
     this.logger.info('Initializing umbrella chart', {
       name: props.meta.name,

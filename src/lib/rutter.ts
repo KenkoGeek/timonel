@@ -1266,6 +1266,7 @@ ${helper.template}
       envValues: this.envValues,
       assets: synthAssets,
       helpersTpl: helpersContent,
+      logger: this.logger,
     });
 
     this.logger.info('Chart write operation completed successfully', {
