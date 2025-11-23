@@ -33,7 +33,9 @@
 ## Supported Versions
 
 We provide security updates for the following versions:
+
 <!-- markdownlint-disable MD060 -->
+
 | Version | Supported      | Security Updates | End of Life |
 | ------- | -------------- | ---------------- | ----------- |
 | 2.4.0+  | ✅ Current     | Full support     | TBD         |
