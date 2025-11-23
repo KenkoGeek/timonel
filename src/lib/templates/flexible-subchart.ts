@@ -322,7 +322,7 @@ export default function createChart() {
 // Auto-execute when run directly
 if (import.meta.url === new URL(import.meta.url).href) {
   const chart = createChart();
-  chart.write('dist');
+  await chart.write('dist');
 }
 `;
 }
