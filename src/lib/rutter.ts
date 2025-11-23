@@ -1220,7 +1220,7 @@ ${yamlContent.trim()}
    *
    * @since 1.0.0
    */
-  write(outDir: string): void {
+  async write(outDir: string): Promise<void> {
     const timer = this.logger.time('chart_write');
 
     this.logger.info('Starting chart write operation', {
@@ -1259,7 +1259,7 @@ ${helper.template}
       operation: 'assets_generated',
     });
 
-    HelmChartWriter.write({
+    await HelmChartWriter.write({
       outDir,
       meta: this.meta,
       defaultValues: this.defaultValues,

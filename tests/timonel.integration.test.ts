@@ -173,7 +173,7 @@ namespace:
 }
 
 describe('Timonel - Simple Umbrella Integration Test', () => {
-  it('should create umbrella chart with backend and frontend without errors', () => {
+  it('should create umbrella chart with backend and frontend without errors', async () => {
     // Create backend chart with values
     const backendChart = new Rutter({
       meta: {
@@ -620,13 +620,11 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
     }).not.toThrow();
 
     // Test write operation to create umbrella-write folder
-    expect(() => {
-      const tempDir = './temp-test/umbrella-write';
-      umbrella.write(tempDir);
+    const tempDir = './temp-test/umbrella-write';
+    await umbrella.write(tempDir);
 
-      // Fix generated chart templates after writing
-      fixChartTemplates(tempDir);
-    }).not.toThrow();
+    // Fix generated chart templates after writing
+    fixChartTemplates(tempDir);
 
     // Verify umbrella chart was created
     expect(umbrella).toBeDefined();

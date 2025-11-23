@@ -3,7 +3,7 @@
  * @since 2.8.0+
  */
 
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
 import type { HelmChartMeta } from './helmChartWriter.js';
@@ -67,7 +67,7 @@ export interface UmbrellaRutterProps {
  *   ]
  * });
  *
- * umbrella.write('./my-app');
+ * await umbrella.write('./my-app');
  * ```
  *
  * @since 2.8.0+
@@ -125,12 +125,12 @@ export class UmbrellaRutter {
    *
    * @example
    * ```typescript
-   * umbrella.write('./dist/my-umbrella-chart');
+   * await umbrella.write('./dist/my-umbrella-chart');
    * ```
    *
    * @since 2.8.0+
    */
-  write(outDir: string): void {
+  async write(outDir: string): Promise<void> {
     // Validate output directory path
     const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd(), {
       allowAbsolute: true,
@@ -138,12 +138,12 @@ export class UmbrellaRutter {
 
     // Create output directory structure
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    mkdirSync(validatedOutDir, { recursive: true });
+    await mkdir(validatedOutDir, { recursive: true });
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    mkdirSync(join(validatedOutDir, 'charts'), { recursive: true });
+    await mkdir(join(validatedOutDir, 'charts'), { recursive: true });
 
-    // Write each subchart to charts/ directory
-    for (const subchart of this.props.subcharts) {
+    // Write each subchart to charts/ directory in parallel
+    const subchartPromises = this.props.subcharts.map(async (subchart) => {
       // Validate subchart name using centralized validation
       if (!SecurityUtils.isValidSubchartName(subchart.name)) {
         throw new Error(
@@ -152,23 +152,25 @@ export class UmbrellaRutter {
       }
       const sanitizedName = subchart.name; // Already validated by SecurityUtils
       const subchartDir = join(validatedOutDir, 'charts', sanitizedName);
-      subchart.rutter.write(subchartDir);
-    }
+      await subchart.rutter.write(subchartDir);
+    });
+
+    await Promise.all(subchartPromises);
 
     // Generate parent Chart.yaml with dependencies
-    this.writeParentChart(validatedOutDir);
+    await this.writeParentChart(validatedOutDir);
 
     // Generate parent values.yaml
-    this.writeParentValues(validatedOutDir);
+    await this.writeParentValues(validatedOutDir);
 
     // Generate empty templates directory (umbrella charts typically don't have templates)
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    mkdirSync(join(validatedOutDir, 'templates'), { recursive: true });
+    await mkdir(join(validatedOutDir, 'templates'), { recursive: true });
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    writeFileSync(join(validatedOutDir, 'templates', 'NOTES.txt'), this.generateNotesTemplate());
+    await writeFile(join(validatedOutDir, 'templates', 'NOTES.txt'), this.generateNotesTemplate());
   }
 
-  private writeParentChart(outDir: string): void {
+  private async writeParentChart(outDir: string): Promise<void> {
     const chartYaml = {
       apiVersion: 'v2',
       name: this.props.meta.name,
@@ -193,10 +195,10 @@ export class UmbrellaRutter {
     };
 
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    writeFileSync(join(outDir, 'Chart.yaml'), dumpHelmAwareYaml(chartYaml));
+    await writeFile(join(outDir, 'Chart.yaml'), dumpHelmAwareYaml(chartYaml));
   }
 
-  private writeParentValues(outDir: string): void {
+  private async writeParentValues(outDir: string): Promise<void> {
     const values: Record<string, unknown> = {
       // Global values that can be shared across subcharts
       global: {},
@@ -213,8 +215,10 @@ export class UmbrellaRutter {
       }
     }
 
+    const promises: Promise<void>[] = [];
+
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    writeFileSync(join(outDir, 'values.yaml'), dumpHelmAwareYaml(values));
+    promises.push(writeFile(join(outDir, 'values.yaml'), dumpHelmAwareYaml(values)));
 
     // Write environment-specific values files
     if (this.props.envValues) {
@@ -222,10 +226,14 @@ export class UmbrellaRutter {
         // Use centralized environment name sanitization
         const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(env);
         const envValues = this.deepMerge(values, envVals);
-        // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-        writeFileSync(join(outDir, `values-${sanitizedEnv}.yaml`), dumpHelmAwareYaml(envValues));
+
+        promises.push(
+          writeFile(join(outDir, `values-${sanitizedEnv}.yaml`), dumpHelmAwareYaml(envValues)),
+        );
       }
     }
+
+    await Promise.all(promises);
   }
 
   private deepMerge(

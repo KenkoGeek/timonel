@@ -294,13 +294,13 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOut
   const safeOutDirLiteral = escapeForSingleQuotedLiteral(validatedOutDir);
   let modifiedContent = originalContent.replace(
     /chart\.writeHelmChart\(['"][^'"]*['"]\)/,
-    `chart.writeHelmChart('${safeOutDirLiteral}')`,
+    `await chart.writeHelmChart('${safeOutDirLiteral}')`,
   );
 
   if (modifiedContent === originalContent) {
     modifiedContent = originalContent.replace(
       /chart\.write\(['"][^'"]*['"]\)/,
-      `chart.write('${safeOutDirLiteral}')`,
+      `await chart.write('${safeOutDirLiteral}')`,
     );
   }
 

@@ -3,8 +3,9 @@
  * @since 2.8.0+
  */
 
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
+import { constants } from 'fs';
 
 import { SecurityUtils } from './security.js';
 import { createLogger, type TimonelLogger } from './utils/logger.js';
@@ -132,7 +133,7 @@ export interface HelmChartWriteOptions {
  *
  * @example
  * ```typescript
- * HelmChartWriter.write({
+ * await HelmChartWriter.write({
  *   outDir: './dist/my-chart',
  *   meta: { name: 'my-app', version: '1.0.0' },
  *   assets: []
@@ -147,7 +148,7 @@ export class HelmChartWriter {
    * @throws {Error} If chart cannot be written
    * @since 2.8.0+
    */
-  static write(opts: HelmChartWriteOptions) {
+  static async write(opts: HelmChartWriteOptions): Promise<void> {
     const {
       outDir,
       meta,
@@ -177,19 +178,18 @@ export class HelmChartWriter {
     });
 
     // Create directory structure
-    this.createDirectories(validatedOutDir);
+    await this.createDirectories(validatedOutDir);
 
-    // Write chart files
-    this.writeChartYaml(validatedOutDir, meta);
-
-    this.writeValuesFiles(validatedOutDir, defaultValues, envValues);
-
-    this.writeAssets(validatedOutDir, assets);
-
-    this.writeHelpers(validatedOutDir, helpersTpl);
-    this.writeNotes(validatedOutDir, notesTpl);
-    this.writeSchema(validatedOutDir, valuesSchema);
-    this.writeHelmIgnore(validatedOutDir);
+    // Write chart files in parallel where possible
+    await Promise.all([
+      this.writeChartYaml(validatedOutDir, meta),
+      this.writeValuesFiles(validatedOutDir, defaultValues, envValues),
+      this.writeAssets(validatedOutDir, assets),
+      this.writeHelpers(validatedOutDir, helpersTpl),
+      this.writeNotes(validatedOutDir, notesTpl),
+      this.writeSchema(validatedOutDir, valuesSchema),
+      this.writeHelmIgnore(validatedOutDir),
+    ]);
 
     logger.info('Helm chart write operation completed successfully', {
       chartName: meta.name,
@@ -209,9 +209,9 @@ export class HelmChartWriter {
    * @throws {Error} If directories cannot be created
    * @since 2.8.0+
    */
-  private static createDirectories(outDir: string): void {
+  private static async createDirectories(outDir: string): Promise<void> {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.mkdirSync(path.join(outDir, 'templates'), { recursive: true });
+    await fs.mkdir(path.join(outDir, 'templates'), { recursive: true });
     // Create crds directory only if needed later
   }
 
@@ -224,7 +224,7 @@ export class HelmChartWriter {
    * @throws {Error} If Chart.yaml cannot be written
    * @since 2.8.0+
    */
-  private static writeChartYaml(outDir: string, meta: HelmChartMeta): void {
+  private static async writeChartYaml(outDir: string, meta: HelmChartMeta): Promise<void> {
     const chartYaml = dumpHelmAwareYaml({
       apiVersion: 'v2',
       name: meta.name,
@@ -241,7 +241,7 @@ export class HelmChartWriter {
       dependencies: meta.dependencies,
     });
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(path.join(outDir, 'Chart.yaml'), chartYaml);
+    await fs.writeFile(path.join(outDir, 'Chart.yaml'), chartYaml);
   }
 
   /**
@@ -254,19 +254,26 @@ export class HelmChartWriter {
    * @throws {Error} If values files cannot be written
    * @since 2.8.0+
    */
-  private static writeValuesFiles(
+  private static async writeValuesFiles(
     outDir: string,
     defaultValues: Record<string, unknown>,
     envValues: EnvValuesMap,
-  ): void {
+  ): Promise<void> {
+    const promises: Promise<void>[] = [];
+
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(path.join(outDir, 'values.yaml'), dumpHelmAwareYaml(defaultValues));
+    promises.push(fs.writeFile(path.join(outDir, 'values.yaml'), dumpHelmAwareYaml(defaultValues)));
+
     for (const [env, values] of Object.entries(envValues)) {
       // Use centralized environment name sanitization
       const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(env);
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-      fs.writeFileSync(path.join(outDir, `values-${sanitizedEnv}.yaml`), dumpHelmAwareYaml(values));
+
+      promises.push(
+        fs.writeFile(path.join(outDir, `values-${sanitizedEnv}.yaml`), dumpHelmAwareYaml(values)),
+      );
     }
+
+    await Promise.all(promises);
   }
 
   /**
@@ -277,8 +284,8 @@ export class HelmChartWriter {
    * @param {SynthAsset[]} assets - Kubernetes manifests to write
    * @since 2.8.0+
    */
-  private static writeAssets(outDir: string, assets: SynthAsset[]): void {
-    writeAssets(outDir, assets);
+  private static async writeAssets(outDir: string, assets: SynthAsset[]): Promise<void> {
+    await writeAssets(outDir, assets);
   }
 
   /**
@@ -289,7 +296,10 @@ export class HelmChartWriter {
    * @param {string | HelperDefinition[]} [helpersTpl] - Helpers content
    * @since 2.8.0+
    */
-  private static writeHelpers(outDir: string, helpersTpl?: string | HelperDefinition[]): void {
+  private static async writeHelpers(
+    outDir: string,
+    helpersTpl?: string | HelperDefinition[],
+  ): Promise<void> {
     if (!helpersTpl) return;
 
     let content = '';
@@ -303,7 +313,7 @@ export class HelmChartWriter {
         .join('\n');
     }
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(path.join(outDir, 'templates', '_helpers.tpl'), content);
+    await fs.writeFile(path.join(outDir, 'templates', '_helpers.tpl'), content);
   }
 
   /**
@@ -314,11 +324,11 @@ export class HelmChartWriter {
    * @param {string} [notesTpl] - Notes content
    * @since 2.8.0+
    */
-  private static writeNotes(outDir: string, notesTpl?: string): void {
+  private static async writeNotes(outDir: string, notesTpl?: string): Promise<void> {
     if (!notesTpl) return;
 
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(
+    await fs.writeFile(
       path.join(outDir, 'templates', 'NOTES.txt'),
       notesTpl.endsWith('\n') ? notesTpl : notesTpl + '\n',
     );
@@ -332,11 +342,14 @@ export class HelmChartWriter {
    * @param {Record<string, unknown>} [valuesSchema] - JSON schema
    * @since 2.8.0+
    */
-  private static writeSchema(outDir: string, valuesSchema?: Record<string, unknown>): void {
+  private static async writeSchema(
+    outDir: string,
+    valuesSchema?: Record<string, unknown>,
+  ): Promise<void> {
     if (!valuesSchema) return;
 
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(
+    await fs.writeFile(
       path.join(outDir, 'values.schema.json'),
       JSON.stringify(valuesSchema, null, 2) + '\n',
     );
@@ -349,10 +362,12 @@ export class HelmChartWriter {
    * @param {string} outDir - Output directory path
    * @since 2.8.0+
    */
-  private static writeHelmIgnore(outDir: string): void {
+  private static async writeHelmIgnore(outDir: string): Promise<void> {
     const helmIgnorePath = path.join(outDir, '.helmignore');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    if (!fs.existsSync(helmIgnorePath)) {
+    try {
+      await fs.access(helmIgnorePath, constants.F_OK);
+    } catch {
+      // File does not exist, create it
       const helmIgnore = [
         '# VCS',
         '.git/',
@@ -376,7 +391,7 @@ export class HelmChartWriter {
         '',
       ].join('\n');
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-      fs.writeFileSync(helmIgnorePath, helmIgnore);
+      await fs.writeFile(helmIgnorePath, helmIgnore);
     }
   }
 }
@@ -405,23 +420,31 @@ function splitDocs(yamlStr: string): string[] {
  * @throws {Error} If asset ID contains invalid characters
  * @since 2.8.0+
  */
-function writeAssets(outDir: string, assets: SynthAsset[]) {
-  for (const asset of assets) {
+async function writeAssets(outDir: string, assets: SynthAsset[]): Promise<void> {
+  const promises = assets.map(async (asset) => {
     const targetDir = getTargetDirectory(asset.target);
 
     try {
       const { directorySegments, fileBaseName } = resolveAssetPath(asset.id);
 
       if (asset.singleFile) {
-        writeSingleAssetFile(outDir, targetDir, directorySegments, fileBaseName, asset.yaml);
+        await writeSingleAssetFile(outDir, targetDir, directorySegments, fileBaseName, asset.yaml);
       } else {
-        writeMultipleAssetFiles(outDir, targetDir, directorySegments, fileBaseName, asset.yaml);
+        await writeMultipleAssetFiles(
+          outDir,
+          targetDir,
+          directorySegments,
+          fileBaseName,
+          asset.yaml,
+        );
       }
     } catch (error) {
       console.error(`Failed to write asset ${asset.id}:`, error);
       throw error;
     }
-  }
+  });
+
+  await Promise.all(promises);
 }
 
 /**
@@ -446,23 +469,23 @@ function getTargetDirectory(target?: 'templates' | 'crds'): string {
  * @param {string} yaml - YAML content
  * @since 2.8.0+
  */
-function writeSingleAssetFile(
+async function writeSingleAssetFile(
   outDir: string,
   targetDir: string,
   directorySegments: string[],
   fileBaseName: string,
   yaml: string,
-): void {
+): Promise<void> {
   const chartSubdir = path.join(outDir, targetDir, ...directorySegments);
   SecurityUtils.validatePath(chartSubdir, outDir);
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-  fs.mkdirSync(chartSubdir, { recursive: true });
+  await fs.mkdir(chartSubdir, { recursive: true });
 
   const filename = `${fileBaseName}.yaml`;
   const absolutePath = path.join(chartSubdir, filename);
   SecurityUtils.validatePath(absolutePath, outDir);
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-  fs.writeFileSync(absolutePath, yaml.endsWith('\n') ? yaml : `${yaml}\n`);
+  await fs.writeFile(absolutePath, yaml.endsWith('\n') ? yaml : `${yaml}\n`);
 }
 
 /**
@@ -475,27 +498,29 @@ function writeSingleAssetFile(
  * @param {string} yaml - YAML content with potential multiple documents
  * @since 2.8.0+
  */
-function writeMultipleAssetFiles(
+async function writeMultipleAssetFiles(
   outDir: string,
   targetDir: string,
   directorySegments: string[],
   fileBaseName: string,
   yaml: string,
-): void {
+): Promise<void> {
   const chartSubdir = path.join(outDir, targetDir, ...directorySegments);
   SecurityUtils.validatePath(chartSubdir, outDir);
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-  fs.mkdirSync(chartSubdir, { recursive: true });
+  await fs.mkdir(chartSubdir, { recursive: true });
 
   const parts = splitDocs(yaml);
-  parts.forEach((doc, index) => {
+  const promises = parts.map((doc, index) => {
     const suffix = parts.length > 1 ? `-${index + 1}` : '';
     const filename = `${fileBaseName}${suffix}.yaml`;
     const absolutePath = path.join(chartSubdir, filename);
     SecurityUtils.validatePath(absolutePath, outDir);
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(absolutePath, doc.endsWith('\n') ? doc : `${doc}\n`);
+    return fs.writeFile(absolutePath, doc.endsWith('\n') ? doc : `${doc}\n`);
   });
+
+  await Promise.all(promises);
 }
 
 /**

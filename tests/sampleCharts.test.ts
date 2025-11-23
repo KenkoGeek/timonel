@@ -103,11 +103,11 @@ describe('sample chart generation', () => {
     rmSync(workDir, { recursive: true, force: true });
   });
 
-  it('creates a simple application chart', () => {
+  it('creates a simple application chart', async () => {
     const chart = createWebServiceChart('simple-web', 'nginx:1.27', 80);
     const chartDir = join(workDir, 'simple-web');
 
-    chart.write(chartDir);
+    await chart.write(chartDir);
 
     expect(existsSync(join(chartDir, 'Chart.yaml'))).toBe(true);
     expect(existsSync(join(chartDir, 'templates', 'simple-web-deployment.yaml'))).toBe(true);
@@ -146,7 +146,7 @@ describe('sample chart generation', () => {
     expect(values).toContain('port: 80');
   });
 
-  it('creates an umbrella chart with two services', () => {
+  it('creates an umbrella chart with two services', async () => {
     const frontend = createWebServiceChart('frontend', 'nginx:1.27', 80);
     const backend = createWebServiceChart('backend', 'kennethreitz/httpbin', 8080);
 
@@ -168,7 +168,7 @@ describe('sample chart generation', () => {
     });
 
     const umbrellaDir = join(workDir, 'demo-umbrella');
-    umbrella.write(umbrellaDir);
+    await umbrella.write(umbrellaDir);
 
     expect(existsSync(join(umbrellaDir, 'charts', 'frontend', 'Chart.yaml'))).toBe(true);
     expect(existsSync(join(umbrellaDir, 'charts', 'backend', 'Chart.yaml'))).toBe(true);

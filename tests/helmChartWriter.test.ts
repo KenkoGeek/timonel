@@ -21,8 +21,8 @@ describe('HelmChartWriter asset identifier handling', () => {
     rmSync(workDir, { recursive: true, force: true });
   });
 
-  it('preserves dots and hyphens in manifest filenames', () => {
-    HelmChartWriter.write({
+  it('preserves dots and hyphens in manifest filenames', async () => {
+    await HelmChartWriter.write({
       outDir: workDir,
       meta: { name: 'test-chart', version: '0.0.0' },
       defaultValues: {},
@@ -39,8 +39,8 @@ describe('HelmChartWriter asset identifier handling', () => {
     expect(existsSync(join(workDir, 'templates', 'deployment.v1.yaml'))).toBe(true);
   });
 
-  it('supports nested asset directories without traversal', () => {
-    HelmChartWriter.write({
+  it('supports nested asset directories without traversal', async () => {
+    await HelmChartWriter.write({
       outDir: workDir,
       meta: { name: 'test-chart', version: '0.0.0' },
       defaultValues: {},
