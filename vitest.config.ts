@@ -21,18 +21,6 @@ export default defineConfig({
         'vitest.config.ts',
         'vitest.integration.config.ts',
         'pnpm-lock.yaml',
-        'src/cli.ts',
-        'src/lib/helm.ts',
-        'src/lib/helmChartWriter.ts',
-        'src/lib/rutter.ts',
-        'src/lib/security.ts',
-        'src/lib/utils/logger.ts',
-        'src/lib/utils/helmSerializer.ts',
-        'src/lib/templates/**',
-        'src/lib/resources/**',
-        'src/lib/types.ts',
-        'src/lib/umbrella.ts',
-        'src/lib/umbrellaRutter.ts',
       ],
       thresholds: {
         global: {
