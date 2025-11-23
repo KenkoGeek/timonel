@@ -1,5 +1,7 @@
 import type { Chart } from 'cdk8s';
 
+import type { TimonelLogger } from './utils/logger.js';
+
 export interface ChartProps {
   name: string;
   version: string;
@@ -22,6 +24,11 @@ export interface ChartProps {
   }>;
   // Allow any additional properties for flexibility
   [key: string]: unknown;
+  /**
+   * Custom logger instance
+   * @since 2.13.0
+   */
+  logger?: TimonelLogger;
 }
 
 export interface SubchartProps {
