@@ -8,6 +8,7 @@ import { join } from 'path';
 
 import type { HelmChartMeta } from './helmChartWriter.js';
 import type { Rutter } from './rutter.js';
+import { createLogger, type TimonelLogger } from './utils/logger.js';
 import { SecurityUtils } from './security.js';
 import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
 
@@ -43,6 +44,11 @@ export interface UmbrellaRutterProps {
   subcharts: SubchartSpec[];
   /** Default values for the umbrella chart */
   defaultValues?: Record<string, unknown>;
+  /**
+   * Custom logger instance
+   * @since 2.13.0
+   */
+  logger?: TimonelLogger;
   /** Environment-specific values */
   envValues?: Record<string, Record<string, unknown>>;
 }
@@ -68,6 +74,7 @@ export interface UmbrellaRutterProps {
  */
 export class UmbrellaRutter {
   private readonly props: UmbrellaRutterProps;
+  private readonly logger: TimonelLogger;
 
   /**
    * Creates a new UmbrellaRutter instance
@@ -78,6 +85,13 @@ export class UmbrellaRutter {
    * @since 2.8.0+
    */
   constructor(props: UmbrellaRutterProps) {
+    this.logger = props.logger ?? createLogger('umbrella-rutter');
+    this.logger.info('Initializing umbrella chart', {
+      name: props.meta.name,
+      version: props.meta.version,
+      subchartsCount: props.subcharts.length,
+    });
+
     // Validate chart metadata
     this.validateMetadata(props.meta);
     this.props = props;
