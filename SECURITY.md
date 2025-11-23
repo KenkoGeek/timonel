@@ -35,12 +35,12 @@
 We provide security updates for the following versions:
 
 | Version | Supported      | Security Updates | End of Life |
-| ------- | -------------- | ---------------- | ----------- |
-| 2.4.0+  | ✅ Current     | Full support     | TBD         |
-| 2.3.x   | ✅ Supported   | Full support     | TBD         |
+|---------|----------------|------------------|------------ |
+| 2.4.0+  | ✅ Current      | Full support     | TBD         |
+| 2.3.x   | ✅ Supported    | Full support     | TBD         |
 | 2.0-2.2 | ⚠️ Limited     | Critical only    | 2024-12-31  |
-| 1.x.x   | ❌ End of life | None             | 2024-06-30  |
-| < 1.0   | ❌ End of life | None             | 2024-01-01  |
+| 1.x.x   | ❌ End of life  | None             | 2024-06-30  |
+| < 1.0   | ❌ End of life  | None             | 2024-01-01  |
 
 **Update policy:**
 
