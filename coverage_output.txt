@@ -1,0 +1,872 @@
+
+> timonel@2.12.2 test:coverage /Users/franklingarcia/Work/Personal/timonel
+> vitest run --coverage
+
+
+ RUN  v3.2.4 /Users/franklingarcia/Work/Personal/timonel
+      Coverage enabled with v8
+
+ ✓ tests/securityUtils.test.ts (36 tests) 8ms
+ ✓ tests/helmYamlSerializer.test.ts (17 tests) 5ms
+{"level":30,"time":"2025-11-23T04:21:30.298Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-Le1H5x","assetCount":1,"operation":"helm_write_start","timestamp":"2025-11-23T04:21:30.298Z","msg":"Starting Helm chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.302Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-Le1H5x","operation":"helm_write_complete","timestamp":"2025-11-23T04:21:30.302Z","msg":"Helm chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.304Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-8YOn47","assetCount":1,"operation":"helm_write_start","timestamp":"2025-11-23T04:21:30.304Z","msg":"Starting Helm chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.303Z","service":"timonel","environment":"test","component":"helm-chart-writer","operation":"helm_chart_write","duration_ms":4.83,"performance":"timing","timestamp":"2025-11-23T04:21:30.303Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.306Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-8YOn47","operation":"helm_write_complete","timestamp":"2025-11-23T04:21:30.306Z","msg":"Helm chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.309Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-oV5prw","assetCount":0,"operation":"helm_write_start","timestamp":"2025-11-23T04:21:30.309Z","msg":"Starting Helm chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.307Z","service":"timonel","environment":"test","component":"helm-chart-writer","operation":"helm_chart_write","duration_ms":2.23,"performance":"timing","timestamp":"2025-11-23T04:21:30.307Z","msg":"Operation completed"}
+{"level":60,"time":"2025-11-23T04:21:30.310Z","service":"timonel","environment":"test","component":"test","operation":"test-operation","correlationId":"test-123","timestamp":"2025-11-23T04:21:30.310Z","msg":"Test fatal message"}
+{"level":30,"time":"2025-11-23T04:21:30.310Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-oV5prw","operation":"helm_write_complete","timestamp":"2025-11-23T04:21:30.310Z","msg":"Helm chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.313Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-I9iyud","assetCount":0,"operation":"helm_write_start","timestamp":"2025-11-23T04:21:30.313Z","msg":"Starting Helm chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.311Z","service":"timonel","environment":"test","component":"helm-chart-writer","operation":"helm_chart_write","duration_ms":1.65,"performance":"timing","timestamp":"2025-11-23T04:21:30.311Z","msg":"Operation completed"}
+{"level":50,"time":"2025-11-23T04:21:30.314Z","service":"timonel","environment":"test","component":"test","operation":"test-operation","userId":"user-123","timestamp":"2025-11-23T04:21:30.314Z","msg":"Test error message"}
+{"level":30,"time":"2025-11-23T04:21:30.315Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-I9iyud","operation":"helm_write_complete","timestamp":"2025-11-23T04:21:30.315Z","msg":"Helm chart write operation completed successfully"}
+{"level":40,"time":"2025-11-23T04:21:30.316Z","service":"timonel","environment":"test","component":"test","operation":"test-operation","chartName":"test-chart","timestamp":"2025-11-23T04:21:30.316Z","msg":"Test warning message"}
+ ❯ tests/helmHelpersIndex.test.ts (17 tests | 1 failed) 15ms
+   ✓ Helm Helpers Index > getNewHelpersByCategory > should return env helpers 2ms
+   ✓ Helm Helpers Index > getNewHelpersByCategory > should return gitops helpers 0ms
+   ✓ Helm Helpers Index > getNewHelpersByCategory > should return observability helpers 0ms
+   ✓ Helm Helpers Index > getNewHelpersByCategory > should return validation helpers 0ms
+   ✓ Helm Helpers Index > getAvailableHelperCategories > should return all available categories 0ms
+   ✓ Helm Helpers Index > getHelpersByCategories > should return helpers for specified categories 0ms
+   ✓ Helm Helpers Index > getHelpersByCategories > should return empty array for empty categories 0ms
+   ✓ Helm Helpers Index > getHelpersByOptions > should return helpers based on options 0ms
+   × Helm Helpers Index > getHelpersByOptions > should return all helpers if no options provided 10ms
+     → expected [] to deeply equal [ …(62) ]
+   ✓ Helm Helpers Index > formatNewHelpers > should format helpers correctly 0ms
+   ✓ Helm Helpers Index > generateNewHelpersTemplate > should generate template with selected helpers 0ms
+   ✓ Helm Helpers Index > getCachedNewHelpersTemplate > should return cached template 0ms
+   ✓ Helm Helpers Index > createNewHelper > should create a new helper definition 0ms
+   ✓ Helm Helpers Index > validateHelperNames > should not throw for valid names 0ms
+   ✓ Helm Helpers Index > validateHelperNames > should throw for invalid names 0ms
+   ✓ Helm Helpers Index > filterHelpersByPattern > should filter helpers by name pattern 0ms
+   ✓ Helm Helpers Index > getHelperStatistics > should return statistics 0ms
+{"level":30,"time":"2025-11-23T04:21:30.316Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-LCMiz9","assetCount":0,"operation":"helm_write_start","timestamp":"2025-11-23T04:21:30.316Z","msg":"Starting Helm chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.315Z","service":"timonel","environment":"test","component":"helm-chart-writer","operation":"helm_chart_write","duration_ms":1.68,"performance":"timing","timestamp":"2025-11-23T04:21:30.315Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.318Z","service":"timonel","environment":"test","component":"test","operation":"test-operation","component":"test-component","timestamp":"2025-11-23T04:21:30.318Z","msg":"Test info message"}
+{"level":30,"time":"2025-11-23T04:21:30.319Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-LCMiz9","operation":"helm_write_complete","timestamp":"2025-11-23T04:21:30.319Z","msg":"Helm chart write operation completed successfully"}
+{"level":20,"time":"2025-11-23T04:21:30.320Z","service":"timonel","environment":"test","component":"test","operation":"test-operation","customField":"custom-value","timestamp":"2025-11-23T04:21:30.320Z","msg":"Test debug message"}
+{"level":30,"time":"2025-11-23T04:21:30.320Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-omxMPm","assetCount":0,"operation":"helm_write_start","timestamp":"2025-11-23T04:21:30.320Z","msg":"Starting Helm chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.319Z","service":"timonel","environment":"test","component":"helm-chart-writer","operation":"helm_chart_write","duration_ms":2.64,"performance":"timing","timestamp":"2025-11-23T04:21:30.319Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.322Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-omxMPm","operation":"helm_write_complete","timestamp":"2025-11-23T04:21:30.322Z","msg":"Helm chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.323Z","service":"timonel","environment":"test","component":"test","timestamp":"2025-11-23T04:21:30.323Z","msg":"Test message without context"}
+{"level":30,"time":"2025-11-23T04:21:30.324Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-RcSzsb","assetCount":0,"operation":"helm_write_start","timestamp":"2025-11-23T04:21:30.324Z","msg":"Starting Helm chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.323Z","service":"timonel","environment":"test","component":"helm-chart-writer","operation":"helm_chart_write","duration_ms":2.31,"performance":"timing","timestamp":"2025-11-23T04:21:30.323Z","msg":"Operation completed"}
+{"level":40,"time":"2025-11-23T04:21:30.325Z","service":"timonel","environment":"test","timestamp":"2025-11-23T04:21:30.325Z","msg":"This should be logged"}
+{"level":30,"time":"2025-11-23T04:21:30.328Z","service":"timonel","environment":"test","component":"test","component":"child-component","correlationId":"child-123","timestamp":"2025-11-23T04:21:30.328Z","msg":"Child logger message"}
+{"level":30,"time":"2025-11-23T04:21:30.328Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-RcSzsb","operation":"helm_write_complete","timestamp":"2025-11-23T04:21:30.328Z","msg":"Helm chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.330Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-iueT4N","assetCount":0,"operation":"helm_write_start","timestamp":"2025-11-23T04:21:30.330Z","msg":"Starting Helm chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.329Z","service":"timonel","environment":"test","component":"helm-chart-writer","operation":"helm_chart_write","duration_ms":4.17,"performance":"timing","timestamp":"2025-11-23T04:21:30.329Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.331Z","service":"timonel","environment":"test","component":"helm-chart-writer","chartName":"test-chart","version":"0.0.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-assets-iueT4N","operation":"helm_write_complete","timestamp":"2025-11-23T04:21:30.331Z","msg":"Helm chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.331Z","service":"timonel","environment":"test","component":"helm-chart-writer","operation":"helm_chart_write","duration_ms":1.06,"performance":"timing","timestamp":"2025-11-23T04:21:30.331Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.340Z","service":"timonel","environment":"test","component":"test","operation":"test-operation","duration_ms":11.11,"performance":"timing","timestamp":"2025-11-23T04:21:30.340Z","msg":"Operation completed"}
+ ✓ tests/helmChartWriter.test.ts (8 tests) 37ms
+{"level":30,"time":"2025-11-23T04:21:30.344Z","service":"timonel","environment":"test","component":"test","operation":"test-operation","password":"[REDACTED]","token":"[REDACTED]","apiKey":"[REDACTED]","normalField":"normal-value","timestamp":"2025-11-23T04:21:30.344Z","msg":"Test with sensitive context"}
+{"level":30,"time":"2025-11-23T04:21:30.346Z","service":"timonel","environment":"test","component":"test","operation":"test-operation","config":{"database":{"password":"db-secret","host":"localhost"},"api":{"token":"api-secret","endpoint":"https://api.example.com"}},"timestamp":"2025-11-23T04:21:30.346Z","msg":"Test with nested sensitive context"}
+{"level":30,"time":"2025-11-23T04:21:30.349Z","service":"timonel","environment":"test","component":"test","username":"testuser","password":"[REDACTED]","email":"test@example.com","secret":"[REDACTED]","token":"[REDACTED]","timestamp":"2025-11-23T04:21:30.349Z","msg":"User data"}
+{"level":30,"time":"2025-11-23T04:21:30.350Z","service":"timonel","environment":"test","component":"test","operation":"test injection","xssAttempt":"<script>alert(\"xss\")</script>","pathTraversal":"../../../etc/passwd","timestamp":"2025-11-23T04:21:30.350Z","msg":"Malicious input test"}
+{"level":50,"time":"2025-11-23T04:21:30.352Z","service":"timonel","environment":"test","component":"test","operation":"error-test","err":{"name":"TestError"},"timestamp":"2025-11-23T04:21:30.352Z","msg":"Error occurred"}
+{"level":50,"time":"2025-11-23T04:21:30.353Z","service":"timonel","environment":"test","component":"test","operation":"custom-error-test","error":{"type":"Object","message":"Custom error message","stack":"","name":"CustomError","code":"ERR_CUSTOM","details":{"field":"value","nested":{"deep":"value"}}},"timestamp":"2025-11-23T04:21:30.353Z","msg":"Custom error occurred"}
+ ✓ tests/logger.test.ts (26 tests) 57ms
+stdout | tests/templates/umbrella-chart.test.ts > UmbrellaChartTemplate > UmbrellaChartTemplate Class > should configure with flexible subcharts
+Added flexible subchart: sub1
+
+stdout | tests/templates/umbrella-chart.test.ts > UmbrellaChartTemplate > UmbrellaChartTemplate Class > should handle function charts
+Added flexible subchart: func-chart
+
+stdout | tests/templates/umbrella-chart.test.ts > UmbrellaChartTemplate > UmbrellaChartTemplate Class > should handle object charts (constructs)
+Added flexible subchart: obj-chart
+
+stdout | tests/templates/umbrella-chart.test.ts > UmbrellaChartTemplate > UmbrellaChartTemplate Class > should write helm chart files
+Added flexible subchart: sub1
+Created flexible Helm chart for subchart: sub1
+
+{"level":30,"time":"2025-11-23T04:21:30.406Z","service":"timonel","environment":"test","component":"rutter","chartName":"rutter-chart","version":"1.0.0","operation":"chart_initialization","timestamp":"2025-11-23T04:21:30.405Z","msg":"Initializing chart"}
+{"level":30,"time":"2025-11-23T04:21:30.407Z","service":"timonel","environment":"test","component":"rutter","chartName":"simple-web","version":"0.1.0","operation":"chart_initialization","timestamp":"2025-11-23T04:21:30.407Z","msg":"Initializing chart"}
+stdout | tests/templates/umbrella-chart.test.ts > UmbrellaChartTemplate > UmbrellaChartTemplate Class > should handle Rutter instance in function chart
+Failed to process subchart rutter-sub: TypeError: Cannot read properties of undefined (reading 'assets')
+    at getAssets [90m(/Users/franklingarcia/Work/Personal/timonel/[39msrc/lib/rutter.ts:662:21[90m)[39m
+    at UmbrellaChartTemplate._processAssets [90m(/Users/franklingarcia/Work/Personal/timonel/[39msrc/lib/templates/umbrella-chart.ts:420:20[90m)[39m
+    at UmbrellaChartTemplate._processRutterInstance [90m(/Users/franklingarcia/Work/Personal/timonel/[39msrc/lib/templates/umbrella-chart.ts:371:10[90m)[39m
+    at UmbrellaChartTemplate._handleFunctionChart [90m(/Users/franklingarcia/Work/Personal/timonel/[39msrc/lib/templates/umbrella-chart.ts:325:14[90m)[39m
+    at UmbrellaChartTemplate._addSubchart [90m(/Users/franklingarcia/Work/Personal/timonel/[39msrc/lib/templates/umbrella-chart.ts:272:14[90m)[39m
+    at [90m/Users/franklingarcia/Work/Personal/timonel/[39msrc/lib/templates/umbrella-chart.ts:235:12
+    at Array.forEach (<anonymous>)
+    at UmbrellaChartTemplate.configure [90m(/Users/franklingarcia/Work/Personal/timonel/[39msrc/lib/templates/umbrella-chart.ts:234:28[90m)[39m
+    at new UmbrellaChartTemplate [90m(/Users/franklingarcia/Work/Personal/timonel/[39msrc/lib/templates/umbrella-chart.ts:197:10[90m)[39m
+    at [90m/Users/franklingarcia/Work/Personal/timonel/[39mtests/templates/umbrella-chart.test.ts:177:30
+Added flexible subchart: rutter-sub
+
+{"level":30,"time":"2025-11-23T04:21:30.407Z","service":"timonel","environment":"test","component":"rutter","chartName":"simple-web","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-6ohor3/simple-web","operation":"chart_write_start","timestamp":"2025-11-23T04:21:30.407Z","msg":"Starting chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.408Z","service":"timonel","environment":"test","component":"rutter","chartName":"simple-web","manifestCount":2,"apiObjectCount":2,"operation":"manifest_processing","timestamp":"2025-11-23T04:21:30.408Z","msg":"Processing manifest objects"}
+{"level":30,"time":"2025-11-23T04:21:30.412Z","service":"timonel","environment":"test","component":"rutter","chartName":"simple-web","totalAssets":2,"additionalAssets":0,"operation":"synthesis_complete","timestamp":"2025-11-23T04:21:30.412Z","msg":"Chart synthesis completed"}
+{"level":30,"time":"2025-11-23T04:21:30.413Z","service":"timonel","environment":"test","component":"rutter","operation":"chart_synthesis","duration_ms":5.07,"performance":"timing","timestamp":"2025-11-23T04:21:30.413Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.413Z","service":"timonel","environment":"test","component":"rutter","chartName":"simple-web","assetCount":2,"operation":"assets_generated","timestamp":"2025-11-23T04:21:30.413Z","msg":"Generated assets for chart"}
+{"level":30,"time":"2025-11-23T04:21:30.413Z","service":"timonel","environment":"test","component":"rutter","chartName":"simple-web","version":"0.1.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-6ohor3/simple-web","assetCount":2,"operation":"helm_write_start","timestamp":"2025-11-23T04:21:30.413Z","msg":"Starting Helm chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.417Z","service":"timonel","environment":"test","component":"rutter","chartName":"simple-web","version":"0.1.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-6ohor3/simple-web","operation":"helm_write_complete","timestamp":"2025-11-23T04:21:30.417Z","msg":"Helm chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.423Z","service":"timonel","environment":"test","component":"rutter","chartName":"frontend","version":"0.1.0","operation":"chart_initialization","timestamp":"2025-11-23T04:21:30.423Z","msg":"Initializing chart"}
+{"level":30,"time":"2025-11-23T04:21:30.424Z","service":"timonel","environment":"test","component":"rutter","chartName":"backend","version":"0.1.0","operation":"chart_initialization","timestamp":"2025-11-23T04:21:30.424Z","msg":"Initializing chart"}
+{"level":30,"time":"2025-11-23T04:21:30.426Z","service":"timonel","environment":"test","component":"umbrella-rutter","name":"demo-umbrella","version":"0.1.0","subchartsCount":2,"timestamp":"2025-11-23T04:21:30.426Z","msg":"Initializing umbrella chart"}
+ ✓ tests/templates/umbrella-chart.test.ts (8 tests) 12ms
+{"level":30,"time":"2025-11-23T04:21:30.417Z","service":"timonel","environment":"test","component":"rutter","operation":"helm_chart_write","duration_ms":3.94,"performance":"timing","timestamp":"2025-11-23T04:21:30.417Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.418Z","service":"timonel","environment":"test","component":"rutter","chartName":"simple-web","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-6ohor3/simple-web","operation":"chart_write_complete","timestamp":"2025-11-23T04:21:30.418Z","msg":"Chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.418Z","service":"timonel","environment":"test","component":"rutter","operation":"chart_write","duration_ms":10.68,"performance":"timing","timestamp":"2025-11-23T04:21:30.418Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.429Z","service":"timonel","environment":"test","component":"rutter","chartName":"frontend","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-0Q7UVP/demo-umbrella/charts/frontend","operation":"chart_write_start","timestamp":"2025-11-23T04:21:30.429Z","msg":"Starting chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.433Z","service":"timonel","environment":"test","component":"rutter","chartName":"backend","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-0Q7UVP/demo-umbrella/charts/backend","operation":"chart_write_start","timestamp":"2025-11-23T04:21:30.433Z","msg":"Starting chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.430Z","service":"timonel","environment":"test","component":"rutter","chartName":"frontend","manifestCount":2,"apiObjectCount":2,"operation":"manifest_processing","timestamp":"2025-11-23T04:21:30.430Z","msg":"Processing manifest objects"}
+{"level":30,"time":"2025-11-23T04:21:30.432Z","service":"timonel","environment":"test","component":"rutter","chartName":"frontend","totalAssets":2,"additionalAssets":0,"operation":"synthesis_complete","timestamp":"2025-11-23T04:21:30.432Z","msg":"Chart synthesis completed"}
+{"level":30,"time":"2025-11-23T04:21:30.432Z","service":"timonel","environment":"test","component":"rutter","operation":"chart_synthesis","duration_ms":2.65,"performance":"timing","timestamp":"2025-11-23T04:21:30.432Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.433Z","service":"timonel","environment":"test","component":"rutter","chartName":"frontend","assetCount":2,"operation":"assets_generated","timestamp":"2025-11-23T04:21:30.433Z","msg":"Generated assets for chart"}
+{"level":30,"time":"2025-11-23T04:21:30.433Z","service":"timonel","environment":"test","component":"rutter","chartName":"frontend","version":"0.1.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-0Q7UVP/demo-umbrella/charts/frontend","assetCount":2,"operation":"helm_write_start","timestamp":"2025-11-23T04:21:30.433Z","msg":"Starting Helm chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.433Z","service":"timonel","environment":"test","component":"rutter","chartName":"backend","manifestCount":2,"apiObjectCount":2,"operation":"manifest_processing","timestamp":"2025-11-23T04:21:30.433Z","msg":"Processing manifest objects"}
+{"level":30,"time":"2025-11-23T04:21:30.434Z","service":"timonel","environment":"test","component":"rutter","chartName":"backend","totalAssets":2,"additionalAssets":0,"operation":"synthesis_complete","timestamp":"2025-11-23T04:21:30.434Z","msg":"Chart synthesis completed"}
+{"level":30,"time":"2025-11-23T04:21:30.434Z","service":"timonel","environment":"test","component":"rutter","operation":"chart_synthesis","duration_ms":1.04,"performance":"timing","timestamp":"2025-11-23T04:21:30.434Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.434Z","service":"timonel","environment":"test","component":"rutter","chartName":"backend","assetCount":2,"operation":"assets_generated","timestamp":"2025-11-23T04:21:30.434Z","msg":"Generated assets for chart"}
+{"level":30,"time":"2025-11-23T04:21:30.434Z","service":"timonel","environment":"test","component":"rutter","chartName":"backend","version":"0.1.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-0Q7UVP/demo-umbrella/charts/backend","assetCount":2,"operation":"helm_write_start","timestamp":"2025-11-23T04:21:30.434Z","msg":"Starting Helm chart write operation"}
+{"level":30,"time":"2025-11-23T04:21:30.451Z","service":"timonel","environment":"test","component":"rutter","chartName":"backend","version":"0.1.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-0Q7UVP/demo-umbrella/charts/backend","operation":"helm_write_complete","timestamp":"2025-11-23T04:21:30.451Z","msg":"Helm chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.451Z","service":"timonel","environment":"test","component":"rutter","chartName":"frontend","version":"0.1.0","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-0Q7UVP/demo-umbrella/charts/frontend","operation":"helm_write_complete","timestamp":"2025-11-23T04:21:30.451Z","msg":"Helm chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.451Z","service":"timonel","environment":"test","component":"rutter","operation":"helm_chart_write","duration_ms":16.58,"performance":"timing","timestamp":"2025-11-23T04:21:30.451Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.451Z","service":"timonel","environment":"test","component":"rutter","chartName":"backend","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-0Q7UVP/demo-umbrella/charts/backend","operation":"chart_write_complete","timestamp":"2025-11-23T04:21:30.451Z","msg":"Chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.451Z","service":"timonel","environment":"test","component":"rutter","operation":"chart_write","duration_ms":18.21,"performance":"timing","timestamp":"2025-11-23T04:21:30.451Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.451Z","service":"timonel","environment":"test","component":"rutter","operation":"helm_chart_write","duration_ms":18.67,"performance":"timing","timestamp":"2025-11-23T04:21:30.451Z","msg":"Operation completed"}
+{"level":30,"time":"2025-11-23T04:21:30.451Z","service":"timonel","environment":"test","component":"rutter","chartName":"frontend","outputDirectory":"/var/folders/by/g1rsthhj2h99vb0d2gc15dv80000gn/T/timonel-samples-0Q7UVP/demo-umbrella/charts/frontend","operation":"chart_write_complete","timestamp":"2025-11-23T04:21:30.451Z","msg":"Chart write operation completed successfully"}
+{"level":30,"time":"2025-11-23T04:21:30.451Z","service":"timonel","environment":"test","component":"rutter","operation":"chart_write","duration_ms":22.2,"performance":"timing","timestamp":"2025-11-23T04:21:30.451Z","msg":"Operation completed"}
+ ✓ tests/sampleCharts.test.ts (2 tests) 57ms
+ ✓ tests/helmHelpersUtils.test.ts (9 tests) 8ms
+ ✓ tests/newHelmHelpers.test.ts (22 tests) 4ms
+stdout | tests/templates/flexible-subchart.test.ts > FlexibleSubchart > FlexibleSubchart Class > should write helm chart files
+Created flexible Helm chart for subchart: test-subchart
+
+ ✓ tests/templates/flexible-subchart.test.ts (8 tests) 6ms
+ ✓ tests/index.test.ts (5 tests) 1ms
+ ✓ tests/cli.test.ts (28 tests) 5918ms
+   ✓ CLI Chart Operations > should synthesize chart successfully  420ms
+   ✓ CLI Chart Operations > should allow synthesis into absolute output directories securely  391ms
+   ✓ CLI Chart Operations > should respect flags that appear after positional arguments  406ms
+   ✓ CLI Chart Operations > should synthesize umbrella chart with dependencies by default  481ms
+   ✓ CLI Chart Operations > should synthesize umbrella chart inline when requested  500ms
+   ✓ CLI Performance and Resource Management > should not leak file handles or memory  698ms
+   ✓ CLI Integration with Helm > should generate valid Helm charts  363ms
+   ✓ CLI Integration with Helm > should handle Helm lint validation  412ms
+ ✓ tests/security.test.ts (35 tests) 8861ms
+   ✓ Security: Input Validation > should prevent path traversal in chart names  877ms
+   ✓ Security: Input Validation > should prevent command injection in chart names  385ms
+   ✓ Security: Input Validation > should sanitize SQL injection attempts  353ms
+   ✓ Security: Input Validation > should prevent XSS in chart names and content  353ms
+   ✓ Security: Input Validation > should handle special characters safely  322ms
+   ✓ Security: File System Protection > should prevent directory traversal in file operations  331ms
+   ✓ Security: File System Protection > should prevent race conditions in file operations  480ms
+   ✓ Security: Data Sanitization > should sanitize log messages containing sensitive patterns  467ms
+   ✓ Security: Resource Exhaustion Protection > should prevent file descriptor exhaustion  1708ms
+   ✓ Security: Injection Attack Prevention > should prevent template injection attacks  335ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/helmHelpersIndex.test.ts > Helm Helpers Index > getHelpersByOptions > should return all helpers if no options provided
+AssertionError: expected [] to deeply equal [ …(62) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   {[39m
+[32m-     "name": "env.required",[39m
+[32m-     "template": "{{- $key := . -}}[39m
+[32m- {{- $value := index .Values.env $key -}}[39m
+[32m- {{- required (printf \"Environment variable %s is required\" $key) $value }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "env.isDev",[39m
+[32m-     "template": "{{- $env := .Values.environment | default \"production\" -}}[39m
+[32m- {{- or (eq $env \"dev\") (eq $env \"development\") }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "env.isProd",[39m
+[32m-     "template": "{{- $env := .Values.environment | default \"production\" -}}[39m
+[32m- {{- or (eq $env \"prod\") (eq $env \"production\") }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "env.isStaging",[39m
+[32m-     "template": "{{- $env := .Values.environment | default \"production\" -}}[39m
+[32m- {{- or (eq $env \"staging\") (eq $env \"stage\") }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "env.isTest",[39m
+[32m-     "template": "{{- $env := .Values.environment | default \"production\" -}}[39m
+[32m- {{- or (eq $env \"test\") (eq $env \"testing\") }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "config.merge",[39m
+[32m-     "template": "{{- $base := .base | default dict -}}[39m
+[32m- {{- $env := .env | default dict -}}[39m
+[32m- {{- $override := .override | default dict -}}[39m
+[32m- {{- merge $override $env $base | toJson }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "config.secretRef",[39m
+[32m-     "template": "{{- if .fromSecret -}}[39m
+[32m- valueFrom:[39m
+[32m-   secretKeyRef:[39m
+[32m-     name: {{ .fromSecret.name }}[39m
+[32m-     key: {{ .fromSecret.key }}[39m
+[32m-     {{- if .fromSecret.optional }}[39m
+[32m-     optional: true[39m
+[32m-     {{- end }}[39m
+[32m- {{- else if .fromConfigMap -}}[39m
+[32m- valueFrom:[39m
+[32m-   configMapKeyRef:[39m
+[32m-     name: {{ .fromConfigMap.name }}[39m
+[32m-     key: {{ .fromConfigMap.key }}[39m
+[32m-     {{- if .fromConfigMap.optional }}[39m
+[32m-     optional: true[39m
+[32m-     {{- end }}[39m
+[32m- {{- else -}}[39m
+[32m- value: {{ .value | quote }}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "config.envFromSource",[39m
+[32m-     "template": "{{- if .configMapRef -}}[39m
+[32m- configMapRef:[39m
+[32m-   name: {{ .configMapRef.name }}[39m
+[32m-   {{- if .configMapRef.optional }}[39m
+[32m-   optional: true[39m
+[32m-   {{- end }}[39m
+[32m- {{- else if .secretRef -}}[39m
+[32m- secretRef:[39m
+[32m-   name: {{ .secretRef.name }}[39m
+[32m-   {{- if .secretRef.optional }}[39m
+[32m-   optional: true[39m
+[32m-   {{- end }}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "config.featureFlag",[39m
+[32m-     "template": "{{- $flag := .flag -}}[39m
+[32m- {{- $default := .default | default false -}}[39m
+[32m- {{- $envKey := printf \"FEATURE_%s\" ($flag | upper) -}}[39m
+[32m- {{- $envFlag := index .Values.env $envKey | default \"\" -}}[39m
+[32m- {{- $valueFlag := index .Values.features $flag | default \"\" -}}[39m
+[32m- {{- if $valueFlag }}[39m
+[32m- {{- $valueFlag }}[39m
+[32m- {{- else if $envFlag }}[39m
+[32m- {{- $envFlag }}[39m
+[32m- {{- else }}[39m
+[32m- {{- $default }}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "config.debugMode",[39m
+[32m-     "template": "{{- $debug := .Values.debug | default (index .Values.env \"DEBUG\") | default false -}}[39m
+[32m- {{- if or $debug (include \"env.isDev\" .) -}}[39m
+[32m- true[39m
+[32m- {{- else -}}[39m
+[32m- false[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "git.commitSha",[39m
+[32m-     "template": "{{- .Values.git.commitSha | default \"unknown\" }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "git.shortSha",[39m
+[32m-     "template": "{{- $sha := include \"git.commitSha\" . -}}[39m
+[32m- {{- if ne $sha \"unknown\" -}}[39m
+[32m- {{- $sha | trunc 8 -}}[39m
+[32m- {{- else -}}[39m
+[32m- unknown[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "git.branch",[39m
+[32m-     "template": "{{- .Values.git.branch | default \"main\" }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "git.tag",[39m
+[32m-     "template": "{{- .Values.git.tag | default \"\" }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "git.repository",[39m
+[32m-     "template": "{{- .Values.git.repository | default \"unknown/repository\" }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "image.tagWithSha",[39m
+[32m-     "template": "{{- $repo := .Values.image.repository -}}[39m
+[32m- {{- $sha := include \"git.shortSha\" . -}}[39m
+[32m- {{- printf \"%s:%s\" $repo $sha }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "image.tagWithVersion",[39m
+[32m-     "template": "{{- $repo := .Values.image.repository -}}[39m
+[32m- {{- $tag := .Values.image.tag | default .Chart.AppVersion | default \"latest\" -}}[39m
+[32m- {{- printf \"%s:%s\" $repo $tag }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "image.tagWithBranch",[39m
+[32m-     "template": "{{- $repo := .Values.image.repository -}}[39m
+[32m- {{- $branch := include \"git.branch\" . | replace \"/\" \"-\" | lower -}}[39m
+[32m- {{- printf \"%s:%s\" $repo $branch }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "ci.buildId",[39m
+[32m-     "template": "{{- .Values.ci.buildId | default \"unknown\" }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "ci.buildUrl",[39m
+[32m-     "template": "{{- .Values.ci.buildUrl | default \"\" }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "ci.jobUrl",[39m
+[32m-     "template": "{{- .Values.ci.jobUrl | default \"\" }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "ci.runner",[39m
+[32m-     "template": "{{- .Values.ci.runner | default \"unknown\" }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "deploy.timestamp",[39m
+[32m-     "template": "{{- now | date \"2006-01-02T15:04:05Z07:00\" }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "deploy.user",[39m
+[32m-     "template": "{{- .Values.deploy.user | default \"automated\" }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "deploy.annotations",[39m
+[32m-     "template": "deployment.kubernetes.io/revision: \"{{ .Release.Revision }}\"[39m
+[32m- app.kubernetes.io/version: \"{{ .Chart.AppVersion }}\"[39m
+[32m- app.kubernetes.io/part-of: \"{{ .Values.application.name | default .Chart.Name }}\"[39m
+[32m- git.commit: \"{{ include \"git.commitSha\" . }}\"[39m
+[32m- git.branch: \"{{ include \"git.branch\" . }}\"[39m
+[32m- git.repository: \"{{ include \"git.repository\" . }}\"[39m
+[32m- ci.build-id: \"{{ include \"ci.buildId\" . }}\"[39m
+[32m- ci.build-url: \"{{ include \"ci.buildUrl\" . }}\"[39m
+[32m- deploy.timestamp: \"{{ include \"deploy.timestamp\" . }}\"[39m
+[32m- deploy.user: \"{{ include \"deploy.user\" . }}\"",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "deploy.labels",[39m
+[32m-     "template": "app.kubernetes.io/version: \"{{ .Chart.AppVersion }}\"[39m
+[32m- app.kubernetes.io/component: \"{{ .Values.component | default \"application\" }}\"[39m
+[32m- app.kubernetes.io/part-of: \"{{ .Values.application.name | default .Chart.Name }}\"[39m
+[32m- git.branch: \"{{ include \"git.branch\" . | replace \"/\" \"-\" | lower }}\"[39m
+[32m- environment: \"{{ .Values.environment | default \"development\" }}\"",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "semver.parse",[39m
+[32m-     "template": "{{- $version := . -}}[39m
+[32m- {{- $parts := regexSplit \"\\\\.\" $version -1 -}}[39m
+[32m- {{- if eq (len $parts) 3 -}}[39m
+[32m- {{- printf \"{\\\"major\\\": %s, \\\"minor\\\": %s, \\\"patch\\\": %s}\" (index $parts 0) (index $parts 1) (index $parts 2) -}}[39m
+[32m- {{- else -}}[39m
+[32m- {{- printf \"{\\\"major\\\": 0, \\\"minor\\\": 0, \\\"patch\\\": 0}\" -}}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "semver.bump",[39m
+[32m-     "template": "{{- $version := .version -}}[39m
+[32m- {{- $type := .type | default \"patch\" -}}[39m
+[32m- {{- $parts := regexSplit \"\\\\.\" $version -1 -}}[39m
+[32m- {{- if eq (len $parts) 3 -}}[39m
+[32m- {{- $major := index $parts 0 | int -}}[39m
+[32m- {{- $minor := index $parts 1 | int -}}[39m
+[32m- {{- $patch := index $parts 2 | int -}}[39m
+[32m- {{- if eq $type \"major\" -}}[39m
+[32m- {{- printf \"%d.0.0\" (add $major 1) -}}[39m
+[32m- {{- else if eq $type \"minor\" -}}[39m
+[32m- {{- printf \"%d.%d.0\" $major (add $minor 1) -}}[39m
+[32m- {{- else -}}[39m
+[32m- {{- printf \"%d.%d.%d\" $major $minor (add $patch 1) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- else -}}[39m
+[32m- {{- fail (printf \"Invalid semantic version: %s\" $version) -}}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "rollout.canaryWeight",[39m
+[32m-     "template": "{{- $weight := .Values.rollout.canary.weight | default 10 -}}[39m
+[32m- {{- $env := .Values.environment | default \"development\" -}}[39m
+[32m- {{- if eq $env \"production\" -}}[39m
+[32m- {{- min $weight 5 -}}[39m
+[32m- {{- else if eq $env \"staging\" -}}[39m
+[32m- {{- min $weight 50 -}}[39m
+[32m- {{- else -}}[39m
+[32m- {{- $weight -}}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "monitoring.serviceMonitor",[39m
+[32m-     "template": "{{- if and .Values.serviceMonitor.enabled .Values.metrics.enabled -}}[39m
+[32m- apiVersion: monitoring.coreos.com/v1[39m
+[32m- kind: ServiceMonitor[39m
+[32m- metadata:[39m
+[32m-   name: {{ include \"chart.fullname\" . }}[39m
+[32m-   namespace: {{ .Release.Namespace }}[39m
+[32m-   labels:[39m
+[32m-     {{- include \"chart.labels\" . | nindent 4 }}[39m
+[32m-     {{- with .Values.serviceMonitor.labels }}[39m
+[32m-     {{- toYaml . | nindent 4 }}[39m
+[32m-     {{- end }}[39m
+[32m-   {{- with .Values.serviceMonitor.annotations }}[39m
+[32m-   annotations:[39m
+[32m-     {{- toYaml . | nindent 4 }}[39m
+[32m-   {{- end }}[39m
+[32m- spec:[39m
+[32m-   selector:[39m
+[32m-     matchLabels:[39m
+[32m-       {{- include \"chart.selectorLabels\" . | nindent 6 }}[39m
+[32m-       {{- with .Values.serviceMonitor.selector }}[39m
+[32m-       {{- toYaml . | nindent 6 }}[39m
+[32m-       {{- end }}[39m
+[32m-   endpoints:[39m
+[32m-     - port: {{ .Values.metrics.port | default \"metrics\" }}[39m
+[32m-       path: {{ .Values.metrics.path | default \"/metrics\" }}[39m
+[32m-       interval: {{ .Values.serviceMonitor.interval | default \"30s\" }}[39m
+[32m-       scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout | default \"10s\" }}[39m
+[32m-       {{- with .Values.serviceMonitor.metricRelabelings }}[39m
+[32m-       metricRelabelings:[39m
+[32m-         {{- toYaml . | nindent 8 }}[39m
+[32m-       {{- end }}[39m
+[32m-       {{- with .Values.serviceMonitor.relabelings }}[39m
+[32m-       relabelings:[39m
+[32m-         {{- toYaml . | nindent 8 }}[39m
+[32m-       {{- end }}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "monitoring.prometheusRule",[39m
+[32m-     "template": "{{- if .Values.prometheusRule.enabled -}}[39m
+[32m- apiVersion: monitoring.coreos.com/v1[39m
+[32m- kind: PrometheusRule[39m
+[32m- metadata:[39m
+[32m-   name: {{ include \"chart.fullname\" . }}[39m
+[32m-   namespace: {{ .Release.Namespace }}[39m
+[32m-   labels:[39m
+[32m-     {{- include \"chart.labels\" . | nindent 4 }}[39m
+[32m-     {{- with .Values.prometheusRule.labels }}[39m
+[32m-     {{- toYaml . | nindent 4 }}[39m
+[32m-     {{- end }}[39m
+[32m- spec:[39m
+[32m-   groups:[39m
+[32m-     - name: {{ include \"chart.fullname\" . }}[39m
+[32m-       rules:[39m
+[32m-         {{- with .Values.prometheusRule.rules }}[39m
+[32m-         {{- toYaml . | nindent 8 }}[39m
+[32m-         {{- end }}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "tracing.jaegerConfig",[39m
+[32m-     "template": "{{- if .Values.tracing.enabled -}}[39m
+[32m- JAEGER_AGENT_HOST: {{ .Values.tracing.jaeger.agent.host | default \"jaeger-agent\" }}[39m
+[32m- JAEGER_AGENT_PORT: {{ .Values.tracing.jaeger.agent.port | default \"6831\" }}[39m
+[32m- JAEGER_ENDPOINT: {{ .Values.tracing.jaeger.endpoint | default \"\" }}[39m
+[32m- JAEGER_SERVICE_NAME: {{ include \"chart.fullname\" . }}[39m
+[32m- JAEGER_SAMPLER_TYPE: {{ .Values.tracing.jaeger.sampler.type | default \"const\" }}[39m
+[32m- JAEGER_SAMPLER_PARAM: {{ .Values.tracing.jaeger.sampler.param | default \"1\" }}[39m
+[32m- JAEGER_REPORTER_MAX_QUEUE_SIZE: {{ .Values.tracing.jaeger.reporter.maxQueueSize | default \"100\" }}[39m
+[32m- JAEGER_REPORTER_FLUSH_INTERVAL: {{ .Values.tracing.jaeger.reporter.flushInterval | default \"1s\" }}[39m
+[32m- {{- with .Values.tracing.jaeger.tags }}[39m
+[32m- JAEGER_TAGS: {{ . | join \",\" }}[39m
+[32m- {{- end }}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "tracing.otlpConfig",[39m
+[32m-     "template": "{{- if .Values.tracing.enabled -}}[39m
+[32m- OTEL_SERVICE_NAME: {{ include \"chart.fullname\" . }}[39m
+[32m- OTEL_SERVICE_VERSION: {{ .Chart.AppVersion }}[39m
+[32m- OTEL_RESOURCE_ATTRIBUTES: service.name={{ include \"chart.fullname\" . }},service.version={{ .Chart.AppVersion }},deployment.environment={{ .Values.environment | default \"development\" }}[39m
+[32m- {{- if .Values.tracing.otlp.endpoint }}[39m
+[32m- OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.tracing.otlp.endpoint }}[39m
+[32m- {{- end }}[39m
+[32m- {{- if .Values.tracing.otlp.headers }}[39m
+[32m- OTEL_EXPORTER_OTLP_HEADERS: {{ .Values.tracing.otlp.headers | join \",\" }}[39m
+[32m- {{- end }}[39m
+[32m- OTEL_TRACES_SAMPLER: {{ .Values.tracing.otlp.sampler | default \"parentbased_traceidratio\" }}[39m
+[32m- OTEL_TRACES_SAMPLER_ARG: {{ .Values.tracing.otlp.samplerArg | default \"1.0\" }}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "logging.structured",[39m
+[32m-     "template": "LOG_LEVEL: {{ .Values.logging.level | default \"info\" }}[39m
+[32m- LOG_FORMAT: {{ .Values.logging.format | default \"json\" }}[39m
+[32m- {{- if .Values.logging.correlation.enabled }}[39m
+[32m- LOG_CORRELATION_ENABLED: \"true\"[39m
+[32m- LOG_CORRELATION_HEADER: {{ .Values.logging.correlation.header | default \"X-Correlation-ID\" }}[39m
+[32m- {{- end }}[39m
+[32m- {{- if .Values.logging.sampling.enabled }}[39m
+[32m- LOG_SAMPLING_ENABLED: \"true\"[39m
+[32m- LOG_SAMPLING_RATE: {{ .Values.logging.sampling.rate | default \"0.1\" }}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "logging.fluentdConfig",[39m
+[32m-     "template": "{{- if .Values.logging.fluentd.enabled -}}[39m
+[32m- FLUENTD_HOST: {{ .Values.logging.fluentd.host | default \"fluentd\" }}[39m
+[32m- FLUENTD_PORT: {{ .Values.logging.fluentd.port | default \"24224\" }}[39m
+[32m- FLUENTD_TAG: {{ .Values.logging.fluentd.tag | default (include \"chart.fullname\" .) }}[39m
+[32m- FLUENTD_BUFFER_LIMIT: {{ .Values.logging.fluentd.bufferLimit | default \"8MB\" }}[39m
+[32m- FLUENTD_TIMEOUT: {{ .Values.logging.fluentd.timeout | default \"3.0\" }}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "metrics.annotations",[39m
+[32m-     "template": "{{- if .Values.metrics.enabled -}}[39m
+[32m- prometheus.io/scrape: \"true\"[39m
+[32m- prometheus.io/port: \"{{ .Values.metrics.port | default 9090 }}\"[39m
+[32m- prometheus.io/path: \"{{ .Values.metrics.path | default \"/metrics\" }}\"[39m
+[32m- {{- if .Values.metrics.scheme }}[39m
+[32m- prometheus.io/scheme: \"{{ .Values.metrics.scheme }}\"[39m
+[32m- {{- end }}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "health.probes",[39m
+[32m-     "template": "{{- $healthPath := .Values.health.path | default \"/health\" -}}[39m
+[32m- {{- $readyPath := .Values.health.readiness.path | default \"/ready\" -}}[39m
+[32m- {{- $port := .Values.service.port | default 8080 -}}[39m
+[32m- livenessProbe:[39m
+[32m-   httpGet:[39m
+[32m-     path: {{ $healthPath }}[39m
+[32m-     port: {{ $port }}[39m
+[32m-     {{- if .Values.health.liveness.httpHeaders }}[39m
+[32m-     httpHeaders:[39m
+[32m-       {{- toYaml .Values.health.liveness.httpHeaders | nindent 6 }}[39m
+[32m-     {{- end }}[39m
+[32m-   initialDelaySeconds: {{ .Values.health.liveness.initialDelaySeconds | default 30 }}[39m
+[32m-   periodSeconds: {{ .Values.health.liveness.periodSeconds | default 10 }}[39m
+[32m-   timeoutSeconds: {{ .Values.health.liveness.timeoutSeconds | default 5 }}[39m
+[32m-   successThreshold: {{ .Values.health.liveness.successThreshold | default 1 }}[39m
+[32m-   failureThreshold: {{ .Values.health.liveness.failureThreshold | default 3 }}[39m
+[32m- readinessProbe:[39m
+[32m-   httpGet:[39m
+[32m-     path: {{ $readyPath }}[39m
+[32m-     port: {{ $port }}[39m
+[32m-     {{- if .Values.health.readiness.httpHeaders }}[39m
+[32m-     httpHeaders:[39m
+[32m-       {{- toYaml .Values.health.readiness.httpHeaders | nindent 6 }}[39m
+[32m-     {{- end }}[39m
+[32m-   initialDelaySeconds: {{ .Values.health.readiness.initialDelaySeconds | default 5 }}[39m
+[32m-   periodSeconds: {{ .Values.health.readiness.periodSeconds | default 5 }}[39m
+[32m-   timeoutSeconds: {{ .Values.health.readiness.timeoutSeconds | default 3 }}[39m
+[32m-   successThreshold: {{ .Values.health.readiness.successThreshold | default 1 }}[39m
+[32m-   failureThreshold: {{ .Values.health.readiness.failureThreshold | default 3 }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "health.startupProbe",[39m
+[32m-     "template": "{{- if .Values.health.startup.enabled -}}[39m
+[32m- {{- $startupPath := .Values.health.startup.path | default \"/health\" -}}[39m
+[32m- {{- $port := .Values.service.port | default 8080 -}}[39m
+[32m- startupProbe:[39m
+[32m-   httpGet:[39m
+[32m-     path: {{ $startupPath }}[39m
+[32m-     port: {{ $port }}[39m
+[32m-     {{- if .Values.health.startup.httpHeaders }}[39m
+[32m-     httpHeaders:[39m
+[32m-       {{- toYaml .Values.health.startup.httpHeaders | nindent 6 }}[39m
+[32m-     {{- end }}[39m
+[32m-   initialDelaySeconds: {{ .Values.health.startup.initialDelaySeconds | default 10 }}[39m
+[32m-   periodSeconds: {{ .Values.health.startup.periodSeconds | default 10 }}[39m
+[32m-   timeoutSeconds: {{ .Values.health.startup.timeoutSeconds | default 5 }}[39m
+[32m-   successThreshold: {{ .Values.health.startup.successThreshold | default 1 }}[39m
+[32m-   failureThreshold: {{ .Values.health.startup.failureThreshold | default 30 }}[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "alerting.rules",[39m
+[32m-     "template": "{{- $serviceName := include \"chart.fullname\" . -}}[39m
+[32m- - alert: {{ $serviceName }}HighErrorRate[39m
+[32m-   expr: rate(http_requests_total{job=\"{{ $serviceName }}\", status=~\"5..\"}[5m]) > 0.1[39m
+[32m-   for: 5m[39m
+[32m-   labels:[39m
+[32m-     severity: critical[39m
+[32m-     service: {{ $serviceName }}[39m
+[32m-   annotations:[39m
+[32m-     summary: \"High error rate detected\"[39m
+[32m-     description: \"{{ $serviceName }} has error rate above 10% for more than 5 minutes\"[39m
+[32m-[39m
+[32m- - alert: {{ $serviceName }}HighLatency[39m
+[32m-   expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"{{ $serviceName }}\"}[5m])) > 0.5[39m
+[32m-   for: 5m[39m
+[32m-   labels:[39m
+[32m-     severity: warning[39m
+[32m-     service: {{ $serviceName }}[39m
+[32m-   annotations:[39m
+[32m-     summary: \"High latency detected\"[39m
+[32m-     description: \"{{ $serviceName }} 95th percentile latency is above 500ms\"[39m
+[32m-[39m
+[32m- - alert: {{ $serviceName }}LowAvailability[39m
+[32m-   expr: avg_over_time(up{job=\"{{ $serviceName }}\"}[5m]) < 0.9[39m
+[32m-   for: 2m[39m
+[32m-   labels:[39m
+[32m-     severity: critical[39m
+[32m-     service: {{ $serviceName }}[39m
+[32m-   annotations:[39m
+[32m-     summary: \"Service availability is low\"[39m
+[32m-     description: \"{{ $serviceName }} availability is below 90%\"",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "dashboard.annotations",[39m
+[32m-     "template": "{{- if .Values.grafana.dashboard.enabled -}}[39m
+[32m- grafana.io/dashboard: \"{{ .Values.grafana.dashboard.id | default (include \"chart.fullname\" .) }}\"[39m
+[32m- grafana.io/folder: \"{{ .Values.grafana.dashboard.folder | default \"applications\" }}\"[39m
+[32m- {{- end }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.semver",[39m
+[32m-     "template": "{{- $version := . -}}[39m
+[32m- {{- if not (regexMatch \"^(0|[1-9]\\\\d*)\\\\.(0|[1-9]\\\\d*)\\\\.(0|[1-9]\\\\d*)(?:-((?:0|[1-9]\\\\d*|\\\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\\\.(?:0|[1-9]\\\\d*|\\\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\\\+([0-9a-zA-Z-]+(?:\\\\.[0-9a-zA-Z-]+)*))?$\" $version) -}}[39m
+[32m- {{- fail (printf \"Invalid semantic version: %s. Must follow semver format (e.g., 1.2.3, 1.0.0-alpha.1)\" $version) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $version }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.k8sName",[39m
+[32m-     "template": "{{- $name := . -}}[39m
+[32m- {{- if not (regexMatch \"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$\" $name) -}}[39m
+[32m- {{- fail (printf \"Invalid Kubernetes resource name: %s. Must be lowercase alphanumeric with hyphens, starting and ending with alphanumeric characters\" $name) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- if gt (len $name) 63 -}}[39m
+[32m- {{- fail (printf \"Kubernetes resource name too long: %s. Maximum 63 characters allowed\" $name) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $name }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.dnsLabel",[39m
+[32m-     "template": "{{- $label := . -}}[39m
+[32m- {{- if not (regexMatch \"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$\" $label) -}}[39m
+[32m- {{- fail (printf \"Invalid DNS label: %s. Must be lowercase alphanumeric with hyphens\" $label) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- if gt (len $label) 63 -}}[39m
+[32m- {{- fail (printf \"DNS label too long: %s. Maximum 63 characters allowed\" $label) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $label }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.email",[39m
+[32m-     "template": "{{- $email := . -}}[39m
+[32m- {{- if not (regexMatch \"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,}$\" $email) -}}[39m
+[32m- {{- fail (printf \"Invalid email address: %s\" $email) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $email }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.url",[39m
+[32m-     "template": "{{- $url := . -}}[39m
+[32m- {{- if not (regexMatch \"^https?://[a-zA-Z0-9.-]+(?:[:/][^\\\\s]*)?$\" $url) -}}[39m
+[32m- {{- fail (printf \"Invalid URL: %s. Must be a valid HTTP or HTTPS URL\" $url) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $url }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.port",[39m
+[32m-     "template": "{{- $port := . | int -}}[39m
+[32m- {{- if or (lt $port 1) (gt $port 65535) -}}[39m
+[32m- {{- fail (printf \"Invalid port number: %d. Must be between 1 and 65535\" $port) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $port }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.memorySize",[39m
+[32m-     "template": "{{- $size := . -}}[39m
+[32m- {{- if not (regexMatch \"^[0-9]+(\\\\.[0-9]+)?(Ki|Mi|Gi|Ti|Pi|Ei|K|M|G|T|P|E)?$\" $size) -}}[39m
+[32m- {{- fail (printf \"Invalid memory size: %s. Use format like '512Mi', '2Gi', '1.5Gi'\" $size) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $size }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.cpuSize",[39m
+[32m-     "template": "{{- $cpu := . -}}[39m
+[32m- {{- if not (regexMatch \"^[0-9]+(\\\\.[0-9]+)?m?$\" $cpu) -}}[39m
+[32m- {{- fail (printf \"Invalid CPU size: %s. Use format like '500m', '1', '1.5', '2000m'\" $cpu) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $cpu }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.duration",[39m
+[32m-     "template": "{{- $duration := . -}}[39m
+[32m- {{- if not (regexMatch \"^[0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h)$\" $duration) -}}[39m
+[32m- {{- fail (printf \"Invalid duration: %s. Use format like '30s', '5m', '2h', '100ms'\" $duration) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $duration }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.percentage",[39m
+[32m-     "template": "{{- $percentage := . -}}[39m
+[32m- {{- if regexMatch \"^[0-9]+%$\" ($percentage | toString) -}}[39m
+[32m- {{- $num := $percentage | toString | trimSuffix \"%\" | int -}}[39m
+[32m- {{- if or (lt $num 0) (gt $num 100) -}}[39m
+[32m- {{- fail (printf \"Invalid percentage: %s. Must be between 0%% and 100%%\" $percentage) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- else -}}[39m
+[32m- {{- $num := $percentage | int -}}[39m
+[32m- {{- if or (lt $num 0) (gt $num 100) -}}[39m
+[32m- {{- fail (printf \"Invalid percentage: %d. Must be between 0 and 100\" $num) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $percentage }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.ipAddress",[39m
+[32m-     "template": "{{- $ip := . -}}[39m
+[32m- {{- if not (regexMatch \"^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$\" $ip) -}}[39m
+[32m- {{- fail (printf \"Invalid IP address: %s. Must be a valid IPv4 address\" $ip) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $ip }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.cidr",[39m
+[32m-     "template": "{{- $cidr := . -}}[39m
+[32m- {{- if not (regexMatch \"^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/([0-9]|[1-2][0-9]|3[0-2])$\" $cidr) -}}[39m
+[32m- {{- fail (printf \"Invalid CIDR notation: %s. Must be a valid IPv4 CIDR (e.g., 192.168.1.0/24)\" $cidr) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $cidr }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.base64",[39m
+[32m-     "template": "{{- $value := . -}}[39m
+[32m- {{- if not (regexMatch \"^[A-Za-z0-9+/]*={0,2}$\" $value) -}}[39m
+[32m- {{- fail (printf \"Invalid base64 string: %s\" $value) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $value }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.uuid",[39m
+[32m-     "template": "{{- $uuid := . -}}[39m
+[32m- {{- if not (regexMatch \"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\" ($uuid | lower)) -}}[39m
+[32m- {{- fail (printf \"Invalid UUID: %s. Must be a valid UUID format\" $uuid) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $uuid }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.cronSchedule",[39m
+[32m-     "template": "{{- $cron := . -}}[39m
+[32m- {{- $parts := regexSplit \"\\\\s+\" $cron -1 -}}[39m
+[32m- {{- if ne (len $parts) 5 -}}[39m
+[32m- {{- fail (printf \"Invalid cron schedule: %s. Must have 5 parts (minute hour day month weekday)\" $cron) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- range $part := $parts -}}[39m
+[32m- {{- if not (regexMatch \"^(\\\\*|[0-9,-/]+|\\\\*\\\\/[0-9]+)$\" $part) -}}[39m
+[32m- {{- fail (printf \"Invalid cron part: %s in schedule %s\" $part $cron) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $cron }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.imagePullPolicy",[39m
+[32m-     "template": "{{- $policy := . -}}[39m
+[32m- {{- if not (has $policy (list \"Always\" \"IfNotPresent\" \"Never\")) -}}[39m
+[32m- {{- fail (printf \"Invalid image pull policy: %s. Must be one of: Always, IfNotPresent, Never\" $policy) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $policy }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.logLevel",[39m
+[32m-     "template": "{{- $level := . | lower -}}[39m
+[32m- {{- if not (has $level (list \"trace\" \"debug\" \"info\" \"warn\" \"warning\" \"error\" \"fatal\" \"panic\")) -}}[39m
+[32m- {{- fail (printf \"Invalid log level: %s. Must be one of: trace, debug, info, warn, error, fatal, panic\" .) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $level }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.serviceType",[39m
+[32m-     "template": "{{- $type := . -}}[39m
+[32m- {{- if not (has $type (list \"ClusterIP\" \"NodePort\" \"LoadBalancer\" \"ExternalName\")) -}}[39m
+[32m- {{- fail (printf \"Invalid service type: %s. Must be one of: ClusterIP, NodePort, LoadBalancer, ExternalName\" $type) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $type }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.storageAccessMode",[39m
+[32m-     "template": "{{- $mode := . -}}[39m
+[32m- {{- if not (has $mode (list \"ReadWriteOnce\" \"ReadOnlyMany\" \"ReadWriteMany\" \"ReadWriteOncePod\")) -}}[39m
+[32m- {{- fail (printf \"Invalid storage access mode: %s. Must be one of: ReadWriteOnce, ReadOnlyMany, ReadWriteMany, ReadWriteOncePod\" $mode) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $mode }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.required",[39m
+[32m-     "template": "{{- $value := .value -}}[39m
+[32m- {{- $fieldName := .field | default \"field\" -}}[39m
+[32m- {{- if or (not $value) (and (kindIs \"string\" $value) (eq (trim $value) \"\")) -}}[39m
+[32m- {{- fail (printf \"Required field '%s' is missing or empty\" $fieldName) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $value }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.nonEmpty",[39m
+[32m-     "template": "{{- $list := . -}}[39m
+[32m- {{- if not (and $list (gt (len $list) 0)) -}}[39m
+[32m- {{- fail \"List cannot be empty\" -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $list }}",[39m
+[32m-   },[39m
+[32m-   {[39m
+[32m-     "name": "validation.range",[39m
+[32m-     "template": "{{- $value := .value | int -}}[39m
+[32m- {{- $min := .min | int -}}[39m
+[32m- {{- $max := .max | int -}}[39m
+[32m- {{- if or (lt $value $min) (gt $value $max) -}}[39m
+[32m- {{- fail (printf \"Value %d is out of range [%d, %d]\" $value $min $max) -}}[39m
+[32m- {{- end -}}[39m
+[32m- {{- $value }}",[39m
+[32m-   },[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/helmHelpersIndex.test.ts:78:29
+     76|         it('should return all helpers if no options provided', () => {
+     77|             const helpers = getHelpersByOptions({});
+     78|             expect(helpers).toEqual([
+       |                             ^
+     79|                 ...ENV_HELPERS,
+     80|                 ...GITOPS_HELPERS,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 12 passed (13)
+      Tests  1 failed | 220 passed (221)
+   Start at  00:21:29
+   Duration  9.32s (transform 343ms, setup 0ms, collect 1.12s, tests 14.99s, environment 1ms, prepare 1.38s)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   60.66 |     78.2 |   64.84 |   60.66 |                   
+ timonel           |       0 |        0 |       0 |       0 |                   
+  ...mitlintrc.cjs |       0 |        0 |       0 |       0 | 1-51              
+ timonel/src       |    1.49 |      100 |     100 |    1.49 |                   
+  cli.ts           |       0 |      100 |     100 |       0 | 2-1002            
+  index.ts         |     100 |      100 |     100 |     100 |                   
+ timonel/src/lib   |   68.55 |    73.84 |   57.29 |   68.55 |                   
+  helm.ts          |   13.87 |      100 |    4.76 |   13.87 | ...74-711,741-771 
+  ...hartWriter.ts |   82.77 |    64.28 |   93.33 |   82.77 | ...78-579,588-589 
+  rutter.ts        |   70.13 |       55 |   44.11 |   70.13 | ...-900,1235-1248 
+  security.ts      |   88.77 |    83.91 |     100 |   88.77 | ...02-303,320-321 
+  types.ts         |       0 |        0 |       0 |       0 |                   
+  umbrella.ts      |     100 |      100 |     100 |     100 |                   
+  ...ellaRutter.ts |   72.64 |    61.11 |   85.71 |   72.64 | ...25-234,240-258 
+ .../lib/resources |   10.66 |      100 |      20 |   10.66 |                   
+  ...ceProvider.ts |   10.66 |      100 |      20 |   10.66 | ...89-109,123-143 
+ ...rces/cloud/aws |    7.67 |      100 |       4 |    7.67 |                   
+  awsResources.ts  |    7.33 |      100 |    6.66 |    7.33 | ...20-447,465-493 
+  ...rResources.ts |    8.12 |      100 |       0 |    8.12 | ...17-469,500-552 
+ .../lib/templates |    79.2 |    80.26 |    86.2 |    79.2 |                   
+  ...e-subchart.ts |     100 |    91.42 |     100 |     100 | 108-109,174       
+  ...ella-chart.ts |   71.42 |    70.73 |   78.94 |   71.42 | ...09,614,622-623 
+ .../src/lib/utils |   93.12 |    80.46 |      94 |   93.12 |                   
+  helmHelpers.ts   |     100 |      100 |     100 |     100 |                   
+  ...Serializer.ts |   94.73 |    77.57 |   95.83 |   94.73 | ...71,675,758-761 
+  logger.ts        |   87.77 |       76 |   90.47 |   87.77 | ...67,669,671,673 
+ ...ls/helmHelpers |      99 |    91.89 |     100 |      99 |                   
+  envHelpers.ts    |     100 |      100 |     100 |     100 |                   
+  gitopsHelpers.ts |     100 |      100 |     100 |     100 |                   
+  index.ts         |   97.22 |    91.66 |     100 |   97.22 | 91-92,142-143     
+  ...ityHelpers.ts |     100 |      100 |     100 |     100 |                   
+  types.ts         |       0 |        0 |       0 |       0 |                   
+  ...ionHelpers.ts |     100 |      100 |     100 |     100 |                   
+-------------------|---------|----------|---------|---------|-------------------
+ ELIFECYCLE  Command failed with exit code 1.

@@ -218,7 +218,7 @@ function usageAndExit(msg?: string, silent = false) {
  * Initialize a new chart
  * @since 2.8.4 Updated to mention Helm chart generation instead of Kubernetes manifests
  */
-async function cmdInit(name?: string, silent = false) {
+export async function cmdInit(name?: string, silent = false) {
   if (!name) usageAndExit('Missing <chart-name>');
   const validName = name as string; // Now guaranteed to be defined
 
@@ -259,7 +259,11 @@ async function cmdInit(name?: string, silent = false) {
  * @since 2.8.4
  * @since 2.12.2 Supports explicit output directory argument while retaining legacy behavior
  */
-async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOutDir?: string) {
+export async function cmdSynth(
+  chartDirOrOutDir?: string,
+  flags?: CliFlags,
+  explicitOutDir?: string,
+) {
   let chartDir = process.cwd();
   let outDir: string | undefined;
 
@@ -359,7 +363,7 @@ await import(pathToFileURL(${JSON.stringify(tempChartFile)}).href);
  * @since 2.8.4
  * @since 2.11.1 Supports --env and --set flags for environment-specific linting
  */
-async function cmdValidate(flags?: CliFlags) {
+export async function cmdValidate(flags?: CliFlags) {
   const lintArgs = ['lint', '.'];
   if (flags?.env) {
     try {
@@ -400,7 +404,7 @@ async function cmdValidate(flags?: CliFlags) {
  * @since 2.8.4
  * @since 2.11.1 Honors --env and --set flags when invoking helm upgrade
  */
-async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags) {
+export async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags) {
   if (!release) usageAndExit('Missing <release>');
 
   const args = ['upgrade', '--install', release, '.'];
@@ -448,7 +452,7 @@ async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags)
  * @param flags - CLI flags for controlling output format
  * @since 2.8.4
  */
-async function cmdTemplates(flags?: CliFlags) {
+export async function cmdTemplates(flags?: CliFlags) {
   const templates = [
     {
       name: 'basic-chart',
@@ -482,7 +486,7 @@ async function cmdTemplates(flags?: CliFlags) {
 const UMBRELLA_SYNTH_MODES = ['dependencies', 'inline'] as const;
 type UmbrellaSynthMode = (typeof UMBRELLA_SYNTH_MODES)[number];
 
-interface CliFlags {
+export interface CliFlags {
   dryRun?: boolean;
   silent?: boolean;
   env?: string;
@@ -499,7 +503,7 @@ interface CliFlags {
  * @param flags - CLI flags for controlling behavior
  * @since 2.8.4
  */
-async function cmdUmbrella(subcommand?: string, args?: string[], flags?: CliFlags) {
+export async function cmdUmbrella(subcommand?: string, args?: string[], flags?: CliFlags) {
   if (!subcommand) usageAndExit('Missing umbrella subcommand');
 
   const workingArgs = [...(args ?? [])];
@@ -529,7 +533,7 @@ async function cmdUmbrella(subcommand?: string, args?: string[], flags?: CliFlag
  * @param silent - Whether to suppress output messages
  * @since 2.8.4
  */
-async function cmdUmbrellaInit(name?: string, silent = false) {
+export async function cmdUmbrellaInit(name?: string, silent = false) {
   const MISSING_NAME_MSG = 'Missing umbrella chart name';
   if (!name) usageAndExit(MISSING_NAME_MSG);
   const validName = name as string; // Now guaranteed to be defined
@@ -710,7 +714,7 @@ function createImportData(subchartPath: string, chartName: string) {
  * @param silent - Whether to suppress output messages
  * @since 2.8.4
  */
-async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
+export async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
   const MISSING_SUBCHART_MSG = 'Missing subchart name or path';
   if (!subchartPath) usageAndExit(MISSING_SUBCHART_MSG);
   const validSubchartPath = subchartPath as string; // Now guaranteed to be defined
@@ -775,7 +779,7 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
  * @param flags - CLI flags for controlling synthesis behavior
  * @since 2.8.4
  */
-async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
+export async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
   const umbrellaFile = path.join(process.cwd(), UMBRELLA_FILE_NAME);
   const defaultOutDir = path.join(process.cwd(), 'dist');
 
@@ -993,10 +997,13 @@ async function main() {
 }
 
 // Run CLI with enhanced error handling
-main().catch((error) => {
-  const flags = parseFlags(process.argv.slice(2));
-  if (!flags.silent) {
-    console.error('Error:', SecurityUtils.sanitizeLogMessage(error.message));
-  }
-  process.exit(1);
-});
+// Run CLI with enhanced error handling
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    const flags = parseFlags(process.argv.slice(2));
+    if (!flags.silent) {
+      console.error('Error:', SecurityUtils.sanitizeLogMessage(error.message));
+    }
+    process.exit(1);
+  });
+}
