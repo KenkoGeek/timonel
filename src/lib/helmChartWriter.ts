@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { SecurityUtils } from './security.js';
-import { createLogger } from './utils/logger.js';
+import { createLogger, type TimonelLogger } from './utils/logger.js';
 import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
 import type { HelperDefinition as ExternalHelperDefinition } from './utils/helmHelpers/types.js';
 
@@ -114,6 +114,11 @@ export interface HelmChartWriteOptions {
   notesTpl?: string;
   /** JSON schema for values validation */
   valuesSchema?: Record<string, unknown>;
+  /**
+   * Custom logger instance
+   * @since 2.13.0
+   */
+  logger?: TimonelLogger;
 }
 
 /**
@@ -152,9 +157,10 @@ export class HelmChartWriter {
       helpersTpl,
       notesTpl,
       valuesSchema,
+      logger: customLogger,
     } = opts;
 
-    const logger = createLogger('helm-chart-writer');
+    const logger = customLogger ?? createLogger('helm-chart-writer');
     const timer = logger.time('helm_chart_write');
 
     logger.info('Starting Helm chart write operation', {

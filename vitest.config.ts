@@ -11,7 +11,17 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      exclude: ['tests/**', 'dist/**', 'examples/**'],
+      all: true,
+      reportOnFailure: true,
+      exclude: [
+        'tests/**',
+        'dist/**',
+        'examples/**',
+        'eslint.config.js',
+        'vitest.config.ts',
+        'vitest.integration.config.ts',
+        'pnpm-lock.yaml',
+      ],
       thresholds: {
         global: {
           branches: 90,

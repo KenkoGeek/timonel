@@ -7,7 +7,7 @@ import * as jsYaml from 'js-yaml';
 import { include } from './helm.js';
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
-import { createLogger } from './utils/logger.js';
+import { createLogger, type TimonelLogger } from './utils/logger.js';
 import type {
   AWSALBIngressSpec,
   AWSEBSStorageClassSpec,
@@ -46,13 +46,14 @@ export class Rutter {
   private readonly karpenterResources: KarpenterResources;
   private readonly meta: ChartMetadata;
   private readonly props: RutterProps;
-  private readonly logger = createLogger('rutter');
+  private readonly logger: TimonelLogger;
 
   constructor(props: RutterProps) {
     this.defaultValues = props.defaultValues ?? {};
     this.envValues = props.envValues ?? {};
     this.meta = props.meta;
     this.props = props;
+    this.logger = props.logger ?? createLogger('rutter');
 
     this.logger.info('Initializing chart', {
       chartName: props.meta.name,
@@ -1265,6 +1266,7 @@ ${helper.template}
       envValues: this.envValues,
       assets: synthAssets,
       helpersTpl: helpersContent,
+      logger: this.logger,
     });
 
     this.logger.info('Chart write operation completed successfully', {
@@ -1307,6 +1309,11 @@ export interface RutterProps {
   scope?: Construct;
   /** Combine all resources into single manifest file */
   singleManifestFile?: boolean;
+  /**
+   * Custom logger instance
+   * @since 2.13.0
+   */
+  logger?: TimonelLogger;
 }
 
 // Re-export types for backward compatibility

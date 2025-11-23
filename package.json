@@ -63,7 +63,7 @@
   "author": "Franklin García <KenkoGeek>",
   "license": "MIT",
   "engines": {
-    "node": ">=20",
+    "node": ">=22",
     "pnpm": ">=9.0.0"
   },
   "repository": {
