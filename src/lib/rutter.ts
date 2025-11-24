@@ -21,7 +21,7 @@ import type {
   KarpenterNodeClaimSpec,
   KarpenterNodePoolSpec,
 } from './resources/cloud/aws/karpenterResources.js';
-import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
+import { dumpHelmAwareYaml, isHelmExpression } from './utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from './utils/helmHelpers.js';
 import type { HelperDefinition } from './utils/helmHelpers.js';
 
@@ -611,14 +611,14 @@ ${yamlContent.trim()}
       throw new Error('Manifest metadata must have a name');
     }
 
-    // Validate that metadata.name is a string
-    if (typeof metadata.name !== 'string') {
-      this.logger.error('Validation failed: metadata.name must be a string', {
+    // Validate that metadata.name is a string or HelmExpression
+    if (typeof metadata.name !== 'string' && !isHelmExpression(metadata.name)) {
+      this.logger.error('Validation failed: metadata.name must be a string or HelmExpression', {
         operation: 'manifest_validation',
         issue: 'invalid_metadata_name_type',
         actual_type: typeof metadata.name,
       });
-      throw new Error('Manifest metadata.name must be a string');
+      throw new Error('Manifest metadata.name must be a string or HelmExpression');
     }
   }
 
