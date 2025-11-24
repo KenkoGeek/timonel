@@ -66,7 +66,7 @@ interface HelmExpressionMatch {
  * Prevents quoting of Helm expressions.
  * @since 2.9.2
  */
-interface HelmExpression {
+export interface HelmExpression {
   __helmExpression: true;
   value: string;
 }
