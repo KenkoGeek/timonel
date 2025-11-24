@@ -1,7 +1,7 @@
 {
   "name": "timonel",
   "type": "module",
-  "version": "2.12.2",
+  "version": "2.13.0-beta.1",
   "description": "Timonel: programmatic Helm chart generator using cdk8s (TypeScript)",
   "bin": {
     "timonel": "dist/cli.js",
@@ -21,6 +21,10 @@
     "./lib/utils/logger": {
       "types": "./dist/lib/utils/logger.d.ts",
       "default": "./dist/lib/utils/logger.js"
+    },
+    "./lib/utils/helmYamlSerializer": {
+      "types": "./dist/lib/utils/helmYamlSerializer.d.ts",
+      "default": "./dist/lib/utils/helmYamlSerializer.js"
     }
   },
   "scripts": {

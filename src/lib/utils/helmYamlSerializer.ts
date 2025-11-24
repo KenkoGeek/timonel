@@ -66,7 +66,7 @@ interface HelmExpressionMatch {
  * Prevents quoting of Helm expressions.
  * @since 2.9.2
  */
-interface HelmExpression {
+export interface HelmExpression {
   __helmExpression: true;
   value: string;
 }
@@ -138,6 +138,9 @@ function detectHelmExpressions(str: string): HelmExpressionMatch[] {
 function preprocessHelmExpressions(obj: unknown, depth = 0): unknown {
   if (depth > 100) {
     throw new Error('Maximum recursion depth exceeded during Helm preprocessing');
+  }
+  if (isHelmExpression(obj)) {
+    return obj;
   }
   if (typeof obj === 'string') {
     if (detectHelmExpressions(obj).length > 0) {
