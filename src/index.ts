@@ -65,3 +65,10 @@ export {
   type LogContext,
   type LoggerConfig,
 } from './lib/utils/logger.js';
+
+// Helm YAML Serialization Utilities
+export {
+  createHelmExpression,
+  isHelmExpression,
+  type HelmExpression,
+} from './lib/utils/helmYamlSerializer.js';

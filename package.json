@@ -21,6 +21,10 @@
     "./lib/utils/logger": {
       "types": "./dist/lib/utils/logger.d.ts",
       "default": "./dist/lib/utils/logger.js"
+    },
+    "./lib/utils/helmYamlSerializer": {
+      "types": "./dist/lib/utils/helmYamlSerializer.d.ts",
+      "default": "./dist/lib/utils/helmYamlSerializer.js"
     }
   },
   "scripts": {
