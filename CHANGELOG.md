@@ -1,3 +1,9 @@
+# [2.13.0](https://github.com/KenkoGeek/timonel/compare/v2.12.2...v2.13.0) (2025-11-24)
+
+### Features
+
+- **core:** exporting createHelmExpression() from helmYamlSerializer ([#196](https://github.com/KenkoGeek/timonel/issues/196)) ([e9ee2d0](https://github.com/KenkoGeek/timonel/commit/e9ee2d08b6ad305e0652c53e7756240793987861))
+
 # [2.13.0-beta.1](https://github.com/KenkoGeek/timonel/compare/v2.12.2...v2.13.0-beta.1) (2025-11-24)
 
 ### Features

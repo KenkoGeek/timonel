@@ -1,7 +1,7 @@
 {
   "name": "timonel",
   "type": "module",
-  "version": "2.13.0-beta.1",
+  "version": "2.13.0",
   "description": "Timonel: programmatic Helm chart generator using cdk8s (TypeScript)",
   "bin": {
     "timonel": "dist/cli.js",
