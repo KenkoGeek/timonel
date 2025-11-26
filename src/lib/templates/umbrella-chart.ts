@@ -262,7 +262,7 @@ export class UmbrellaChartTemplate extends Chart {
   }
 
   private _addSubchart(
-    subchart: { name: string; chart: unknown;[key: string]: unknown },
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
     index: number,
   ) {
     try {
@@ -282,7 +282,7 @@ export class UmbrellaChartTemplate extends Chart {
   }
 
   private _createFlexibleSubchart(
-    subchart: { name: string; chart: unknown;[key: string]: unknown },
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
     index: number,
   ) {
     const {
@@ -301,7 +301,7 @@ export class UmbrellaChartTemplate extends Chart {
   }
 
   private _createFallbackSubchart(
-    subchart: { name: string; chart: unknown;[key: string]: unknown },
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
     index: number,
   ) {
     const _fallbackSubchart = createFlexibleSubchart(this, `${subchart.name}-fallback-${index}`, {
@@ -313,7 +313,7 @@ export class UmbrellaChartTemplate extends Chart {
   }
 
   private _handleFunctionChart(
-    subchart: { name: string; chart: unknown;[key: string]: unknown },
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
     index: number,
     flexibleSubchart: Chart,
   ) {
@@ -332,7 +332,7 @@ export class UmbrellaChartTemplate extends Chart {
   }
 
   private _handleObjectChart(
-    subchart: { name: string; chart: unknown;[key: string]: unknown },
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
     flexibleSubchart: Chart,
   ) {
     const chartObj = subchart.chart as Record<string, unknown>;
@@ -356,7 +356,7 @@ export class UmbrellaChartTemplate extends Chart {
   }
 
   private _processRutterInstance(
-    subchart: { name: string; chart: unknown;[key: string]: unknown },
+    subchart: { name: string; chart: unknown; [key: string]: unknown },
     index: number,
     rutterInstance: unknown,
     flexibleSubchart: Chart,

@@ -21,10 +21,7 @@ import type {
   KarpenterNodeClaimSpec,
   KarpenterNodePoolSpec,
 } from './resources/cloud/aws/karpenterResources.js';
-import {
-  isHelmExpression,
-  isHelmConstruct,
-} from './utils/helmControlStructures.js';
+import { isHelmExpression, isHelmConstruct } from './utils/helmControlStructures.js';
 import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from './utils/helmHelpers.js';
 import type { HelperDefinition } from './utils/helmHelpers.js';
@@ -614,16 +611,8 @@ ${yamlContent.trim()}
 
     // Validate metadata.name - must be string, HelmExpression, or HelmConstruct
     const name = (manifest['metadata'] as Record<string, unknown>)?.['name'];
-    if (
-      typeof name !== 'string' &&
-      !isHelmExpression(name) &&
-      !isHelmConstruct(name)
-    ) {
-      const actualType = Array.isArray(name)
-        ? 'array'
-        : name === null
-          ? 'null'
-          : typeof name;
+    if (typeof name !== 'string' && !isHelmExpression(name) && !isHelmConstruct(name)) {
+      const actualType = Array.isArray(name) ? 'array' : name === null ? 'null' : typeof name;
       throw new Error(
         `Manifest metadata.name must be a string, HelmExpression, or HelmConstruct. Got ${actualType}`,
       );

@@ -80,44 +80,49 @@ const chart = new Rutter({
   meta: {
     name: 'web-app',
     version: '1.0.0',
-    description: 'Simple web application'
+    description: 'Simple web application',
   },
   defaultValues: {
     replicas: 3,
     image: {
       repository: 'nginx',
-      tag: 'latest'
-    }
-  }
+      tag: 'latest',
+    },
+  },
 });
 
 // Add Deployment with type-safe helpers
-chart.addManifest({
-  apiVersion: 'apps/v1',
-  kind: 'Deployment',
-  metadata: {
-    name: helmInclude('chart.fullname', '.'),
-    labels: helmInclude('chart.labels', '.', { pipe: 'nindent 4' })
-  },
-  spec: {
-    replicas: helm('{{ .Values.replicas }}'),
-    selector: {
-      matchLabels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 6' })
+chart.addManifest(
+  {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: {
+      name: helmInclude('chart.fullname', '.'),
+      labels: helmInclude('chart.labels', '.', { pipe: 'nindent 4' }),
     },
-    template: {
-      metadata: {
-        labels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 8' })
+    spec: {
+      replicas: helm('{{ .Values.replicas }}'),
+      selector: {
+        matchLabels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 6' }),
       },
-      spec: {
-        containers: [{
-          name: 'web',
-          image: helm('{{ .Values.image.repository }}:{{ .Values.image.tag }}'),
-          ports: [{ containerPort: 80, name: 'http' }]
-        }]
-      }
-    }
-  }
-}, 'deployment');
+      template: {
+        metadata: {
+          labels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 8' }),
+        },
+        spec: {
+          containers: [
+            {
+              name: 'web',
+              image: helm('{{ .Values.image.repository }}:{{ .Values.image.tag }}'),
+              ports: [{ containerPort: 80, name: 'http' }],
+            },
+          ],
+        },
+      },
+    },
+  },
+  'deployment',
+);
 
 // Generate the chart
 chart.write('./dist');
