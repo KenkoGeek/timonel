@@ -1,7 +1,11 @@
 import { Document, Scalar, isMap, isScalar, visit } from 'yaml';
 
 import type { HelmConstruct } from './helmControlStructures.js';
-import { isHelmConstruct, isHelmExpression, createHelmExpression } from './helmControlStructures.js';
+import {
+  isHelmConstruct,
+  isHelmExpression,
+  createHelmExpression,
+} from './helmControlStructures.js';
 
 /**
  * Serialize a HelmConstruct into a Helm template string
@@ -33,7 +37,7 @@ function serializeHelmConstruct(construct: HelmConstruct): string {
     case 'fragment': {
       const data = construct.data as unknown[];
       // Serialize each item and join with newlines
-      return data.map(item => serializeHelmContent(item)).join('\n');
+      return data.map((item) => serializeHelmContent(item)).join('\n');
     }
 
     case 'range': {
@@ -149,7 +153,7 @@ function preprocessHelmConstructs(obj: unknown): unknown {
 
   // Handle arrays
   if (Array.isArray(obj)) {
-    return obj.map(item => preprocessHelmConstructs(item));
+    return obj.map((item) => preprocessHelmConstructs(item));
   }
 
   // Handle objects
@@ -161,7 +165,7 @@ function preprocessHelmConstructs(obj: unknown): unknown {
 
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
-      // console.log('DEBUG: Processing key:', key);
+      // eslint-disable-next-line security/detect-object-injection -- Safe: iterating over own entries
       result[key] = preprocessHelmConstructs(value);
     }
     return result;
@@ -195,14 +199,19 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
     // 1. Handle explicit HelmExpression objects
     if (isMap(node)) {
       const isHelmExpr = node.items.some(
-        (pair) => isScalar(pair.key) && pair.key.value === '__helmExpression' &&
-          isScalar(pair.value) && pair.value.value === true
+        (pair) =>
+          isScalar(pair.key) &&
+          pair.key.value === '__helmExpression' &&
+          isScalar(pair.value) &&
+          pair.value.value === true,
       );
 
       if (isHelmExpr) {
         console.log('DEBUG: Found HelmExpression in visit');
         // Find the 'value' property
-        const valuePair = node.items.find((pair) => isScalar(pair.key) && pair.key.value === 'value');
+        const valuePair = node.items.find(
+          (pair) => isScalar(pair.key) && pair.key.value === 'value',
+        );
         if (valuePair && isScalar(valuePair.value)) {
           const value = String(valuePair.value.value);
           console.log('DEBUG: HelmExpression value:', value);
@@ -294,7 +303,10 @@ export function stringify(
     simpleKeys?: boolean;
   } = {},
 ): string {
-  return dumpHelmAwareYaml(obj, options.lineWidth !== undefined ? { lineWidth: options.lineWidth } : {});
+  return dumpHelmAwareYaml(
+    obj,
+    options.lineWidth !== undefined ? { lineWidth: options.lineWidth } : {},
+  );
 }
 
 // --- Validation and Prettify functions (kept from previous version, simplified imports) ---
@@ -333,9 +345,9 @@ export interface HelmValidationResult {
  * @returns Validation result.
  * @since 2.11.0
  */
-export function validateHelmYaml(yaml: string): HelmValidationResult {
+export function validateHelmYaml(_yaml: string): HelmValidationResult {
   // Implementation kept simple for now, relying on previous logic structure
-  // Note: Full validation logic omitted for brevity in this refactor, 
+  // Note: Full validation logic omitted for brevity in this refactor,
   // but can be restored if needed. For now returning valid.
   return {
     isValid: true,
@@ -350,6 +362,10 @@ export function validateHelmYaml(yaml: string): HelmValidationResult {
 }
 
 // Export other helpers for compatibility if needed
-export function detectHelmExpressions(str: string): any[] { return []; }
-export function preprocessHelmExpressions(obj: unknown): unknown { return obj; }
-export function postProcessHelmExpressions(yaml: string): string { return yaml; }
+// export function detectHelmExpressions(_str: string): HelmExpressionMatch[] { return []; }
+export function preprocessHelmExpressions(obj: unknown): unknown {
+  return obj;
+}
+export function postProcessHelmExpressions(yaml: string): string {
+  return yaml;
+}
