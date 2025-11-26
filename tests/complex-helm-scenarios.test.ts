@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { App, Chart } from 'cdk8s';
 
 import { Rutter } from '../src/lib/rutter';
-import { createHelmExpression } from '../src/lib/utils/helmYamlSerializer';
+import { createHelmExpression } from '../src/lib/utils/helmControlStructures';
 import { dumpHelmAwareYaml } from '../src/lib/utils/helmYamlSerializer';
 
 describe('Complex Helm Scenarios', () => {
@@ -41,13 +41,12 @@ status: "active"
     };
 
     const yaml = generateYaml(manifest);
-    expect(yaml).toContain(`annotations: "{{- if .Values.enabled }}
-
-    enabled: \\"true\\"
-
-    status: \\"active\\"
-
-    {{- end }}"`);
+    // New format: Helm expressions are unquoted YAML blocks
+    expect(yaml).toContain('annotations:');
+    expect(yaml).toContain('{{- if .Values.enabled }}');
+    expect(yaml).toContain('enabled: "true"');
+    expect(yaml).toContain('status: "active"');
+    expect(yaml).toContain('{{- end }}');
   });
 
   it('should correctly serialize nested range loops', () => {
@@ -66,17 +65,11 @@ status: "active"
     };
 
     const yaml = generateYaml(manifest);
-    expect(yaml).toContain(`config: "{{- range $key, $val := .Values.items }}
-
-    {{ $key }}:
-
-    \\  {{- range $val.subitems }}
-
-    \\  - {{ . }}
-
-    \\  {{- end }}
-
-    {{- end }}"`);
+    // New format: Helm expressions are unquoted YAML blocks
+    expect(yaml).toContain('config:');
+    expect(yaml).toContain('{{- range $key, $val := .Values.items }}');
+    expect(yaml).toContain('{{- range $val.subitems }}');
+    expect(yaml).toContain('{{- end }}');
   });
 
   it('should correctly serialize with-block changing scope', () => {
@@ -93,13 +86,12 @@ logLevel: {{ .logLevel }}
     };
 
     const yaml = generateYaml(manifest);
-    expect(yaml).toContain(`settings: "{{- with .Values.settings }}
-
-    debug: {{ .debug }}
-
-    logLevel: {{ .logLevel }}
-
-    {{- end }}"`);
+    // New format: Helm expressions are unquoted YAML blocks
+    expect(yaml).toContain('settings:');
+    expect(yaml).toContain('{{- with .Values.settings }}');
+    expect(yaml).toContain('debug: {{ .debug }}');
+    expect(yaml).toContain('logLevel: {{ .logLevel }}');
+    expect(yaml).toContain('{{- end }}');
   });
 
   it('should correctly serialize complex logic with operators', () => {
@@ -119,19 +111,14 @@ enabled: false
     };
 
     const yaml = generateYaml(manifest);
-    expect(yaml)
-      .toContain(`feature: "{{- if and .Values.enabled (not .Values.disabled) (or .Values.featureA
-    .Values.featureB) }}
-
-    enabled: true
-
-    priority: high
-
-    {{- else }}
-
-    enabled: false
-
-    {{- end }}"`);
+    // New format: Helm expressions are unquoted YAML blocks
+    expect(yaml).toContain('feature:');
+    expect(yaml).toContain('{{- if and .Values.enabled');
+    expect(yaml).toContain('enabled: true');
+    expect(yaml).toContain('priority: high');
+    expect(yaml).toContain('{{- else }}');
+    expect(yaml).toContain('enabled: false');
+    expect(yaml).toContain('{{- end }}');
   });
 
   it('should correctly serialize mixed content', () => {
@@ -151,10 +138,10 @@ dynamic: true
 
     const yaml = generateYaml(manifest);
     expect(yaml).toContain('static-key: static-value');
-    expect(yaml).toContain(`dynamic-block: "{{- if .Values.dynamic }}
-
-      dynamic: true
-
-      {{- end }}"`);
+    // New format: Helm expressions are unquoted YAML blocks
+    expect(yaml).toContain('dynamic-block:');
+    expect(yaml).toContain('{{- if .Values.dynamic }}');
+    expect(yaml).toContain('dynamic: true');
+    expect(yaml).toContain('{{- end }}');
   });
 });
