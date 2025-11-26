@@ -5,6 +5,8 @@
  */
 
 import { SecurityUtils } from './security.js';
+import type { HelmExpression } from './utils/helmControlStructures.js';
+import { createHelmExpression } from './utils/helmControlStructures.js';
 
 /**
  * Creates a reference to a value in .Values of Helm

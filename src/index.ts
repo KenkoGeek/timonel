@@ -66,9 +66,30 @@ export {
   type LoggerConfig,
 } from './lib/utils/logger.js';
 
+export { UmbrellaRutter } from './lib/umbrellaRutter.js';
+export {
+  helmIf,
+  helmRange,
+  helmWith,
+  helmInclude,
+  helmDefine,
+  helmVar,
+  helmBlock,
+  helmComment,
+  helmFragment,
+  createHelmExpression,
+  isHelmConstruct,
+  isHelmExpression,
+  type HelmConstruct,
+  type HelmExpression,
+  type HelmContent,
+  type HelmWhitespaceOptions,
+} from './lib/utils/helmControlStructures.js';
+
 // Helm YAML Serialization Utilities
 export {
-  createHelmExpression,
-  isHelmExpression,
-  type HelmExpression,
+  dumpHelmAwareYaml,
+  validateHelmYaml,
+  type HelmValidationError,
+  type HelmValidationResult,
 } from './lib/utils/helmYamlSerializer.js';
