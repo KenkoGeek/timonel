@@ -2,7 +2,7 @@ import { ApiObject, App, Chart, Testing } from 'cdk8s';
 import type { ChartProps } from 'cdk8s';
 import type { Ingress, ServiceAccount } from 'cdk8s-plus-33';
 import type { Construct } from 'constructs';
-import * as jsYaml from 'js-yaml';
+import { parse } from 'yaml';
 
 import { include } from './helm.js';
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
@@ -21,7 +21,11 @@ import type {
   KarpenterNodeClaimSpec,
   KarpenterNodePoolSpec,
 } from './resources/cloud/aws/karpenterResources.js';
-import { dumpHelmAwareYaml, isHelmExpression } from './utils/helmYamlSerializer.js';
+import {
+  isHelmExpression,
+  isHelmConstruct,
+} from './utils/helmControlStructures.js';
+import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from './utils/helmHelpers.js';
 import type { HelperDefinition } from './utils/helmHelpers.js';
 
@@ -397,7 +401,7 @@ export class Rutter {
     if (typeof yamlOrObject === 'string') {
       // Parse YAML string to object
       try {
-        manifestObject = jsYaml.load(yamlOrObject) as Record<string, unknown>;
+        manifestObject = parse(yamlOrObject) as Record<string, unknown>;
       } catch (error) {
         throw new Error(
           `Invalid YAML provided to addManifest(): ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -414,12 +418,9 @@ export class Rutter {
     this.validateManifestStructure(manifestObject);
 
     // Create CDK8S ApiObject from the manifest
-    return new ApiObject(this.chart, id, {
-      apiVersion: manifestObject['apiVersion'] as string,
-      kind: manifestObject['kind'] as string,
-      metadata: manifestObject['metadata'] as Record<string, unknown>,
-      spec: manifestObject['spec'] as Record<string, unknown>,
-    });
+    // Pass all fields to ensure data, stringData, and other resource-specific fields are included
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return new ApiObject(this.chart, id, manifestObject as any);
   }
 
   /**
@@ -611,14 +612,21 @@ ${yamlContent.trim()}
       throw new Error('Manifest metadata must have a name');
     }
 
-    // Validate that metadata.name is a string or HelmExpression
-    if (typeof metadata.name !== 'string' && !isHelmExpression(metadata.name)) {
-      this.logger.error('Validation failed: metadata.name must be a string or HelmExpression', {
-        operation: 'manifest_validation',
-        issue: 'invalid_metadata_name_type',
-        actual_type: typeof metadata.name,
-      });
-      throw new Error('Manifest metadata.name must be a string or HelmExpression');
+    // Validate metadata.name - must be string, HelmExpression, or HelmConstruct
+    const name = (manifest['metadata'] as Record<string, unknown>)?.['name'];
+    if (
+      typeof name !== 'string' &&
+      !isHelmExpression(name) &&
+      !isHelmConstruct(name)
+    ) {
+      const actualType = Array.isArray(name)
+        ? 'array'
+        : name === null
+          ? 'null'
+          : typeof name;
+      throw new Error(
+        `Manifest metadata.name must be a string, HelmExpression, or HelmConstruct. Got ${actualType}`,
+      );
     }
   }
 
@@ -733,7 +741,7 @@ ${yamlContent.trim()}
     if (this.props.singleManifestFile) {
       // Combine all resources into single manifest
       const combinedYaml = enriched
-        .map((obj) => this.processHelmTemplates(dumpHelmAwareYaml(obj).trim()))
+        .map((obj) => dumpHelmAwareYaml(obj).trim())
         .filter(Boolean)
         .join('\n---\n');
 
@@ -746,7 +754,7 @@ ${yamlContent.trim()}
         const apiObjectId = apiObjectIds[index];
         const manifestId = apiObjectId || `manifest-${index + 1}`;
 
-        const yaml = this.processHelmTemplates(dumpHelmAwareYaml(obj).trim());
+        const yaml = dumpHelmAwareYaml(obj).trim();
         if (yaml) {
           // Use descriptive name from ApiObject ID if available, otherwise fallback to generic name
           synthAssets.push({ id: manifestId, yaml });
@@ -768,450 +776,6 @@ ${yamlContent.trim()}
 
     timer(); // Complete timing measurement
     return synthAssets;
-  }
-
-  /**
-   * Processes Helm template expressions in YAML content
-   * @param yaml - YAML content to process
-   * @returns Processed YAML with proper Helm template syntax
-   *
-   * @since 2.8.0+
-   */
-  private processHelmTemplates(yaml: string): string {
-    let processed = this.fixCharacterMappingIssues(yaml);
-    processed = this.applyHelmTemplateReplacements(processed);
-    return processed;
-  }
-
-  private fixCharacterMappingIssues(yaml: string): string {
-    const lines = yaml.split('\n');
-    const fixedLines: string[] = [];
-    let i = 0;
-
-    while (i < lines.length) {
-      // eslint-disable-next-line security/detect-object-injection
-      const line = lines[i];
-
-      if (!line) {
-        i++;
-        continue;
-      }
-
-      const charKeyMatch = line.match(/^(\s*)"(\d+)":\s*(.+)$/);
-      if (charKeyMatch && charKeyMatch[2] && parseInt(charKeyMatch[2]) === 0) {
-        const indent = charKeyMatch[1] || '';
-        const result = this.processCharacterMapping(lines, i, indent);
-        if (result.reconstructed) {
-          fixedLines.push(result.reconstructed);
-          i = result.nextIndex;
-          continue;
-        }
-      }
-
-      if (line) {
-        fixedLines.push(line);
-      }
-      i++;
-    }
-
-    return fixedLines.join('\n');
-  }
-
-  private processCharacterMapping(
-    lines: string[],
-    startIndex: number,
-    indent: string,
-  ): { reconstructed?: string; nextIndex: number } {
-    const charMappings: Array<{ index: number; char: string }> = [];
-    let j = startIndex;
-
-    while (j < lines.length) {
-      // eslint-disable-next-line security/detect-object-injection
-      const currentLine = lines[j];
-      if (!currentLine) {
-        break;
-      }
-
-      const currentMatch = currentLine.match(/^(\s*)"(\d+)":\s*(.+)$/);
-      if (currentMatch && currentMatch[1] === indent && currentMatch[2] && currentMatch[3]) {
-        const index = parseInt(currentMatch[2]);
-        let char = currentMatch[3];
-
-        if (char && char.startsWith('"') && char.endsWith('"')) {
-          char = char.slice(1, -1);
-        }
-
-        charMappings.push({ index, char });
-        j++;
-      } else {
-        break;
-      }
-    }
-
-    if (charMappings.length > 3) {
-      charMappings.sort((a, b) => a.index - b.index);
-      const reconstructed = charMappings.map((m) => m.char).join('');
-
-      if (reconstructed.includes('{{') && reconstructed.includes('}}')) {
-        return { reconstructed: `${indent}${reconstructed}`, nextIndex: j };
-      }
-    }
-
-    return { nextIndex: j };
-  }
-
-  private applyHelmTemplateReplacements(processed: string): string {
-    // Handle complex multi-line expressions
-    processed = this.fixConditionalBlocks(processed);
-
-    // Handle expressions with pipes
-    processed = this.fixPipeExpressions(processed);
-
-    // Fix nested quotes
-    processed = this.fixNestedQuotes(processed);
-
-    // Clean up artifacts
-    processed = this.cleanupArtifacts(processed);
-
-    // Remove quotes around Helm expressions (final step)
-    processed = this.removeHelmExpressionQuotes(processed);
-
-    return processed;
-  }
-
-  private fixIncludeStatements(processed: string): string {
-    processed = processed.replace(
-      /\{\{ include \\"([^"]+)\\" \. \| nindent (\d+) \}\}/g,
-      '{{ include "$1" . | nindent $2 }}',
-    );
-    processed = processed.replace(/\{\{ include \\"([^"]+)\\" \. \}\}/g, '{{ include "$1" . }}');
-    return processed;
-  }
-
-  private fixFunctionCalls(processed: string): string {
-    return processed.replace(/\{\{ (\w+) \\"([^"]*)\\" ([^}]*) \}\}/g, '{{ $1 "$2" $3 }}');
-  }
-
-  private fixChartReferences(processed: string): string {
-    return processed.replace(
-      /\{\{ \.Chart\.(\w+) \| replace \\"([^"]*)\\" \\"([^"]*)\\" ([^}]*) \}\}/g,
-      '{{ .Chart.$1 | replace "$2" "$3" $4 }}',
-    );
-  }
-
-  private removeHelmExpressionQuotes(processed: string): string {
-    // UNIVERSAL SOLUTION: Handle all primitive types (int, float, bool) that should not be quoted
-
-    // Define replacement pattern as constant
-    const HELM_EXPRESSION_REPLACEMENT = '$1$2: {{$3}}';
-
-    // 1. Handle expressions with type conversion functions (highest priority)
-    // These are explicit type conversions that should never be quoted
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\|\s*(?:int|float|bool|number)[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    // 2. Handle known numeric fields in Kubernetes manifests
-    processed = processed.replace(
-      /^(\s*)(port):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    // Handle nested port fields (e.g., port.number)
-    processed = processed.replace(
-      /^(\s*)(port\.number):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    // Handle other common nested numeric fields
-    processed = processed.replace(
-      /^(\s*)(service\.port):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(backend\.service\.port\.number):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(spec\.port):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    // Handle any field ending with .number (general pattern)
-    processed = processed.replace(
-      /^(\s*)([^:\s]*\.number):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    processed = processed.replace(
-      /^(\s*)(number):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    processed = processed.replace(
-      /^(\s*)(replicas):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(targetPort):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(nodePort):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(containerPort):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(hostPort):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(weight):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(priority):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(timeoutSeconds):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(periodSeconds):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(successThreshold):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(failureThreshold):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(initialDelaySeconds):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(terminationGracePeriodSeconds):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(activeDeadlineSeconds):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(backoffLimit):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(parallelism):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(completions):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(revisionHistoryLimit):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(progressDeadlineSeconds):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(minReadySeconds):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(maxUnavailable):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(maxSurge):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(cpu):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(memory):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    // 3. Handle known boolean fields in Kubernetes manifests
-    processed = processed.replace(
-      /^(\s*)(enabled):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(create):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(allow):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(disable):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(force):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(required):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(optional):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(readOnly):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(runAsNonRoot):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(privileged):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(allowPrivilegeEscalation):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)(readOnlyRootFilesystem):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    // 4. Handle literal primitive values (true, false, numbers)
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*true[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*false[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\d+[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    // 5. Handle expressions that contain comparison operators
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\beq\b[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bne\b[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\blt\b[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\ble\b[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bgt\b[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bge\b[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\band\b[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bor\b[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*\bnot\b[^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    // 6. Handle expressions that contain arithmetic operators
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*[+][^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*[-][^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*[*][^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    // 7. Complex expressions spanning multiple template parts
-    processed = processed.replace(/:\s*"([^"]*\{\{[^}]+\}\}[^"]*)"/g, ': $1');
-
-    // 8. Handle literal primitive values (not in Helm expressions)
-    // Boolean literals
-    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(true|false)"$/gm, '$1$2: $3');
-
-    // Integer literals
-    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(-?\d+)"$/gm, '$1$2: $3');
-
-    // Float literals (simple decimal numbers)
-    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(-?\d+\.\d+)"$/gm, '$1$2: $3');
-
-    // Scientific notation (e.g., 1.5e-3, 2E+5)
-    processed = processed.replace(/^(\s*)([^:\s]+):\s*"(-?\d+\.?\d*[eE][+-]?\d+)"$/gm, '$1$2: $3');
-
-    // 9. Key-value pairs with quoted Helm expressions (general case)
-    processed = processed.replace(
-      /^(\s*)([^:\s]+):\s*"\{\{([^}]*)\}\}"/gm,
-      HELM_EXPRESSION_REPLACEMENT,
-    );
-
-    // 10. Standalone quoted Helm expressions
-    processed = processed.replace(/"\{\{([^}]*)\}\}"/g, '{{$1}}');
-
-    // 11. Array/list items with quoted Helm expressions
-    processed = processed.replace(/^(\s*)-\s*"\{\{([^}]*)\}\}"/gm, '$1- {{$2}}');
-
-    return processed;
-  }
-
-  private fixConditionalBlocks(processed: string): string {
-    return processed.replace(
-      /"\{\{-\s*(if|with|range)([^}]*)\}\}([^"]*)\{\{-\s*end\s*\}\}"/g,
-      '{{- $1$2}}$3{{- end }}',
-    );
-  }
-
-  private fixPipeExpressions(processed: string): string {
-    return processed.replace(/"\{\{([^}]*\|[^}]*)\}\}"/g, '{{$1}}');
-  }
-
-  private fixNestedQuotes(processed: string): string {
-    return processed.replace(/\{\{([^}]*)\\"([^"]*)\\"([^}]*)\}\}/g, '{{$1"$2"$3}}');
-  }
-
-  private cleanupArtifacts(processed: string): string {
-    processed = processed.replace(/": "\.nan"/g, ': .nan');
-    processed = processed.replace(/: \{\{([^}]+)\}\}$/gm, ': {{$1}}');
-    return processed;
   }
 
   /**

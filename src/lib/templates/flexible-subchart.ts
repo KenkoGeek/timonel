@@ -227,10 +227,10 @@ export function createFlexibleSubchart(
  */
 export function generateFlexibleSubchartTemplate(name: string): string {
   return `import { App } from 'cdk8s';
-import { Rutter } from 'timonel';
+import { Rutter, helmInclude, createHelmExpression as helm } from 'timonel';
 
 /**
- * Creates a new chart with simple Rutter implementation
+ * Creates a new chart with type-safe Helm helpers
  * @returns Rutter instance for Helm chart generation
  * @since 2.11.0
  */
@@ -246,45 +246,42 @@ export default function createChart() {
     scope: app,
     defaultValues: {
       appName: '${name}',
-      image: 'nginx:latest',
+      image: {
+        repository: 'nginx',
+        tag: 'latest'
+      },
       port: 80,
       replicas: 1,
     },
   });
 
-  // Add simple deployment
+  // Add Deployment with type-safe helpers
   rutter.addManifest({
     apiVersion: 'apps/v1',
     kind: 'Deployment',
     metadata: { 
-      name: '${name}',
-      labels: {
-        'app.kubernetes.io/name': '${name}'
-      }
+      name: helmInclude('chart.fullname', '.'),
+      labels: helmInclude('chart.labels', '.', { pipe: 'nindent 4' })
     },
     spec: {
-      replicas: 1,
+      replicas: helm('{{ .Values.replicas }}'),
       selector: {
-        matchLabels: {
-          'app.kubernetes.io/name': '${name}'
-        }
+        matchLabels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 6' })
       },
       template: {
         metadata: {
-          labels: {
-            'app.kubernetes.io/name': '${name}'
-          }
+          labels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 8' })
         },
         spec: {
           containers: [{
             name: '${name}',
-            image: 'nginx:latest',
+            image: helm('{{ .Values.image.repository }}:{{ .Values.image.tag }}'),
             ports: [{
-              containerPort: 80
+              containerPort: helm('{{ .Values.port }}')
             }],
             env: [
-              { name: 'APP_NAME', value: '${name}' },
-              { name: 'PORT', value: '80' }
+              { name: 'APP_NAME', value: helm('{{ .Values.appName }}') },
+              { name: 'PORT', value: helm('{{ .Values.port | toString }}') }
             ]
           }]
         }
@@ -292,27 +289,23 @@ export default function createChart() {
     }
   }, 'deployment');
 
-  // Add Service
+  // Add Service with type-safe helpers
   rutter.addManifest({
     apiVersion: 'v1',
     kind: 'Service',
     metadata: {
-      name: '${name}',
-      labels: {
-        'app.kubernetes.io/name': '${name}'
-      }
+      name: helmInclude('chart.fullname', '.'),
+      labels: helmInclude('chart.labels', '.', { pipe: 'nindent 4' })
     },
     spec: {
       type: 'ClusterIP',
       ports: [{
-        port: 80,
-        targetPort: 80,
+        port: helm('{{ .Values.port }}'),
+        targetPort: helm('{{ .Values.port }}'),
         protocol: 'TCP',
         name: 'http'
       }],
-      selector: {
-        'app.kubernetes.io/name': '${name}'
-      }
+      selector: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 4' })
     }
   }, 'service');
 
