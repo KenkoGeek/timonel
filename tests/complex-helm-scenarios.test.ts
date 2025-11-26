@@ -6,67 +6,67 @@ import { createHelmExpression } from '../src/lib/utils/helmYamlSerializer';
 import { dumpHelmAwareYaml } from '../src/lib/utils/helmYamlSerializer';
 
 describe('Complex Helm Scenarios', () => {
-    // Helper to generate YAML for a single manifest
-    function generateYaml(manifest: any): string {
-        const mockApp = new App();
-        const mockChart = new Chart(mockApp, 'test-chart');
+  // Helper to generate YAML for a single manifest
+  function generateYaml(manifest: unknown): string {
+    const mockApp = new App();
+    const mockChart = new Chart(mockApp, 'test-chart');
 
-        const rutter = new Rutter({
-            meta: { name: 'test', version: '1.0.0' },
-            scope: mockApp,
-            chartProps: { disableResourceNameHashes: true }
-        });
+    const rutter = new Rutter({
+      meta: { name: 'test', version: '1.0.0' },
+      scope: mockApp,
+      chartProps: { disableResourceNameHashes: true },
+    });
 
-        // Mock the internal chart to use our mockChart
-        // @ts-ignore - accessing private property for testing
-        rutter.chart = mockChart;
+    // Mock the internal chart to use our mockChart
+    // @ts-expect-error - accessing private property for testing
+    rutter.chart = mockChart;
 
-        const apiObj = rutter.addManifest(manifest, 'test-manifest');
+    const apiObj = rutter.addManifest(manifest as Record<string, unknown>, 'test-manifest');
 
-        // Use the serializer directly to verify the core logic.
-        return dumpHelmAwareYaml(manifest);
-    }
+    // Use the serializer directly to verify the core logic.
+    return dumpHelmAwareYaml(manifest);
+  }
 
-    it('should correctly serialize multiline if-block in map field', () => {
-        const manifest = {
-            apiVersion: 'v1',
-            kind: 'ConfigMap',
-            metadata: {
-                name: 'test-config',
-                annotations: createHelmExpression(`{{- if .Values.enabled }}
+  it('should correctly serialize multiline if-block in map field', () => {
+    const manifest = {
+      apiVersion: 'v1',
+      kind: 'ConfigMap',
+      metadata: {
+        name: 'test-config',
+        annotations: createHelmExpression(`{{- if .Values.enabled }}
 enabled: "true"
 status: "active"
-{{- end }}`)
-            }
-        };
+{{- end }}`),
+      },
+    };
 
-        const yaml = generateYaml(manifest);
-        expect(yaml).toContain(`annotations: "{{- if .Values.enabled }}
+    const yaml = generateYaml(manifest);
+    expect(yaml).toContain(`annotations: "{{- if .Values.enabled }}
 
     enabled: \\"true\\"
 
     status: \\"active\\"
 
     {{- end }}"`);
-    });
+  });
 
-    it('should correctly serialize nested range loops', () => {
-        const manifest = {
-            apiVersion: 'v1',
-            kind: 'ConfigMap',
-            metadata: { name: 'nested-range' },
-            data: {
-                config: createHelmExpression(`{{- range $key, $val := .Values.items }}
+  it('should correctly serialize nested range loops', () => {
+    const manifest = {
+      apiVersion: 'v1',
+      kind: 'ConfigMap',
+      metadata: { name: 'nested-range' },
+      data: {
+        config: createHelmExpression(`{{- range $key, $val := .Values.items }}
 {{ $key }}:
   {{- range $val.subitems }}
   - {{ . }}
   {{- end }}
-{{- end }}`)
-            }
-        };
+{{- end }}`),
+      },
+    };
 
-        const yaml = generateYaml(manifest);
-        expect(yaml).toContain(`config: "{{- range $key, $val := .Values.items }}
+    const yaml = generateYaml(manifest);
+    expect(yaml).toContain(`config: "{{- range $key, $val := .Values.items }}
 
     {{ $key }}:
 
@@ -77,48 +77,50 @@ status: "active"
     \\  {{- end }}
 
     {{- end }}"`);
-    });
+  });
 
-    it('should correctly serialize with-block changing scope', () => {
-        const manifest = {
-            apiVersion: 'v1',
-            kind: 'ConfigMap',
-            metadata: { name: 'with-block' },
-            data: {
-                settings: createHelmExpression(`{{- with .Values.settings }}
+  it('should correctly serialize with-block changing scope', () => {
+    const manifest = {
+      apiVersion: 'v1',
+      kind: 'ConfigMap',
+      metadata: { name: 'with-block' },
+      data: {
+        settings: createHelmExpression(`{{- with .Values.settings }}
 debug: {{ .debug }}
 logLevel: {{ .logLevel }}
-{{- end }}`)
-            }
-        };
+{{- end }}`),
+      },
+    };
 
-        const yaml = generateYaml(manifest);
-        expect(yaml).toContain(`settings: "{{- with .Values.settings }}
+    const yaml = generateYaml(manifest);
+    expect(yaml).toContain(`settings: "{{- with .Values.settings }}
 
     debug: {{ .debug }}
 
     logLevel: {{ .logLevel }}
 
     {{- end }}"`);
-    });
+  });
 
-    it('should correctly serialize complex logic with operators', () => {
-        const manifest = {
-            apiVersion: 'v1',
-            kind: 'ConfigMap',
-            metadata: { name: 'complex-logic' },
-            data: {
-                feature: createHelmExpression(`{{- if and .Values.enabled (not .Values.disabled) (or .Values.featureA .Values.featureB) }}
+  it('should correctly serialize complex logic with operators', () => {
+    const manifest = {
+      apiVersion: 'v1',
+      kind: 'ConfigMap',
+      metadata: { name: 'complex-logic' },
+      data: {
+        feature:
+          createHelmExpression(`{{- if and .Values.enabled (not .Values.disabled) (or .Values.featureA .Values.featureB) }}
 enabled: true
 priority: high
 {{- else }}
 enabled: false
-{{- end }}`)
-            }
-        };
+{{- end }}`),
+      },
+    };
 
-        const yaml = generateYaml(manifest);
-        expect(yaml).toContain(`feature: "{{- if and .Values.enabled (not .Values.disabled) (or .Values.featureA
+    const yaml = generateYaml(manifest);
+    expect(yaml)
+      .toContain(`feature: "{{- if and .Values.enabled (not .Values.disabled) (or .Values.featureA
     .Values.featureB) }}
 
     enabled: true
@@ -130,29 +132,29 @@ enabled: false
     enabled: false
 
     {{- end }}"`);
-    });
+  });
 
-    it('should correctly serialize mixed content', () => {
-        const manifest = {
-            apiVersion: 'v1',
-            kind: 'ConfigMap',
-            metadata: {
-                name: 'mixed-content',
-                annotations: {
-                    'static-key': 'static-value',
-                    'dynamic-block': createHelmExpression(`{{- if .Values.dynamic }}
+  it('should correctly serialize mixed content', () => {
+    const manifest = {
+      apiVersion: 'v1',
+      kind: 'ConfigMap',
+      metadata: {
+        name: 'mixed-content',
+        annotations: {
+          'static-key': 'static-value',
+          'dynamic-block': createHelmExpression(`{{- if .Values.dynamic }}
 dynamic: true
-{{- end }}`)
-                }
-            }
-        };
+{{- end }}`),
+        },
+      },
+    };
 
-        const yaml = generateYaml(manifest);
-        expect(yaml).toContain('static-key: static-value');
-        expect(yaml).toContain(`dynamic-block: "{{- if .Values.dynamic }}
+    const yaml = generateYaml(manifest);
+    expect(yaml).toContain('static-key: static-value');
+    expect(yaml).toContain(`dynamic-block: "{{- if .Values.dynamic }}
 
       dynamic: true
 
       {{- end }}"`);
-    });
+  });
 });

@@ -155,6 +155,7 @@ Timonel provides 9 composable, type-safe helpers for Helm template generation: `
 `helmFragment`.
 
 **Benefits:**
+
 - ✅ 100% Type-Safe - catch errors at compile time
 - ✅ No Raw Strings - eliminate manual template interpolation
 - ✅ Composable - nest and combine helpers freely

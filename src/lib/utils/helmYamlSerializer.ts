@@ -362,7 +362,9 @@ export function validateHelmYaml(_yaml: string): HelmValidationResult {
 }
 
 // Export other helpers for compatibility if needed
-// export function detectHelmExpressions(_str: string): HelmExpressionMatch[] { return []; }
+export function detectHelmExpressions(_str: string): unknown[] {
+  return [];
+}
 export function preprocessHelmExpressions(obj: unknown): unknown {
   return obj;
 }
