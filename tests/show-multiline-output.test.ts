@@ -1,0 +1,158 @@
+import { App } from 'cdk8s';
+import { describe, it, expect } from 'vitest';
+
+import { Rutter } from '../src/lib/rutter';
+import { helmIf, helmRange, helmWith } from '../src/lib/utils/helmControlStructures';
+
+describe('Multiline Verification - Show Actual Output', () => {
+  it('should show IF multiline output', () => {
+    const app = new App();
+    const rutter = new Rutter({
+      meta: { name: 'test', version: '1.0.0' },
+      scope: app,
+      chartProps: { disableResourceNameHashes: true },
+    });
+
+    rutter.addManifest(
+      {
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        metadata: {
+          name: 'test-if',
+          annotations: helmIf(
+            '.Values.enabled',
+            `enabled: "true"\nstatus: "active"\nenvironment: "production"`,
+          ),
+        },
+      },
+      'if-test',
+    );
+
+    const yaml = rutter['toSynthArray']()[0].yaml;
+    console.log('\n📝 IF MULTILINE OUTPUT:\n' + '='.repeat(60));
+    console.log(yaml);
+    console.log('='.repeat(60));
+
+    // New format: Helm expressions are generated as native YAML blocks (no quotes)
+    expect(yaml).toContain('annotations:');
+    expect(yaml).toContain('{{- if .Values.enabled -}}');
+    expect(yaml).toContain('{{- end -}}');
+  });
+
+  it('should show WITH multiline output', () => {
+    const app = new App();
+    const rutter = new Rutter({
+      meta: { name: 'test', version: '1.0.0' },
+      scope: app,
+      chartProps: { disableResourceNameHashes: true },
+    });
+
+    rutter.addManifest(
+      {
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        metadata: { name: 'test-with' },
+        data: {
+          config: helmWith(
+            '.Values.database',
+            `host: {{ .host }}\nport: {{ .port }}\nusername: {{ .username }}`,
+          ),
+        },
+      },
+      'with-test',
+    );
+
+    const yaml = rutter['toSynthArray']()[0].yaml;
+    console.log('\n📝 WITH MULTILINEA OUTPUT:\n' + '='.repeat(60));
+    console.log(yaml);
+    console.log('='.repeat(60));
+
+    // New format: Helm expressions are generated as native YAML blocks (no quotes)
+    expect(yaml).toContain('config:');
+    expect(yaml).toContain('{{- with .Values.database -}}');
+    expect(yaml).toContain('{{- end -}}');
+  });
+
+  it('should show RANGE multiline output', () => {
+    const app = new App();
+    const rutter = new Rutter({
+      meta: { name: 'test', version: '1.0.0' },
+      scope: app,
+      chartProps: { disableResourceNameHashes: true },
+    });
+
+    rutter.addManifest(
+      {
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        metadata: { name: 'test-range' },
+        data: {
+          services: helmRange(
+            '$name, $service',
+            '.Values.services',
+            `{{ $name }}:\n  enabled: {{ $service.enabled }}\n  replicas: {{ $service.replicas }}`,
+          ),
+        },
+      },
+      'range-test',
+    );
+
+    const yaml = rutter['toSynthArray']()[0].yaml;
+    console.log('\n📝 RANGE MULTILINEA OUTPUT:\n' + '='.repeat(60));
+    console.log(yaml);
+    console.log('='.repeat(60));
+
+    // New format: Helm expressions are generated as native YAML blocks (no quotes)
+    expect(yaml).toContain('services:');
+    expect(yaml).toContain('{{- range $name, $service := .Values.services -}}');
+    expect(yaml).toContain('{{- end -}}');
+  });
+
+  it('should show IF-ELSE-IF multiline output (multi-cloud)', () => {
+    const app = new App();
+    const rutter = new Rutter({
+      meta: { name: 'test', version: '1.0.0' },
+      scope: app,
+      chartProps: { disableResourceNameHashes: true },
+    });
+
+    rutter.addManifest(
+      {
+        apiVersion: 'networking.k8s.io/v1',
+        kind: 'Ingress',
+        metadata: {
+          name: 'test-ingress',
+          annotations: helmIf(
+            'eq .Values.cloud "aws"',
+            `kubernetes.io/ingress.class: alb
+alb.ingress.kubernetes.io/scheme: internet-facing`,
+            helmIf(
+              'eq .Values.cloud "azure"',
+              `kubernetes.io/ingress.class: nginx
+cert-manager.io/cluster-issuer: letsencrypt-prod`,
+              helmIf(
+                'eq .Values.cloud "gcp"',
+                `kubernetes.io/ingress.class: gce`,
+                `kubernetes.io/ingress.class: nginx`,
+              ),
+            ),
+          ),
+        },
+      },
+      'ingress-test',
+    );
+
+    const yaml = rutter['toSynthArray']()[0].yaml;
+    console.log('\n📝 IF-ELSE-IF MULTILINEA OUTPUT (Multi-Cloud):\n' + '='.repeat(60));
+    console.log(yaml);
+    console.log('='.repeat(60));
+
+    // New format: Helm expressions are generated as native YAML blocks (no quotes)
+    expect(yaml).toContain('annotations:');
+    expect(yaml).toContain('{{- if eq .Values.cloud');
+    expect(yaml).toContain('{{- else if eq .Values.cloud "azure" -}}');
+    expect(yaml).toContain('{{- else if eq .Values.cloud "gcp" -}}');
+    expect(yaml).toContain('{{- else -}}');
+    expect(yaml).toContain('{{- end -}}');
+  });
+});
