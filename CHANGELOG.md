@@ -1,3 +1,9 @@
+# [2.14.0-beta.1](https://github.com/KenkoGeek/timonel/compare/v2.13.0...v2.14.0-beta.1) (2025-11-28)
+
+### Features
+
+- **cli:** add Helm helpers (helmIf, helmWith) to templates and new release ([#201](https://github.com/KenkoGeek/timonel/issues/201)) ([b5ecb0f](https://github.com/KenkoGeek/timonel/commit/b5ecb0f29b207f7ff225b971c6e698bbc2d26073))
+
 # [2.13.0](https://github.com/KenkoGeek/timonel/compare/v2.12.2...v2.13.0) (2025-11-24)
 
 ### Features
