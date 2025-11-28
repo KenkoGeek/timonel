@@ -25,7 +25,7 @@ interface HelmChart extends Chart {
  */
 export function generateUmbrellaChart(name: string): string {
   return `import { App } from 'cdk8s';
-import { Rutter } from 'timonel';
+import { Rutter, helmInclude, helmIf, helmWith, createHelmExpression as helm } from 'timonel';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { parse, stringify } from 'yaml';
