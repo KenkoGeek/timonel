@@ -227,7 +227,7 @@ export function createFlexibleSubchart(
  */
 export function generateFlexibleSubchartTemplate(name: string): string {
   return `import { App } from 'cdk8s';
-import { Rutter, helmInclude, createHelmExpression as helm } from 'timonel';
+import { Rutter, helmInclude, helmIf, helmWith, createHelmExpression as helm } from 'timonel';
 
 /**
  * Creates a new chart with type-safe Helm helpers
@@ -264,13 +264,14 @@ export default function createChart() {
       labels: helmInclude('chart.labels', '.', { pipe: 'nindent 4' })
     },
     spec: {
-      replicas: helm('{{ .Values.replicas }}'),
+      replicas: helmIf('.Values.autoscaling.enabled', '{{ .Values.replicas }}', '1'),
       selector: {
         matchLabels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 6' })
       },
       template: {
         metadata: {
-          labels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 8' })
+          labels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 8' }),
+          annotations: helmWith('.Values.podAnnotations', helm('{{- toYaml . | nindent 8 }}'))
         },
         spec: {
           containers: [{
