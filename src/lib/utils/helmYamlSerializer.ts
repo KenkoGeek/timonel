@@ -8,6 +8,38 @@ import {
 } from './helmControlStructures.js';
 
 /**
+ * Helper function to serialize else-if chains
+ * @param elseContent The else content to process
+ * @param openTag Opening Helm tag
+ * @param closeTag Closing Helm tag
+ * @returns Object with serialized result and remaining else content
+ */
+function serializeElseIfChain(
+  elseContent: unknown,
+  openTag: string,
+  closeTag: string,
+): { result: string; remainingElse: unknown | undefined } {
+  let result = '';
+  let currentElse: unknown | undefined = elseContent;
+
+  // Check for nested if (else if pattern)
+  if (isHelmConstruct(currentElse) && currentElse.type === 'if') {
+    while (isHelmConstruct(currentElse) && currentElse.type === 'if') {
+      const elseIfData = currentElse.data as {
+        condition: string;
+        then: unknown;
+        else?: unknown;
+      };
+      result += `\n${openTag}else if ${elseIfData.condition}${closeTag}\n`;
+      result += serializeHelmContent(elseIfData.then);
+      currentElse = elseIfData.else;
+    }
+  }
+
+  return { result, remainingElse: currentElse };
+}
+
+/**
  * Serialize a HelmConstruct into a Helm template string
  * @param construct The HelmConstruct to serialize
  * @returns Helm template string
@@ -26,8 +58,18 @@ function serializeHelmConstruct(construct: HelmConstruct): string {
       result += serializeHelmContent(data.then);
 
       if (data.else !== undefined) {
-        result += `\n${openTag}else${closeTag}\n`;
-        result += serializeHelmContent(data.else);
+        const { result: elseIfResult, remainingElse } = serializeElseIfChain(
+          data.else,
+          openTag,
+          closeTag,
+        );
+
+        result += elseIfResult;
+
+        if (remainingElse !== undefined) {
+          result += `\n${openTag}else${closeTag}\n`;
+          result += serializeHelmContent(remainingElse);
+        }
       }
 
       result += `\n${openTag}end${closeTag}`;

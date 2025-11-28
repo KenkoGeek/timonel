@@ -29,7 +29,7 @@ describe('Multiline Verification - Show Actual Output', () => {
     );
 
     const yaml = rutter['toSynthArray']()[0].yaml;
-    console.log('\n📝 IF MULTILINEA OUTPUT:\n' + '='.repeat(60));
+    console.log('\n📝 IF MULTILINE OUTPUT:\n' + '='.repeat(60));
     console.log(yaml);
     console.log('='.repeat(60));
 
@@ -150,8 +150,9 @@ cert-manager.io/cluster-issuer: letsencrypt-prod`,
     // New format: Helm expressions are generated as native YAML blocks (no quotes)
     expect(yaml).toContain('annotations:');
     expect(yaml).toContain('{{- if eq .Values.cloud');
+    expect(yaml).toContain('{{- else if eq .Values.cloud "azure" -}}');
+    expect(yaml).toContain('{{- else if eq .Values.cloud "gcp" -}}');
     expect(yaml).toContain('{{- else -}}');
-    expect(yaml).toContain('{{- if eq .Values.cloud');
     expect(yaml).toContain('{{- end -}}');
   });
 });

@@ -59,8 +59,10 @@ cert-manager.io/cluster-issuer: letsencrypt-prod`,
     const yaml = assets[0].yaml;
     // New format: Helm expressions are unquoted YAML blocks
     expect(yaml).toContain('annotations:');
-    expect(yaml).toContain('{{- if eq .Values.global.env.HOST_ENV');
+    expect(yaml).toContain('{{- if eq .Values.global.env.HOST_ENV "AWS_K8" -}}');
     expect(yaml).toContain('kubernetes.io/ingress.class');
+    expect(yaml).toContain('{{- else if eq .Values.global.env.HOST_ENV "AZURE_K8" -}}');
+    expect(yaml).toContain('{{- else if eq .Values.global.env.HOST_ENV "GCP_K8" -}}');
     expect(yaml).toContain('{{- else -}}');
     expect(yaml).toContain('{{- end -}}');
   });

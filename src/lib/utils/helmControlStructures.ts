@@ -79,14 +79,8 @@ export function isHelmExpression(value: unknown): value is HelmExpression {
  * @param options - Whitespace control options
  * @returns HelmConstruct of type 'range'
  *
- * @example
- * // Simple list iteration
- * helmRange('item', '.Values.hosts', helmVar('item'))
- *
- * @example
- * // Map iteration with key-value
  * helmRange('$key, $value', '.Values.secrets', {
- *   [helmVar('$key')]: helmPipe(helmVar('$value'), 'quote')
+ *   [helmVar('$key')]: helmVar('$value')]
  * })
  */
 export function helmRange(
@@ -142,15 +136,15 @@ export function helmWith(
 /**
  * Creates a Helm include statement (template inclusion).
  *
- * @param templateName - Name of the template to include (e.g., 'zeus.labels')
+ * @param templateName - Name of the template to include (e.g., 'myapp.labels')
  * @param scope - Scope to pass to the template (usually '.')
  * @param pipe - Optional pipe operations (e.g., 'nindent 4', 'quote')
  * @param options - Whitespace control options
  * @returns HelmConstruct of type 'include'
  *
  * @example
- * helmInclude('zeus.labels', '.', { pipe: 'nindent 4' })
- * // Output: {{ include "zeus.labels" . | nindent 4 }}
+ * helmInclude('myapp.labels', '.', { pipe: 'nindent 4' })
+ * // Output: {{ include "myapp.labels" . | nindent 4 }}
  */
 export function helmInclude(
   templateName: string,
@@ -178,7 +172,7 @@ export function helmInclude(
  * @returns HelmConstruct of type 'define'
  *
  * @example
- * helmDefine('zeus.labels', {
+ * helmDefine('myapp.labels', {
  *   'app.kubernetes.io/name': helm('{{ .Chart.Name }}'),
  *   'app.kubernetes.io/instance': helm('{{ .Release.Name }}')
  * })
@@ -208,8 +202,8 @@ export function helmDefine(
  * @returns HelmConstruct of type 'var'
  *
  * @example
- * helmVar('$fullName', 'include "zeus.fullname" .')
- * // Output: {{ $fullName := include "zeus.fullname" . }}
+ * helmVar('$fullName', 'include "myapp.fullname" .')
+ * // Output: {{ $fullName := include "myapp.fullname" . }}
  */
 export function helmVar(
   name: string,
@@ -236,7 +230,7 @@ export function helmVar(
  * @returns HelmConstruct of type 'block'
  *
  * @example
- * helmBlock('zeus.config', { key: 'value' })
+ * helmBlock('myapp.config', { key: 'value' })
  */
 export function helmBlock(
   name: string,
