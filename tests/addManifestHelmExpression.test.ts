@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { createHelmExpression, Rutter } from '../src/index.js';
+import { helmInclude, Rutter } from '../src/index.js';
 
 describe('addManifest with HelmExpression', () => {
   let workDir: string;
@@ -31,7 +31,7 @@ describe('addManifest with HelmExpression', () => {
           apiVersion: 'v1',
           kind: 'ServiceAccount',
           metadata: {
-            name: createHelmExpression('{{ include "chart.name" . }}'),
+            name: helmInclude('chart.name', '.'),
           },
         },
         'serviceaccount',
@@ -42,7 +42,8 @@ describe('addManifest with HelmExpression', () => {
     rutter.write(outputDir);
 
     const yaml = readFileSync(join(outputDir, 'templates', 'serviceaccount.yaml'), 'utf8');
-    expect(yaml).toContain('{{ include "chart.name" . }}');
+    // helmInclude uses {{- by default now
+    expect(yaml).toContain('{{- include "chart.name" . -}}');
     expect(yaml).not.toContain('__helmExpression');
   });
 });
