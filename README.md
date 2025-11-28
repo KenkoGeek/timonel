@@ -18,6 +18,8 @@ directory.
 ## ✨ Key Features
 
 - **🔒 Type-safe API** with strict TypeScript and cdk8s constructs
+- **🎯 Type-Safe Helm Helpers** with 9 composable template helpers (`helmIf`, `helmRange`,
+  `helmWith`, `helmInclude`, etc.)
 - **🔧 Flexible resource creation** with built-in methods and `addManifest()` for custom resources
 - **🌍 Multi-environment support** with automatic values files generation
 - **☂️ Umbrella Charts** for managing multiple subcharts as a single unit
@@ -72,33 +74,58 @@ tl umbrella synth
 ### Simple Web Application
 
 ```typescript
-import { Chart } from 'cdk8s';
-import { Deployment, Service } from 'cdk8s-plus-33';
+import { Rutter, helmInclude, createHelmExpression as helm } from 'timonel';
 
-export class WebAppChart extends Chart {
-  constructor(scope: Chart, id: string) {
-    super(scope, id);
+const chart = new Rutter({
+  meta: {
+    name: 'web-app',
+    version: '1.0.0',
+    description: 'Simple web application',
+  },
+  defaultValues: {
+    replicas: 3,
+    image: {
+      repository: 'nginx',
+      tag: 'latest',
+    },
+  },
+});
 
-    // Create deployment
-    new Deployment(this, 'web-deployment', {
-      containers: [
-        {
-          image: 'nginx:latest',
-          port: 80,
-          env: {
-            NGINX_PORT: '80',
-          },
+// Add Deployment with type-safe helpers
+chart.addManifest(
+  {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: {
+      name: helmInclude('chart.fullname', '.'),
+      labels: helmInclude('chart.labels', '.', { pipe: 'nindent 4' }),
+    },
+    spec: {
+      replicas: helm('{{ .Values.replicas }}'),
+      selector: {
+        matchLabels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 6' }),
+      },
+      template: {
+        metadata: {
+          labels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 8' }),
         },
-      ],
-    });
+        spec: {
+          containers: [
+            {
+              name: 'web',
+              image: helm('{{ .Values.image.repository }}:{{ .Values.image.tag }}'),
+              ports: [{ containerPort: 80, name: 'http' }],
+            },
+          ],
+        },
+      },
+    },
+  },
+  'deployment',
+);
 
-    // Create service
-    new Service(this, 'web-service', {
-      selector: { app: 'web' },
-      ports: [{ port: 80, targetPort: 80 }],
-    });
-  }
-}
+// Generate the chart
+chart.write('./dist');
 ```
 
 ### Umbrella Chart with Multiple Services
@@ -125,6 +152,23 @@ const umbrellaConfig = {
 
 export const umbrella = new UmbrellaChartTemplate(umbrellaConfig);
 ```
+
+### Type-Safe Helm Helpers
+
+Timonel provides 9 composable, type-safe helpers for Helm template generation: `helmIf`,
+`helmRange`, `helmWith`, `helmInclude`, `helmDefine`, `helmVar`, `helmBlock`, `helmComment`, and
+`helmFragment`.
+
+**Benefits:**
+
+- ✅ 100% Type-Safe - catch errors at compile time
+- ✅ No Raw Strings - eliminate manual template interpolation
+- ✅ Composable - nest and combine helpers freely
+- ✅ Full IDE Support - autocomplete and type hints
+
+**Learn more:** See the
+[Type-Safe Helm Helpers Guide](https://github.com/KenkoGeek/timonel/wiki/Helm-Helpers-System) for
+complete documentation, examples, and best practices.
 
 ## 📚 Documentation
 

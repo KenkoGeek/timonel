@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync, existsSync, copyFileSync, readdirSync, rmSync } from 'fs';
 import { join } from 'path';
 
-import * as jsYaml from 'js-yaml';
+import { parse } from 'yaml';
 import { App, Chart, ApiObject } from 'cdk8s';
 
 import type { ChartProps } from '../types.js';
@@ -28,7 +28,7 @@ export function generateUmbrellaChart(name: string): string {
 import { Rutter } from 'timonel';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import * as jsYaml from 'js-yaml';
+import { parse, stringify } from 'yaml';
 // Import subcharts - add your subchart imports here
 
 type SynthMode = 'dependencies' | 'inline';
@@ -60,7 +60,7 @@ function readYamlFile(filePath: string): Record<string, unknown> {
   if (!existsSync(filePath)) {
     return {};
   }
-  const content = jsYaml.load(readFileSync(filePath, 'utf8'));
+  const content = parse(readFileSync(filePath, 'utf8'));
   return content && typeof content === 'object' ? (content as Record<string, unknown>) : {};
 }
 
@@ -165,8 +165,8 @@ export function synth(outDir: string, options?: SynthOptions) {
     });
   }
 
-  writeFileSync(chartPath, jsYaml.dump(chartDoc));
-  writeFileSync(valuesPath, jsYaml.dump(valuesDoc));
+  writeFileSync(chartPath, stringify(chartDoc));
+  writeFileSync(valuesPath, stringify(valuesDoc));
 
   app.synth();
 
@@ -421,7 +421,7 @@ export class UmbrellaChartTemplate extends Chart {
 
     assets.forEach((asset, assetIndex) => {
       try {
-        const manifest = jsYaml.load(asset.yaml) as Record<string, unknown>;
+        const manifest = parse(asset.yaml) as Record<string, unknown>;
         if (manifest?.apiVersion && manifest?.kind) {
           new ApiObject(flexibleSubchart, `${String(manifest.kind).toLowerCase()}-${assetIndex}`, {
             apiVersion: String(manifest.apiVersion),
