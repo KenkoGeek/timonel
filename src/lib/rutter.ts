@@ -415,9 +415,17 @@ export class Rutter {
     this.validateManifestStructure(manifestObject);
 
     // Create CDK8S ApiObject from the manifest
-    // Pass all fields to ensure data, stringData, and other resource-specific fields are included
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return new ApiObject(this.chart, id, manifestObject as any);
+    // ApiObjectProps has an index signature [key: string]: any, which allows
+    // passing additional fields like data, stringData, spec, etc.
+    // We validate that required fields exist, then safely construct the props
+    const apiObjectProps = {
+      apiVersion: manifestObject.apiVersion as string,
+      kind: manifestObject.kind as string,
+      metadata: manifestObject.metadata as Record<string, unknown>,
+      ...manifestObject, // Spread remaining fields (spec, data, stringData, etc.)
+    };
+
+    return new ApiObject(this.chart, id, apiObjectProps);
   }
 
   /**

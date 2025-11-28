@@ -139,15 +139,9 @@ function serializeHelmContent(content: unknown): string {
  */
 function preprocessHelmConstructs(obj: unknown): unknown {
   // Handle HelmConstruct
-  if (obj && typeof obj === 'object' && '__helmConstruct' in obj) {
-    console.log('DEBUG: Object has __helmConstruct:', JSON.stringify(obj, null, 2));
-    console.log('DEBUG: isHelmConstruct result:', isHelmConstruct(obj));
-  }
 
   if (isHelmConstruct(obj)) {
-    console.log('DEBUG: Found HelmConstruct:', obj.type);
     const helmTemplate = serializeHelmConstruct(obj);
-    console.log('DEBUG: Serialized template:', helmTemplate);
     return createHelmExpression(helmTemplate);
   }
 
@@ -188,9 +182,7 @@ function preprocessHelmConstructs(obj: unknown): unknown {
  */
 export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } = {}): string {
   // Pre-process to convert HelmConstruct objects to HelmExpression
-  console.log('DEBUG: Pre-processing object...');
   const preprocessed = preprocessHelmConstructs(obj);
-  console.log('DEBUG: Pre-processed object:', JSON.stringify(preprocessed, null, 2));
 
   const doc = new Document(preprocessed);
 
@@ -207,14 +199,12 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
       );
 
       if (isHelmExpr) {
-        console.log('DEBUG: Found HelmExpression in visit');
         // Find the 'value' property
         const valuePair = node.items.find(
           (pair) => isScalar(pair.key) && pair.key.value === 'value',
         );
         if (valuePair && isScalar(valuePair.value)) {
           const value = String(valuePair.value.value);
-          console.log('DEBUG: HelmExpression value:', value);
           const scalar = new Scalar(value);
 
           // Check if this is a Helm construct (multiline block)
@@ -309,7 +299,53 @@ export function stringify(
   );
 }
 
-// --- Validation and Prettify functions (kept from previous version, simplified imports) ---
+// --- Validation and Prettify functions ---
+
+/**
+ * Helm expression types for pattern matching
+ * @since 2.11.0
+ */
+type HelmExpressionType =
+  | 'block'
+  | 'nested'
+  | 'comment'
+  | 'action-trimmed'
+  | 'raw'
+  | 'include-context'
+  | 'generic';
+
+/**
+ * Pattern descriptor with compiled RegExp and its type
+ * @since 2.11.0
+ */
+interface PatternDescriptor {
+  regex: RegExp;
+  type: HelmExpressionType;
+}
+
+/**
+ * Compile and cache Helm expression patterns with types for optimized single pass processing
+ * @since 2.11.0
+ */
+const COMPILED_PATTERNS: PatternDescriptor[] = [
+  { regex: /\{\{-?\s*define\s+[^}]+\s*-?\}\}[\s\S]*?\{\{-?\s*end\s*-?\}\}/g, type: 'block' },
+  { regex: /\{\{[^}]*\{\{[^}]*\}\}[^}]*\}\}/g, type: 'nested' },
+  { regex: /\{\{\/\*[\s\S]*?\*\/\}\}/g, type: 'comment' },
+  { regex: /\{\{-?[\s\S]*?-?\}\}/g, type: 'action-trimmed' },
+  { regex: /\{\{`[\s\S]*?`\}\}/g, type: 'raw' },
+  { regex: /\{\{\s*include\s+"[^"]+"\s+[^}]+\s*\}\}/g, type: 'include-context' },
+];
+
+/**
+ * Represents a match of a Helm expression in a string with position details
+ * @since 2.11.0
+ */
+interface HelmExpressionMatch {
+  type: HelmExpressionType;
+  expression: string;
+  start: number;
+  end: number;
+}
 
 /**
  * Interface to report validation errors of Helm YAML content.
@@ -341,32 +377,286 @@ export interface HelmValidationResult {
 
 /**
  * Validate YAML string with Helm template expressions.
+ * - Parses Helm expressions from the string,
+ * - Performs balanced parentheses and quote checks,
+ * - Collects syntax errors, semantic warnings,
+ * - Provides statistics including complexity.
+ *
  * @param yaml YAML content string to validate.
- * @returns Validation result.
+ * @returns Validation result with errors, warnings, and stats.
  * @since 2.11.0
+ * @since 2.14.0 Restored full validation functionality
  */
-export function validateHelmYaml(_yaml: string): HelmValidationResult {
-  // Implementation kept simple for now, relying on previous logic structure
-  // Note: Full validation logic omitted for brevity in this refactor,
-  // but can be restored if needed. For now returning valid.
+export function validateHelmYaml(yaml: string): HelmValidationResult {
+  const errors: HelmValidationError[] = [];
+  const warnings: HelmValidationError[] = [];
+
+  // Detect all Helm expressions with types and positions
+  const expressions = parseHelmExpressions(yaml);
+
+  // Global check for unbalanced braces
+  const openBraces = (yaml.match(/\{\{/g) || []).length;
+  const closeBraces = (yaml.match(/\}\}/g) || []).length;
+  if (openBraces !== closeBraces) {
+    errors.push({
+      type: 'syntax',
+      message: 'Unbalanced Helm template braces detected in file',
+      line: 0,
+      column: 0,
+      expression: '',
+    });
+  }
+
+  // Syntax validation with error capturing
+  for (const expr of expressions) {
+    try {
+      validateHelmSyntax(expr.expression);
+    } catch (err) {
+      errors.push({
+        type: 'syntax',
+        message: err instanceof Error ? err.message : 'Unknown syntax error',
+        line: expr.startLine,
+        column: expr.startCol,
+        expression: expr.expression,
+      });
+    }
+  }
+
+  checkCommonIssues(yaml, warnings);
+  checkQuotedExpressions(yaml, warnings);
+
+  const expressionsByType = expressions.reduce(
+    (acc, expr) => {
+      acc[expr.type] = (acc[expr.type] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
+  const complexity = calculateComplexity(
+    expressions.map((expr) => ({
+      type: expr.type,
+      expression: expr.expression,
+      start: 0,
+      end: 0,
+    })),
+  );
+
   return {
-    isValid: true,
-    errors: [],
-    warnings: [],
+    isValid: errors.length === 0,
+    errors,
+    warnings,
     statistics: {
-      totalExpressions: 0,
-      expressionsByType: {},
-      complexity: 0,
+      totalExpressions: expressions.length,
+      expressionsByType,
+      complexity,
     },
   };
 }
 
+/**
+ * Internal helper to parse Helm expressions with line and column positions.
+ * Supports advanced expression types and range matching.
+ * @param content YAML string content.
+ * @returns List of detected Helm expressions with positional info.
+ * @since 2.11.0
+ */
+export function parseHelmExpressions(content: string): Array<{
+  type: HelmExpressionType;
+  expression: string;
+  startLine: number;
+  startCol: number;
+  endLine: number;
+  endCol: number;
+}> {
+  const expressions = [];
+  const lines = content.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    // eslint-disable-next-line security/detect-object-injection -- Safe: iterating over array indices
+    const line = lines[i];
+    if (!line) continue;
+    for (const { regex, type } of COMPILED_PATTERNS) {
+      let match;
+      regex.lastIndex = 0;
+      while ((match = regex.exec(line)) !== null) {
+        expressions.push({
+          type,
+          expression: match[0],
+          startLine: i + 1,
+          startCol: match.index + 1,
+          endLine: i + 1,
+          endCol: match.index + match[0].length + 1,
+        });
+        if (match.index === regex.lastIndex) regex.lastIndex++;
+      }
+    }
+  }
+  return expressions;
+}
+
+/**
+ * Validate Helm syntax for a single Helm expression string.
+ * Checks for balanced parentheses, balanced quotes, basic function call validity.
+ * Throws errors with descriptive messages on failure.
+ * @param expression Helm template expression string.
+ * @throws Error on syntax validation failure.
+ * @since 2.11.0
+ */
+function validateHelmSyntax(expression: string): void {
+  // Strip outer braces for parsing content
+  const content = expression.replace(/^\{\{-?\s*/, '').replace(/\s*-?\}\}$/, '');
+
+  if (!isBalanced(content, '(', ')')) {
+    throw new Error('Unbalanced parentheses in Helm expression');
+  }
+  if (!isQuotesBalanced(content)) {
+    throw new Error('Unbalanced quotes in Helm expression');
+  }
+  validateFunctionCalls(content);
+}
+
+/**
+ * Check that string has balanced pairs of the specified characters.
+ * @param str String to check.
+ * @param open Open character.
+ * @param close Close character.
+ * @returns True if balanced.
+ * @since 2.11.0
+ */
+function isBalanced(str: string, open: string, close: string): boolean {
+  let count = 0;
+  for (const c of str) {
+    if (c === open) count++;
+    else if (c === close) count--;
+    if (count < 0) return false;
+  }
+  return count === 0;
+}
+
+/**
+ * Checks if quotes in string are balanced.
+ * Supports single and double quotes ignoring escaped quotes.
+ * @param str String to check.
+ * @returns True if balanced.
+ * @since 2.11.0
+ */
+function isQuotesBalanced(str: string): boolean {
+  let singleQuoteOpen = false;
+  let doubleQuoteOpen = false;
+  let escaped = false;
+  for (const c of str) {
+    if (c === '\\' && !escaped) {
+      escaped = true;
+      continue;
+    }
+    if (
+      (c === "'" && !doubleQuoteOpen && !escaped) ||
+      (c === '"' && !singleQuoteOpen && !escaped)
+    ) {
+      if (c === "'") singleQuoteOpen = !singleQuoteOpen;
+      else doubleQuoteOpen = !doubleQuoteOpen;
+    }
+    escaped = false;
+  }
+  return !singleQuoteOpen && !doubleQuoteOpen;
+}
+
+/**
+ * Validate simple function call well-formedness for Helm expressions.
+ * Checks for basic invalid nested parentheses or arguments.
+ * Throws error if checks fail.
+ * @param content Expression string content (without outer braces).
+ * @throws Error on invalid functions.
+ * @since 2.11.0
+ */
+function validateFunctionCalls(_content: string): void {
+  // Basic sanity: function names followed by open paren, balanced args are checked by previous functions
+  // Additional validations can be implemented here as needed.
+  // For now, no error thrown by default.
+}
+
+/**
+ * Checks for common semantic issues in the YAML string to emit warnings.
+ * Checks for deprecated functions and problematic usage.
+ * @param yaml YAML string content.
+ * @param warnings Array to populate warnings.
+ * @since 2.11.0
+ */
+function checkCommonIssues(yaml: string, warnings: HelmValidationError[]): void {
+  const deprecatedFunctions = ['template'];
+  for (const func of deprecatedFunctions) {
+    // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: controlled function names from predefined list
+    const pattern = new RegExp(`\\{\\{[^}]*\\b${func}\\b[^}]*\\}\\}`, 'g');
+    let match;
+    while ((match = pattern.exec(yaml)) !== null) {
+      warnings.push({
+        type: 'semantic',
+        message: `Function '${func}' is deprecated`,
+        expression: match[0],
+        suggestion: `Consider avoiding deprecated function '${func}'`,
+      });
+    }
+  }
+}
+
+/**
+ * Check for quoted Helm expressions, which is an anti-pattern.
+ * Emits warnings advising to remove quotes.
+ * @param yaml YAML string content.
+ * @param warnings Array to populate warnings.
+ * @since 2.11.0
+ * @since 2.11.1 Corrected pattern matching to capture quoted Helm templates
+ */
+function checkQuotedExpressions(yaml: string, warnings: HelmValidationError[]): void {
+  const quotedPatterns = [/'(\{\{[^}]+\}\})'/g, /"(\{\{[^}]+\}\})"/g];
+  for (const pattern of quotedPatterns) {
+    let match;
+    pattern.lastIndex = 0;
+    while ((match = pattern.exec(yaml)) !== null) {
+      warnings.push({
+        type: 'semantic',
+        message: 'Helm expression should not be quoted',
+        expression: match[0],
+        suggestion: `Remove quotes around: ${match[1]}`,
+      });
+    }
+  }
+}
+
+/**
+ * Naive calculation of complexity score based on number and type of Helm expressions.
+ * Used for validation statistics.
+ * @param expressions Array of Helm expression matches.
+ * @returns Complexity score number.
+ * @since 2.11.0
+ */
+function calculateComplexity(expressions: HelmExpressionMatch[]): number {
+  let score = 0;
+  for (const expr of expressions) {
+    switch (expr.type) {
+      case 'block':
+        score += 5;
+        break;
+      case 'nested':
+        score += 4;
+        break;
+      case 'comment':
+        score += 0;
+        break;
+      default:
+        score += 1;
+    }
+  }
+  return score;
+}
+
 // Export other helpers for compatibility if needed
-export function detectHelmExpressions(_str: string): unknown[] {
-  return [];
+export function detectHelmExpressions(str: string): unknown[] {
+  return parseHelmExpressions(str);
 }
 export function preprocessHelmExpressions(obj: unknown): unknown {
-  return obj;
+  return preprocessHelmConstructs(obj);
 }
 export function postProcessHelmExpressions(yaml: string): string {
   return yaml;

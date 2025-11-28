@@ -103,10 +103,7 @@ export function helmRange(
       collection,
       content,
     },
-    options: {
-      trimLeft: options?.trimLeft ?? false,
-      trimRight: options?.trimRight ?? false,
-    },
+    ...(options ? { options } : {}),
   };
 }
 
@@ -138,10 +135,7 @@ export function helmWith(
       scope,
       content,
     },
-    options: {
-      trimLeft: options?.trimLeft ?? false,
-      trimRight: options?.trimRight ?? false,
-    },
+    ...(options ? { options } : {}),
   };
 }
 
@@ -171,10 +165,7 @@ export function helmInclude(
       scope,
       pipe: options?.pipe,
     },
-    options: {
-      trimLeft: options?.trimLeft ?? false,
-      trimRight: options?.trimRight ?? false,
-    },
+    ...(options ? { options } : {}),
   };
 }
 
@@ -204,10 +195,7 @@ export function helmDefine(
       name,
       content,
     },
-    options: {
-      trimLeft: options?.trimLeft ?? false,
-      trimRight: options?.trimRight ?? false,
-    },
+    ...(options ? { options } : {}),
   };
 }
 
@@ -235,10 +223,7 @@ export function helmVar(
       name,
       value,
     },
-    options: {
-      trimLeft: options?.trimLeft ?? false,
-      trimRight: options?.trimRight ?? false,
-    },
+    ...(options ? { options } : {}),
   };
 }
 
@@ -265,10 +250,7 @@ export function helmBlock(
       name,
       content,
     },
-    options: {
-      trimLeft: options?.trimLeft ?? false,
-      trimRight: options?.trimRight ?? false,
-    },
+    ...(options ? { options } : {}),
   };
 }
 
@@ -364,10 +346,7 @@ export function helmIf(
       then: thenContent,
       else: elseContent,
     },
-    options: {
-      trimLeft: options?.trimLeft ?? false,
-      trimRight: options?.trimRight ?? false,
-    },
+    ...(options ? { options } : {}),
   };
 }
 

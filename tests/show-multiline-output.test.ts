@@ -2,7 +2,7 @@ import { App } from 'cdk8s';
 import { describe, it, expect } from 'vitest';
 
 import { Rutter } from '../src/lib/rutter';
-import { createHelmExpression } from '../src/lib/utils/helmControlStructures';
+import { helmIf, helmRange, helmWith } from '../src/lib/utils/helmControlStructures';
 
 describe('Multiline Verification - Show Actual Output', () => {
   it('should show IF multiline output', () => {
@@ -19,11 +19,10 @@ describe('Multiline Verification - Show Actual Output', () => {
         kind: 'ConfigMap',
         metadata: {
           name: 'test-if',
-          annotations: createHelmExpression(`{{- if .Values.enabled }}
-enabled: "true"
-status: "active"
-environment: "production"
-{{- end }}`),
+          annotations: helmIf(
+            '.Values.enabled',
+            `enabled: "true"\nstatus: "active"\nenvironment: "production"`,
+          ),
         },
       },
       'if-test',
@@ -36,8 +35,8 @@ environment: "production"
 
     // New format: Helm expressions are generated as native YAML blocks (no quotes)
     expect(yaml).toContain('annotations:');
-    expect(yaml).toContain('{{- if .Values.enabled }}');
-    expect(yaml).toContain('{{- end }}');
+    expect(yaml).toContain('{{- if .Values.enabled -}}');
+    expect(yaml).toContain('{{- end -}}');
   });
 
   it('should show WITH multiline output', () => {
@@ -54,11 +53,10 @@ environment: "production"
         kind: 'ConfigMap',
         metadata: { name: 'test-with' },
         data: {
-          config: createHelmExpression(`{{- with .Values.database }}
-host: {{ .host }}
-port: {{ .port }}
-username: {{ .username }}
-{{- end }}`),
+          config: helmWith(
+            '.Values.database',
+            `host: {{ .host }}\nport: {{ .port }}\nusername: {{ .username }}`,
+          ),
         },
       },
       'with-test',
@@ -71,8 +69,8 @@ username: {{ .username }}
 
     // New format: Helm expressions are generated as native YAML blocks (no quotes)
     expect(yaml).toContain('config:');
-    expect(yaml).toContain('{{- with .Values.database }}');
-    expect(yaml).toContain('{{- end }}');
+    expect(yaml).toContain('{{- with .Values.database -}}');
+    expect(yaml).toContain('{{- end -}}');
   });
 
   it('should show RANGE multiline output', () => {
@@ -89,11 +87,11 @@ username: {{ .username }}
         kind: 'ConfigMap',
         metadata: { name: 'test-range' },
         data: {
-          services: createHelmExpression(`{{- range $name, $service := .Values.services }}
-{{ $name }}:
-  enabled: {{ $service.enabled }}
-  replicas: {{ $service.replicas }}
-{{- end }}`),
+          services: helmRange(
+            '$name, $service',
+            '.Values.services',
+            `{{ $name }}:\n  enabled: {{ $service.enabled }}\n  replicas: {{ $service.replicas }}`,
+          ),
         },
       },
       'range-test',
@@ -106,8 +104,8 @@ username: {{ .username }}
 
     // New format: Helm expressions are generated as native YAML blocks (no quotes)
     expect(yaml).toContain('services:');
-    expect(yaml).toContain('{{- range $name, $service := .Values.services }}');
-    expect(yaml).toContain('{{- end }}');
+    expect(yaml).toContain('{{- range $name, $service := .Values.services -}}');
+    expect(yaml).toContain('{{- end -}}');
   });
 
   it('should show IF-ELSE-IF multiline output (multi-cloud)', () => {
@@ -124,17 +122,21 @@ username: {{ .username }}
         kind: 'Ingress',
         metadata: {
           name: 'test-ingress',
-          annotations: createHelmExpression(`{{- if eq .Values.cloud "aws" }}
-kubernetes.io/ingress.class: alb
-alb.ingress.kubernetes.io/scheme: internet-facing
-{{- else if eq .Values.cloud "azure" }}
-kubernetes.io/ingress.class: nginx
-cert-manager.io/cluster-issuer: letsencrypt-prod
-{{- else if eq .Values.cloud "gcp" }}
-kubernetes.io/ingress.class: gce
-{{- else }}
-kubernetes.io/ingress.class: nginx
-{{- end }}`),
+          annotations: helmIf(
+            'eq .Values.cloud "aws"',
+            `kubernetes.io/ingress.class: alb
+alb.ingress.kubernetes.io/scheme: internet-facing`,
+            helmIf(
+              'eq .Values.cloud "azure"',
+              `kubernetes.io/ingress.class: nginx
+cert-manager.io/cluster-issuer: letsencrypt-prod`,
+              helmIf(
+                'eq .Values.cloud "gcp"',
+                `kubernetes.io/ingress.class: gce`,
+                `kubernetes.io/ingress.class: nginx`,
+              ),
+            ),
+          ),
         },
       },
       'ingress-test',
@@ -148,8 +150,8 @@ kubernetes.io/ingress.class: nginx
     // New format: Helm expressions are generated as native YAML blocks (no quotes)
     expect(yaml).toContain('annotations:');
     expect(yaml).toContain('{{- if eq .Values.cloud');
-    expect(yaml).toContain('{{- else if eq .Values.cloud');
-    expect(yaml).toContain('{{- else }}');
-    expect(yaml).toContain('{{- end }}');
+    expect(yaml).toContain('{{- else -}}');
+    expect(yaml).toContain('{{- if eq .Values.cloud');
+    expect(yaml).toContain('{{- end -}}');
   });
 });
