@@ -8,7 +8,7 @@ import * as path from 'path';
 
 import { SecurityUtils } from './security.js';
 import { createLogger, type TimonelLogger } from './utils/logger.js';
-import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
+import { dumpHelmAwareYaml, postProcessFieldConditionals } from './utils/helmYamlSerializer.js';
 import type { HelperDefinition as ExternalHelperDefinition } from './utils/helmHelpers/types.js';
 
 /**
@@ -461,8 +461,12 @@ function writeSingleAssetFile(
   const filename = `${fileBaseName}.yaml`;
   const absolutePath = path.join(chartSubdir, filename);
   SecurityUtils.validatePath(absolutePath, outDir);
+  
+  // Post-process YAML to transform field-level conditionals
+  const processedYaml = postProcessFieldConditionals(yaml);
+  
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-  fs.writeFileSync(absolutePath, yaml.endsWith('\n') ? yaml : `${yaml}\n`);
+  fs.writeFileSync(absolutePath, processedYaml.endsWith('\n') ? processedYaml : `${processedYaml}\n`);
 }
 
 /**
@@ -486,8 +490,11 @@ function writeMultipleAssetFiles(
   SecurityUtils.validatePath(chartSubdir, outDir);
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
   fs.mkdirSync(chartSubdir, { recursive: true });
+  
+  // Post-process YAML to transform field-level conditionals
+  const processedYaml = postProcessFieldConditionals(yaml);
 
-  const parts = splitDocs(yaml);
+  const parts = splitDocs(processedYaml);
   parts.forEach((doc, index) => {
     const suffix = parts.length > 1 ? `-${index + 1}` : '';
     const filename = `${fileBaseName}${suffix}.yaml`;
