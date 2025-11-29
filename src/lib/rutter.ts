@@ -22,7 +22,7 @@ import type {
   KarpenterNodePoolSpec,
 } from './resources/cloud/aws/karpenterResources.js';
 import { isHelmExpression, isHelmConstruct } from './utils/helmControlStructures.js';
-import { dumpHelmAwareYaml } from './utils/helmYamlSerializer.js';
+import { dumpHelmAwareYaml, preprocessHelmConstructs } from './utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from './utils/helmHelpers.js';
 import type { HelperDefinition } from './utils/helmHelpers.js';
 
@@ -414,15 +414,20 @@ export class Rutter {
     // Validate basic Kubernetes manifest structure
     this.validateManifestStructure(manifestObject);
 
+    // IMPORTANT: Pre-process HelmConstructs BEFORE creating ApiObject
+    // This ensures that field-level conditionals are detected and transformed
+    // into __fieldConditionalTemplate_* fields that can be preserved during cdk8s serialization
+    const preprocessedManifest = preprocessHelmConstructs(manifestObject) as Record<string, unknown>;
+
     // Create CDK8S ApiObject from the manifest
     // ApiObjectProps has an index signature [key: string]: any, which allows
     // passing additional fields like data, stringData, spec, etc.
     // We validate that required fields exist, then safely construct the props
     const apiObjectProps = {
-      apiVersion: manifestObject.apiVersion as string,
-      kind: manifestObject.kind as string,
-      metadata: manifestObject.metadata as Record<string, unknown>,
-      ...manifestObject, // Spread remaining fields (spec, data, stringData, etc.)
+      apiVersion: preprocessedManifest.apiVersion as string,
+      kind: preprocessedManifest.kind as string,
+      metadata: preprocessedManifest.metadata as Record<string, unknown>,
+      ...preprocessedManifest, // Spread remaining fields (spec, data, stringData, etc.)
     };
 
     return new ApiObject(this.chart, id, apiObjectProps);
@@ -707,9 +712,15 @@ ${yamlContent.trim()}
       operation: 'manifest_processing',
     });
     // Enforce common labels best-practice on all rendered objects
+    // IMPORTANT: Also pre-process HelmConstructs AFTER Testing.synth serializes the objects
+    // This ensures that field-level conditionals are detected and transformed
+    // even though cdk8s may have removed the original HelmConstruct structure
     const enriched = manifestObjs.map((obj: unknown) => {
-      if (obj && typeof obj === 'object') {
-        const o = obj as { metadata?: { labels?: Record<string, unknown> } };
+      // First, pre-process HelmConstructs to detect field-level conditionals
+      const preprocessed = preprocessHelmConstructs(obj);
+      
+      if (preprocessed && typeof preprocessed === 'object') {
+        const o = preprocessed as { metadata?: { labels?: Record<string, unknown> } };
         o.metadata = o.metadata ?? {};
         o.metadata.labels = o.metadata.labels ?? {};
         const labels = o.metadata.labels as Record<string, unknown>;
@@ -730,7 +741,7 @@ ${yamlContent.trim()}
           }
         }
       }
-      return obj;
+      return preprocessed;
     });
 
     const synthAssets: SynthAsset[] = [];

@@ -69,6 +69,7 @@ export {
 export { UmbrellaRutter } from './lib/umbrellaRutter.js';
 export {
   helmIf,
+  helmIfSimple,
   helmRange,
   helmWith,
   helmInclude,
