@@ -17,18 +17,18 @@ directory.
 
 ## ✨ Key Features
 
-- **🔒 Type-safe API** with strict TypeScript and cdk8s constructs
+- **🔒 Type-safe API** with strict TypeScript and cdk8s constructs.
 - **🎯 Type-Safe Helm Helpers** with 9 composable template helpers (`helmIf`, `helmRange`,
   `helmWith`, `helmInclude`, etc.)
-- **🔧 Flexible resource creation** with built-in methods and `addManifest()` for custom resources
-- **🌍 Multi-environment support** with automatic values files generation
-- **☂️ Umbrella Charts** for managing multiple subcharts as a single unit
-- **🛠️ Enhanced Helm Helpers** with environment, GitOps, observability, and validation helpers
+- **🔧 Flexible resource creation** with built-in methods and `addManifest()` for custom resources.
+- **🌍 Multi-environment support** with automatic values files generation.
+- **☂️ Umbrella Charts** for managing multiple subcharts as a single unit.
+- **🛠️ Enhanced Helm Helpers** with environment, GitOps, observability, and validation helpers.
 - **☁️ Cloud integrations**:
-  - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount, ECR, and Karpenter
-- **🛡️ Security-first approach** with NetworkPolicies and best practices
-- **⚡ Minimal CLI** (`tl`) for scaffolding and chart generation
-- **📦 Flexible subchart templates** supporting cdk8s and cdk8s-plus-33
+  - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount, ECR, and Karpenter.
+- **🛡️ Security-first approach** with NetworkPolicies and best practices.
+- **⚡ Minimal CLI** (`tl`) for scaffolding and chart generation.
+- **📦 Flexible subchart templates** supporting cdk8s and cdk8s-plus-33.
 
 ## 🚀 Quick Start
 
@@ -77,6 +77,7 @@ loaded from external sources (e.g., Vault during CI/CD).
 ### Configuration Methods
 
 **1. In-Code Defaults:**
+
 ```typescript
 const envVars = [
   { name: 'VERSION', type: 'value', defaultValue: '1.0.0' },
@@ -85,6 +86,7 @@ const envVars = [
 ```
 
 **2. External JSON/YAML (CI/CD):**
+
 ```bash
 # Load from Vault during CI
 vault kv get -format=json secret/app/env | jq '.data.data' > env-config.json
@@ -92,6 +94,7 @@ pnpm run synth
 ```
 
 **3. Generated Templates:**
+
 ```yaml
 # Value variables
 - name: VERSION

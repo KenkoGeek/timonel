@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
+
 import { valuesRef } from '../src/lib/utils/valuesRef.js';
 import { postProcessFieldConditionals } from '../src/lib/utils/helmYamlSerializer.js';
-import { Document } from 'yaml';
 
 interface TestValues {
   enabled: boolean;
@@ -99,8 +99,8 @@ spec:
     const result = postProcessFieldConditionals(yaml);
     
     // Check that indentation is correct (2 spaces for spec level)
-    expect(result).toMatch(/^spec:\n  \{\{- if not \.Values\.autoscaling\.enabled \}\}/m);
-    expect(result).toMatch(/^  replicas: \{\{ \.Values\.replicaCount \}\}/m);
-    expect(result).toMatch(/^  \{\{- end \}\}/m);
+    expect(result).toMatch(/^spec:\n {2}\{\{- if not \.Values\.autoscaling\.enabled \}\}/m);
+    expect(result).toMatch(/^ {2}replicas: \{\{ \.Values\.replicaCount \}\}/m);
+    expect(result).toMatch(/^ {2}\{\{- end \}\}/m);
   });
 });

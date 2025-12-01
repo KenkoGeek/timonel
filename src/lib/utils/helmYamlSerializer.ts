@@ -1,4 +1,5 @@
-import { Document, Scalar, isMap, isScalar, visit, Pair, YAMLMap, YAMLSeq } from 'yaml';
+import type { YAMLMap} from 'yaml';
+import { Document, Scalar, isMap, isScalar, visit, Pair } from 'yaml';
 
 import type { HelmConstruct } from './helmControlStructures.js';
 import {
@@ -8,7 +9,6 @@ import {
 } from './helmControlStructures.js';
 import {
   isHelmValue,
-  isHelmCondition,
   isHelmFieldConditional,
   isHelmRange,
   isHelmWith,
@@ -454,7 +454,7 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
         
         // Use special marker for field-level with
         const marker = `__FIELD_WITH__:${key}:${template}`;
-        // eslint-disable-next-line security/detect-object-injection
+         
         result[`__fieldWithTemplate_${key}`] = createHelmExpression(marker);
         continue;
       }
@@ -572,7 +572,7 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
         // Create the conditional template
         const conditionalTemplate = `{{- if ${fieldData.condition} }}\n  ${fieldData.fieldKey}: ${thenValueStr}\n{{- end }}`;
         
-        // eslint-disable-next-line security/detect-object-injection -- Safe: iterating over own entries
+         
         result[`__fieldConditionalTemplate_${fieldData.fieldKey}`] = conditionalTemplate;
         continue;
       }
