@@ -10,7 +10,17 @@
  */
 export interface HelmConstruct {
   __helmConstruct: true;
-  type: 'if' | 'range' | 'with' | 'include' | 'define' | 'var' | 'block' | 'comment' | 'fragment' | 'fieldConditional';
+  type:
+    | 'if'
+    | 'range'
+    | 'with'
+    | 'include'
+    | 'define'
+    | 'var'
+    | 'block'
+    | 'comment'
+    | 'fragment'
+    | 'fieldConditional';
   data: unknown;
   options?: HelmWhitespaceOptions;
 }

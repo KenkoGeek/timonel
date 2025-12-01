@@ -461,12 +461,15 @@ function writeSingleAssetFile(
   const filename = `${fileBaseName}.yaml`;
   const absolutePath = path.join(chartSubdir, filename);
   SecurityUtils.validatePath(absolutePath, outDir);
-  
+
   // Post-process YAML to transform field-level conditionals
   const processedYaml = postProcessFieldConditionals(yaml);
-  
+
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-  fs.writeFileSync(absolutePath, processedYaml.endsWith('\n') ? processedYaml : `${processedYaml}\n`);
+  fs.writeFileSync(
+    absolutePath,
+    processedYaml.endsWith('\n') ? processedYaml : `${processedYaml}\n`,
+  );
 }
 
 /**
@@ -490,7 +493,7 @@ function writeMultipleAssetFiles(
   SecurityUtils.validatePath(chartSubdir, outDir);
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
   fs.mkdirSync(chartSubdir, { recursive: true });
-  
+
   // Post-process YAML to transform field-level conditionals
   const processedYaml = postProcessFieldConditionals(yaml);
 

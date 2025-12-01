@@ -69,7 +69,6 @@ tl umbrella add backend
 tl umbrella synth
 ```
 
-<<<<<<< HEAD
 ## 💡 Examples
 
 ### Simple Web Application
@@ -162,7 +161,6 @@ Timonel provides 9 composable, type-safe helpers for Helm template generation: `
 
 **Benefits:**
 
-=======
 ## 🔧 Dynamic Environment Variables
 
 Timonel supports flexible environment variable configuration that can be defined in code or
@@ -192,7 +190,7 @@ pnpm run synth
 ```yaml
 # Value variables
 - name: VERSION
-  value: {{ .Values.global.env.VERSION | default "1.0.0" }}
+  value: { { .Values.global.env.VERSION | default "1.0.0" } }
 
 # Secret variables
 - name: DATABASE_URL
@@ -202,10 +200,6 @@ pnpm run synth
       key: DATABASE_URL
       optional: true
 ```
-
-## 💡 Examples
-
-### Simple Web Application
 
 ```typescript
 import { Rutter, helmInclude, createHelmExpression as helm } from 'timonel';
@@ -262,8 +256,6 @@ chart.addManifest(
 chart.write('./dist');
 ```
 
-### Umbrella Chart with Multiple Services
-
 ```typescript
 import { UmbrellaChartTemplate } from 'timonel';
 
@@ -287,15 +279,12 @@ const umbrellaConfig = {
 export const umbrella = new UmbrellaChartTemplate(umbrellaConfig);
 ```
 
-### Type-Safe Helm Helpers
-
 Timonel provides 9 composable, type-safe helpers for Helm template generation: `helmIf`,
 `helmRange`, `helmWith`, `helmInclude`, `helmDefine`, `helmVar`, `helmBlock`, `helmComment`, and
 `helmFragment`.
 
 **Benefits:**
 
->>>>>>> fix/synth-helm-generations
 - ✅ 100% Type-Safe - catch errors at compile time
 - ✅ No Raw Strings - eliminate manual template interpolation
 - ✅ Composable - nest and combine helpers freely

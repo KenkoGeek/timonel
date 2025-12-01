@@ -417,7 +417,10 @@ export class Rutter {
     // IMPORTANT: Pre-process HelmConstructs BEFORE creating ApiObject
     // This ensures that field-level conditionals are detected and transformed
     // into __fieldConditionalTemplate_* fields that can be preserved during cdk8s serialization
-    const preprocessedManifest = preprocessHelmConstructs(manifestObject) as Record<string, unknown>;
+    const preprocessedManifest = preprocessHelmConstructs(manifestObject) as Record<
+      string,
+      unknown
+    >;
 
     // Create CDK8S ApiObject from the manifest
     // ApiObjectProps has an index signature [key: string]: any, which allows
@@ -718,7 +721,7 @@ ${yamlContent.trim()}
     const enriched = manifestObjs.map((obj: unknown) => {
       // First, pre-process HelmConstructs to detect field-level conditionals
       const preprocessed = preprocessHelmConstructs(obj);
-      
+
       if (preprocessed && typeof preprocessed === 'object') {
         const o = preprocessed as { metadata?: { labels?: Record<string, unknown> } };
         o.metadata = o.metadata ?? {};

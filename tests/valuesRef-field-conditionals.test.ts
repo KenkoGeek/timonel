@@ -19,16 +19,16 @@ describe('valuesRef field-level conditionals', () => {
     const obj = {
       replicas: v.if(v.enabled.not(), v.replicas),
     };
-    
+
     // Simulate YAML serialization with marker
     const yaml = `spec:
   replicas: |-
     __FIELD_CONDITIONAL__:replicas:{{- if not .Values.enabled }}
   replicas: {{ .Values.replicas }}
 {{- end }}`;
-    
+
     const result = postProcessFieldConditionals(yaml);
-    
+
     expect(result).toContain('{{- if not .Values.enabled }}');
     expect(result).toContain('replicas: {{ .Values.replicas }}');
     expect(result).toContain('{{- end }}');
@@ -41,7 +41,7 @@ describe('valuesRef field-level conditionals', () => {
     const obj = {
       items: v.if(v.enabled, v.items),
     };
-    
+
     const yaml = `spec:
   items: |-
     __FIELD_CONDITIONAL__:items:{{- if .Values.enabled }}
@@ -49,9 +49,9 @@ describe('valuesRef field-level conditionals', () => {
     - {{ index .Values.items 0 }}
     - {{ index .Values.items 1 }}
 {{- end }}`;
-    
+
     const result = postProcessFieldConditionals(yaml);
-    
+
     expect(result).toContain('{{- if .Values.enabled }}');
     expect(result).toContain('items:');
     expect(result).toContain('- {{ index .Values.items 0 }}');
@@ -63,7 +63,7 @@ describe('valuesRef field-level conditionals', () => {
     const obj = {
       config: v.if(v.enabled, v.config),
     };
-    
+
     const yaml = `spec:
   config: |-
     __FIELD_CONDITIONAL__:config:{{- if .Values.enabled }}
@@ -71,9 +71,9 @@ describe('valuesRef field-level conditionals', () => {
     key: {{ .Values.config.key }}
     value: {{ .Values.config.value }}
 {{- end }}`;
-    
+
     const result = postProcessFieldConditionals(yaml);
-    
+
     expect(result).toContain('{{- if .Values.enabled }}');
     expect(result).toContain('config:');
     expect(result).toContain('key: {{ .Values.config.key }}');
@@ -95,9 +95,9 @@ spec:
     spec:
       containers:
         - name: app`;
-    
+
     const result = postProcessFieldConditionals(yaml);
-    
+
     // Check that indentation is correct (2 spaces for spec level)
     expect(result).toMatch(/^spec:\n {2}\{\{- if not \.Values\.autoscaling\.enabled \}\}/m);
     expect(result).toMatch(/^ {2}replicas: \{\{ \.Values\.replicaCount \}\}/m);
