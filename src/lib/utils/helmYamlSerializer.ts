@@ -628,7 +628,10 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
           // Check if this is a field-level conditional marker
           // Format: "__FIELD_CONDITIONAL__:fieldKey:{{- if ... }}\n  fieldKey: value\n{{- end }}"
           // We need to preserve it as a block literal so postProcessFieldConditionals can process it
-          if (value.startsWith('__FIELD_CONDITIONAL__:') || value.startsWith('__FIELD_WITH__:') || value.startsWith('__FIELD_WITH_MARKER__:')) {
+          const FIELD_CONDITIONAL = '__FIELD_CONDITIONAL__:';
+          const FIELD_WITH = '__FIELD_WITH__:';
+          const FIELD_WITH_MARKER = '__FIELD_WITH_MARKER__:';
+          if (value.startsWith(FIELD_CONDITIONAL) || value.startsWith(FIELD_WITH) || value.startsWith(FIELD_WITH_MARKER)) {
             const scalar = new Scalar(value);
             scalar.type = 'BLOCK_LITERAL';
             return scalar;
@@ -676,10 +679,10 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
   visit(doc, (_key, node) => {
     if (isMap(node)) {
       for (let i = 0; i < node.items.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection
         const pair = node.items[i];
-        if (!pair) continue;
         
-        if (isScalar(pair.key)) {
+        if (pair && isScalar(pair.key)) {
           const keyStr = String(pair.key.value);
           if (keyStr.startsWith('__fieldConditionalTemplate_')) {
             if (isScalar(pair.value)) {
@@ -699,6 +702,7 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
   // The challenge is that YAML requires keys, so we need to serialize the template
   // in a way that when converted to string, produces the desired output
   for (let i = templatePairs.length - 1; i >= 0; i--) {
+    // eslint-disable-next-line security/detect-object-injection
     const templatePair = templatePairs[i];
     if (!templatePair) continue;
     const { parent, index, template } = templatePair;
@@ -717,7 +721,7 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
     // Solution: Create a temporary Document with just the template to get its YAML representation
     // Then parse that and extract the content
     const tempDoc = new Document({ __temp: template });
-    const tempYaml = tempDoc.toString({ lineWidth: 0 });
+    const _tempYaml = tempDoc.toString({ lineWidth: 0 });
     
     // Extract just the value part (the template)
     // The tempYaml will be "__temp: |\n  template content"
@@ -807,7 +811,7 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
       // Try without newline (pipe on same line case)
       const templateStartMatchNoNewline = afterPipe.match(/^(\s*)(\{\{-)/);
       if (!templateStartMatchNoNewline) break;
-      const templateIndent = templateStartMatchNoNewline[1] || '';
+      const _templateIndent = templateStartMatchNoNewline[1] || '';
       const templateStart = templateStartMatchNoNewline[2];
       if (!templateStart) break;
       const templateStartIndex = pipeIndex + templateStartMatchNoNewline[0].length;
@@ -826,13 +830,14 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
       const afterTemplate = result.substring(templateEndIndex);
       
       const pipeIndentEscaped = pipeIndent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // eslint-disable-next-line security/detect-non-literal-regexp
       const adjustedTemplate = templateContent.replace(new RegExp(`^${pipeIndentEscaped}`, 'gm'), baseIndent);
       
       result = beforeMarker + adjustedTemplate + afterTemplate;
       continue;
     }
     
-    const templateIndent = templateStartMatch[1] || '';
+    const _templateIndent = templateStartMatch[1] || '';
     const templateStart = templateStartMatch[2];
     if (!templateStart) break;
     // templateStartIndex is after the newline and spaces, at the start of {{-
@@ -861,6 +866,7 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
     // After removing pipe indent, we want: "{{- if ... }}\n  fieldKey: value\n{{- end }}"
     const pipeIndentEscaped = pipeIndent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // Replace pipe indent with base indent on each line
+    // eslint-disable-next-line security/detect-non-literal-regexp
     const adjustedTemplate = templateContent.replace(new RegExp(`^${pipeIndentEscaped}`, 'gm'), baseIndent);
     
     result = beforeMarker + adjustedTemplate + afterTemplate;
@@ -882,6 +888,7 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
     const firstContentLine = contentLines[0]?.trim() || '';
     if (firstContentLine.startsWith(`${fieldKey}:`)) {
       // Remove duplicate fieldKey from content
+      // eslint-disable-next-line security/detect-non-literal-regexp
       contentLines[0] = contentLines[0].replace(new RegExp(`^\\s*${fieldKey}:\\s*`), '');
       content = contentLines.join('\n');
     }

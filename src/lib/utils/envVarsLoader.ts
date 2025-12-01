@@ -44,13 +44,13 @@ export function loadEnvVarsConfig(options: LoadEnvVarsOptions = {}): EnvVarConfi
   
   try {
     // If specific path provided, use it
-    if (configPath) {
-      if (existsSync(configPath)) {
-        const data = readFileSync(configPath, 'utf-8');
-        return configPath.endsWith('.yaml') || configPath.endsWith('.yml')
-          ? parseYaml(data)
-          : JSON.parse(data);
-      }
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    if (configPath && existsSync(configPath)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      const data = readFileSync(configPath, 'utf-8');
+      return configPath.endsWith('.yaml') || configPath.endsWith('.yml')
+        ? parseYaml(data)
+        : JSON.parse(data);
     }
     
     // Try default locations
@@ -65,7 +65,7 @@ export function loadEnvVarsConfig(options: LoadEnvVarsOptions = {}): EnvVarConfi
       const data = readFileSync(jsonPath, 'utf-8');
       return JSON.parse(data);
     }
-  } catch (e) {
+  } catch {
     // Fall through to fallback
   }
   
