@@ -87,6 +87,15 @@ export {
   type HelmWhitespaceOptions,
 } from './lib/utils/helmControlStructures.js';
 
+// Environment Variables Loader
+export {
+  loadEnvVarsConfig,
+  generateEnvVars,
+  loadAndGenerateEnvVars,
+  type EnvVarConfig,
+  type LoadEnvVarsOptions,
+} from './lib/utils/envVarsLoader.js';
+
 // Helm YAML Serialization Utilities
 export {
   dumpHelmAwareYaml,
@@ -94,3 +103,21 @@ export {
   type HelmValidationError,
   type HelmValidationResult,
 } from './lib/utils/helmYamlSerializer.js';
+
+// Type-safe Values Reference
+export {
+  valuesRef,
+  isHelmValue,
+  isHelmCondition,
+  isHelmFieldConditional,
+  isHelmRange,
+  isHelmWith,
+  serializeHelmValue,
+  serializeHelmCondition,
+  type HelmValue,
+  type HelmCondition,
+  type HelmFieldConditional,
+  type HelmRange,
+  type HelmWith,
+  type HelmHelpers,
+} from './lib/utils/valuesRef.js';

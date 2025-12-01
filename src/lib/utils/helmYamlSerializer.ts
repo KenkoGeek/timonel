@@ -6,6 +6,50 @@ import {
   isHelmExpression,
   createHelmExpression,
 } from './helmControlStructures.js';
+import {
+  isHelmValue,
+  isHelmCondition,
+  isHelmFieldConditional,
+  isHelmRange,
+  isHelmWith,
+  type HelmValue,
+  type HelmCondition,
+  type HelmFieldConditional,
+  type HelmRange,
+  type HelmWith,
+} from './valuesRef.js';
+
+/**
+ * Simple YAML serialization that handles HelmExpressions without recursion
+ * Used internally to serialize content within HelmFieldConditional
+ */
+function simpleHelmYaml(obj: unknown): string {
+  // First, recursively convert HelmValue and HelmExpression to plain strings
+  function convertToPlain(value: unknown): unknown {
+    if (isHelmValue(value)) {
+      return `{{ ${(value as HelmValue).__path} }}`;
+    }
+    if (isHelmExpression(value)) {
+      return value.value;
+    }
+    if (Array.isArray(value)) {
+      return value.map(convertToPlain);
+    }
+    if (value !== null && typeof value === 'object') {
+      const result: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value)) {
+        // eslint-disable-next-line security/detect-object-injection
+        result[k] = convertToPlain(v);
+      }
+      return result;
+    }
+    return value;
+  }
+  
+  const plain = convertToPlain(obj);
+  const doc = new Document(plain);
+  return doc.toString({ lineWidth: 0 });
+}
 
 /**
  * Helper function to serialize else-if chains
@@ -227,11 +271,12 @@ function serializeHelmConstruct(construct: HelmConstruct): string {
 
     case 'include': {
       const data = construct.data as { templateName: string; scope: string; pipe?: string };
-      let result = `${openTag}include "${data.templateName}" ${data.scope}`;
+      // For include, don't use trimLeft/trimRight to preserve YAML structure
+      let result = `{{ include "${data.templateName}" ${data.scope}`;
       if (data.pipe) {
         result += ` | ${data.pipe}`;
       }
-      result += `${closeTag}`;
+      result += ' }}';
       return result;
     }
 
@@ -310,6 +355,39 @@ function serializeHelmContent(content: unknown): string {
  * This allows the yaml library to serialize them correctly
  */
 export function preprocessHelmConstructs(obj: unknown): unknown {
+  // Handle HelmValue (from valuesRef)
+  if (isHelmValue(obj)) {
+    const value = obj as HelmValue;
+    return createHelmExpression(`{{ ${value.__path} }}`);
+  }
+  
+  // Handle HelmFieldConditional (from valuesRef v.if())
+  if (isHelmFieldConditional(obj)) {
+    // This is handled in the object iteration below
+    return obj;
+  }
+  
+  // Handle HelmRange (from valuesRef v.range())
+  if (isHelmRange(obj)) {
+    const range = obj as HelmRange<unknown>;
+    const sourcePath = (range.source as HelmValue).__path;
+    // Create placeholder values for callback
+    const itemProxy = { __path: '$item' } as unknown as HelmValue;
+    const indexProxy = { __path: '$index' } as unknown as HelmValue<number>;
+    const content = range.callback(itemProxy, indexProxy);
+    const processedContent = preprocessHelmConstructs(content);
+    // Serialize the content
+    const contentDoc = new Document(processedContent);
+    const contentStr = contentDoc.toString({ lineWidth: 0 }).trim();
+    return createHelmExpression(`{{- range ${sourcePath} }}\n${contentStr}\n{{- end }}`);
+  }
+  
+  // Handle HelmWith (from valuesRef v.with())
+  // DON'T process it here - let it pass through so the visit phase can detect it as field-level
+  if (isHelmWith(obj)) {
+    return obj;
+  }
+
   // Handle HelmConstruct
   // BUT: preserve fieldConditional constructs as-is so they can be handled in visit phase
   // NOTE: We don't process helmIf without else here - that's handled in the object processing below
@@ -347,6 +425,40 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
     const result: Record<string, unknown> = {};
     
     for (const [key, value] of Object.entries(obj)) {
+      // Check if value is HelmWith - treat as field-level construct
+      if (isHelmWith(value)) {
+        const withBlock = value as HelmWith<unknown>;
+        const source = withBlock.source as HelmValue;
+        const sourcePath = source?.__path;
+        
+        if (!sourcePath) {
+          throw new Error('HelmWith source must have a valid __path');
+        }
+        
+        // Create placeholder for callback context
+        const ctxProxy = { __path: '.' } as unknown as HelmValue;
+        const content = withBlock.callback(ctxProxy);
+        
+        // Extract content string
+        let contentStr: string;
+        if (isHelmExpression(content)) {
+          contentStr = content.value;
+        } else {
+          const processedContent = preprocessHelmConstructs(content);
+          const contentDoc = new Document(processedContent);
+          contentStr = contentDoc.toString({ lineWidth: 0 }).trim();
+        }
+        
+        // Generate field-level with template
+        const template = `{{- with ${sourcePath} }}\n${key}:\n  ${contentStr}\n{{- end }}`;
+        
+        // Use special marker for field-level with
+        const marker = `__FIELD_WITH__:${key}:${template}`;
+        // eslint-disable-next-line security/detect-object-injection
+        result[`__fieldWithTemplate_${key}`] = createHelmExpression(marker);
+        continue;
+      }
+      
       // Special handling: if value is a helmIf with elseContent as undefined,
       // this means we want to conditionally include the entire field (key + value)
       // We generate the template complete as a string and insert it as a special field
@@ -359,38 +471,87 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
           // Serialize the then value to get its string representation
           const preprocessedThen = preprocessHelmConstructs(ifData.then);
           let thenValueStr = '';
+          let isMultilineObject = false;
+          
           if (isHelmExpression(preprocessedThen)) {
-            // Extract the Helm expression value, removing any surrounding quotes
             thenValueStr = preprocessedThen.value.trim();
-            // If it's a Helm template expression, use it as-is
-            if (thenValueStr.startsWith('{{') && thenValueStr.endsWith('}}')) {
-              // Already a Helm expression, use it directly
-            } else {
-              // Wrap in Helm expression if needed
-              thenValueStr = `{{ ${thenValueStr} }}`;
-            }
+            isMultilineObject = thenValueStr.includes('\n');
           } else if (typeof preprocessedThen === 'string') {
             thenValueStr = preprocessedThen.trim();
+            isMultilineObject = thenValueStr.includes('\n');
+          } else if (Array.isArray(preprocessedThen)) {
+            // For arrays, serialize to YAML
+            const tempDoc = new Document(preprocessedThen);
+            thenValueStr = tempDoc.toString({ lineWidth: 0 }).trim();
+            isMultilineObject = true;
           } else {
             // For objects, serialize them to YAML string
             const tempDoc = new Document(preprocessedThen);
             thenValueStr = tempDoc.toString({ lineWidth: 0 }).trim();
+            isMultilineObject = thenValueStr.includes('\n');
           }
           
-          // Create the conditional template as a complete string
-          // The template should wrap the field (key + value) with proper indentation
-          // Format: "{{- if condition }}\n  fieldKey: value\n{{- end }}"
-          const conditionalTemplate = `{{- if ${ifData.condition} }}\n  ${key}: ${thenValueStr}\n{{- end }}`;
+          // Create the conditional template
+          // Format: "{{- if condition }}\nfieldKey: value\n{{- end }}"
+          const constructOptions = isHelmConstruct(value) ? value.options : undefined;
+          const trimLeft = constructOptions?.trimLeft ?? true;
+          const openTag = `{{${trimLeft ? '-' : ''} `;
+          const closeTag = ` ${constructOptions?.trimRight ?? true ? '-' : ''}}}`;
+          
+          // Format the value based on whether it's multiline or not
+          let formattedContent: string;
+          if (isMultilineObject) {
+            // For multiline values (arrays, objects), put on new line with proper indentation
+            const indentedValue = thenValueStr.split('\n').map((line: string) => '    ' + line).join('\n');
+            formattedContent = `${key}:\n${indentedValue}`;
+          } else {
+            // For simple values, put inline
+            formattedContent = `${key}: ${thenValueStr}`;
+          }
+          
+          const conditionalTemplate = `${openTag}if ${ifData.condition}${closeTag}\n  ${formattedContent}\n${openTag}end${closeTag}`;
           
           // Instead of creating a special field that might be lost during cdk8s serialization,
-          // we create a HelmExpression with the complete template that will be inserted
-          // directly in the YAML. However, we need to mark it specially so the serializer
-          // knows to insert it as raw template content, not as a quoted value.
-          // We'll use a special marker in the value that postProcessFieldConditionals can detect
+          // we create a HelmExpression (type-safe) with the complete template that will be inserted
+          // directly in the YAML. We use a special marker prefix in the value so postProcessFieldConditionals
+          // can detect and transform it correctly. This preserves type-safety because the field
+          // exists with a HelmExpression type, not just a string.
+          // The marker "__FIELD_CONDITIONAL__:" is used to identify field-level conditionals
           // eslint-disable-next-line security/detect-object-injection -- Safe: iterating over own entries
-          result[`__fieldConditionalTemplate_${key}`] = conditionalTemplate;
+          result[key] = createHelmExpression(`__FIELD_CONDITIONAL__:${key}:${conditionalTemplate}`);
           continue;
         }
+      }
+      
+      // Handle HelmFieldConditional from valuesRef v.if()
+      if (isHelmFieldConditional(value)) {
+        const fieldCond = value as HelmFieldConditional<unknown>;
+        const condition = (fieldCond.condition as HelmCondition).__condition;
+        
+        // Serialize the then value using simpleHelmYaml to avoid recursion
+        const thenValueStr = simpleHelmYaml(fieldCond.thenValue).trim();
+        const isMultilineObject = thenValueStr.includes('\n');
+        const startsWithDash = thenValueStr.trimStart().startsWith('-');
+        
+        // Create the conditional template without base indentation
+        // postProcessFieldConditionals will add the correct indentation later
+        let formattedContent: string;
+        if (isMultilineObject || startsWithDash) {
+          // For multiline or arrays, put key on own line
+          // Indent the value by 2 spaces relative to the key
+          const lines = thenValueStr.split('\n');
+          const indentedValue = lines.map((line: string) => '  ' + line).join('\n');
+          formattedContent = `${key}:\n${indentedValue}`;
+        } else {
+          formattedContent = `${key}: ${thenValueStr}`;
+        }
+        
+        // Template format: no base indent - postProcessFieldConditionals will add it
+        const conditionalTemplate = `{{- if ${condition} }}\n${formattedContent}\n{{- end }}`;
+        
+        // eslint-disable-next-line security/detect-object-injection -- Safe: iterating over own entries
+        result[key] = createHelmExpression(`__FIELD_CONDITIONAL__:${key}:${conditionalTemplate}`);
+        continue;
       }
       
       // Also handle fieldConditional constructs that were already created
@@ -463,10 +624,30 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
         );
         if (valuePair && isScalar(valuePair.value)) {
           const value = String(valuePair.value.value);
+          
+          // Check if this is a field-level conditional marker
+          // Format: "__FIELD_CONDITIONAL__:fieldKey:{{- if ... }}\n  fieldKey: value\n{{- end }}"
+          // We need to preserve it as a block literal so postProcessFieldConditionals can process it
+          if (value.startsWith('__FIELD_CONDITIONAL__:') || value.startsWith('__FIELD_WITH__:') || value.startsWith('__FIELD_WITH_MARKER__:')) {
+            const scalar = new Scalar(value);
+            scalar.type = 'BLOCK_LITERAL';
+            return scalar;
+          }
+          
           const scalar = new Scalar(value);
 
-          if (value.trim().startsWith('{{') && value.includes('\n')) {
+          // Check if this is a multiline Helm template (contains newlines and starts with {{)
+          const isMultilineTemplate = value.includes('\n') && value.trim().startsWith('{{');
+          
+          // Special handling for with/range blocks - they should NOT be block literals
+          // because they need to be at the same level as the field key
+          const isWithOrRange = value.trim().startsWith('{{- with ') || value.trim().startsWith('{{- range ');
+          
+          if (isMultilineTemplate && !isWithOrRange) {
             scalar.type = 'BLOCK_LITERAL'; // Force block style (|)
+          } else if (isWithOrRange) {
+            // For with/range, use PLAIN style so it renders without quotes or block markers
+            scalar.type = 'PLAIN';
           } else {
             scalar.type = 'QUOTE_DOUBLE'; // Force double quotes for simple expressions
           }
@@ -691,6 +872,24 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
   // Helm template strings that should never have escaped quotes
   result = result.replace(/\\"/g, '"');
 
+  // Fix templates that start with {{- if but are on the same line as the field key
+  // Pattern: "fieldKey: {{- if ... }}\n  content\n{{- end }}"
+  // Should become: "{{- if ... }}\n  fieldKey: content\n{{- end }}"
+  // But only if the fieldKey is not already wrapped in a conditional
+  result = result.replace(/^(\s+)(\w+):\s+(\{\{-?\s*if\s+[^}]+\}\})\s*\n(\s+)(.+?)\n(\s+)(\{\{-?\s*end\s*-?\}\})/gm, (match, baseIndent, fieldKey, ifTag, contentIndent, content, endIndent, endTag) => {
+    // Check if content starts with the fieldKey (duplicate)
+    const contentLines = content.split('\n');
+    const firstContentLine = contentLines[0]?.trim() || '';
+    if (firstContentLine.startsWith(`${fieldKey}:`)) {
+      // Remove duplicate fieldKey from content
+      contentLines[0] = contentLines[0].replace(new RegExp(`^\\s*${fieldKey}:\\s*`), '');
+      content = contentLines.join('\n');
+    }
+    // Reconstruct as field-level conditional
+    const contentFormatted = content ? '\n' + content.split('\n').map((line: string) => baseIndent + '    ' + line.trimStart()).join('\n') : '';
+    return `${baseIndent}${ifTag}\n${baseIndent}  ${fieldKey}:${contentFormatted}\n${baseIndent}${endTag}`;
+  });
+
   // Apply post-processing for field-level conditionals
   result = postProcessFieldConditionals(result);
 
@@ -709,270 +908,124 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
 export function postProcessFieldConditionals(yaml: string): string {
   let result = yaml;
   
-  // Transform __fieldConditionalTemplate_* fields in the string representation
-  // Pattern: "__fieldConditionalTemplate_fieldKey: |-\n    {{- if ... }}\n      fieldKey: value\n    {{- end }}"
-  // Should become: "{{- if ... }}\n  fieldKey: value\n{{- end }}"
-  // We need to find all __fieldConditionalTemplate_* fields and transform them
-  while (result.includes('__fieldConditionalTemplate_')) {
-    const markerIndex = result.indexOf('__fieldConditionalTemplate_');
+  // Transform field-level with blocks (__FIELD_WITH_MARKER__ marker)
+  // Pattern: "fieldKey: |-\n    __FIELD_WITH_MARKER__:path:content"
+  // Should become: "{{- with path }}\nfieldKey:\n  content\n{{- end }}"
+  while (result.includes('__FIELD_WITH_MARKER__:')) {
+    const markerIndex = result.indexOf('__FIELD_WITH_MARKER__:');
     if (markerIndex === -1) break;
     
-    // Find the start of the line containing the marker to get base indentation
-    const lineStart = result.lastIndexOf('\n', markerIndex);
-    const lineBeforeMarker = result.substring(lineStart + 1, markerIndex);
-    const indentMatch = lineBeforeMarker.match(/^(\s*)/);
-    const baseIndent = indentMatch && indentMatch[1] ? indentMatch[1] : '';
+    // Find the field key line (e.g., "  nodeSelector: |-")
+    const beforeMarker = result.substring(0, markerIndex);
+    const lastNewline = beforeMarker.lastIndexOf('\n');
+    const secondLastNewline = beforeMarker.lastIndexOf('\n', lastNewline - 1);
+    const fieldKeyLine = result.substring(secondLastNewline + 1, lastNewline);
     
-    // Find the field key (everything after __fieldConditionalTemplate_ until :)
+    const fieldKeyMatch = fieldKeyLine.match(/^(\s*)(\w+):\s*\|\-?\s*$/);
+    if (!fieldKeyMatch || !fieldKeyMatch[2]) break;
+    
+    const baseIndent = fieldKeyMatch[1] || '';
+    const fieldKey = fieldKeyMatch[2];
+    
+    // Extract marker: __FIELD_WITH_MARKER__:path:content
     const afterMarker = result.substring(markerIndex);
-    const keyMatch = afterMarker.match(/^__fieldConditionalTemplate_(\w+):/);
-    if (!keyMatch) break;
+    const markerMatch = afterMarker.match(/^__FIELD_WITH_MARKER__:([^:]+):(.+?)$/m);
+    if (!markerMatch || !markerMatch[1] || !markerMatch[2]) break;
     
-    const fieldKey = keyMatch[1];
-    const afterKey = afterMarker.substring(keyMatch[0].length);
+    const path = markerMatch[1];
+    const content = markerMatch[2].trim();
+    const markerEnd = markerIndex + markerMatch[0].length;
     
-    // Find the pipe character (| or |-) that indicates block literal
-    let pipeLineMatch = afterKey.match(/^\s*(\|-?)\s*\n(\s*)/);
-    if (!pipeLineMatch) break;
+    // Generate the with block
+    const template = `${baseIndent}{{- with ${path} }}\n${baseIndent}${fieldKey}:\n${baseIndent}  ${content}\n${baseIndent}{{- end }}`;
     
-    const pipeChar = pipeLineMatch[1];
-    const pipeIndent = pipeLineMatch[2] || '';
-    const pipeIndex = markerIndex + keyMatch[0].length + pipeLineMatch[0].length;
-    
-    // Find the template content (from {{- if to {{- end }})
-    // The template starts right after the pipe line (which includes the newline)
-    const afterPipe = result.substring(pipeIndex);
-    
-    // Find the {{- if line
-    const templateStartMatch = afterPipe.match(/^(\s*)(\{\{- if[^}]+?\}\})/);
-    if (!templateStartMatch) break;
-    
-    // The template content starts from the beginning of afterPipe (which is after the pipe line)
-    // We need to find where the template ends ({{- end }})
-    const templateSection = afterPipe;
-    const endMatch = templateSection.match(/(\{\{-?\s*end\s*-?\}\})/);
-    if (!endMatch) break;
-    
-    const endIndex = endMatch.index;
-    if (endIndex === undefined) break;
-    
-    // Find the end of the {{- end }} line (including the newline after it, if any)
-    const afterEnd = templateSection.substring(endIndex + endMatch[0].length);
-    const endLineEndMatch = afterEnd.match(/^\s*\n/);
-    const endLineLength = endMatch[0].length + (endLineEndMatch ? endLineEndMatch[0].length : 0);
-    const templateEndIndex = pipeIndex + endIndex + endLineLength;
-    
-    // Extract the template content (from after pipe to {{- end }})
-    const templateContent = result.substring(pipeIndex, templateEndIndex);
-    
-    // Remove the pipe indent from each line and adjust to base indent
-    const lines = templateContent.split('\n');
-    const adjustedLines = lines.map((line) => {
-      // Remove pipe indent and add base indent
-      const lineWithoutPipeIndent = line.startsWith(pipeIndent) 
-        ? line.substring(pipeIndent.length)
-        : line;
-      return baseIndent + lineWithoutPipeIndent;
-    });
-    
-    const adjustedTemplate = adjustedLines.join('\n');
-    
-    // Replace the entire marker field with just the template
-    const beforeMarker = result.substring(0, lineStart + 1);
-    const afterTemplate = result.substring(templateEndIndex);
-    
-    result = beforeMarker + adjustedTemplate + afterTemplate;
+    // Replace: remove fieldKey line and marker, insert template
+    result = result.substring(0, secondLastNewline + 1) + template + result.substring(markerEnd);
   }
   
-  // Also detect and fix the pattern where replicas (or other fields) have conditionals
-  // that were incorrectly serialized by cdk8s:
-  // Pattern: "fieldKey:\n    {{- if ... }}\n    value\n    {{- end }}"
-  // Should become: "{{- if ... }}\n  fieldKey: value\n{{- end }}"
-  // This happens when the __fieldConditionalTemplate_* field was created but then
-  // lost during cdk8s serialization, resulting in the conditional being inside the value
-  // We need to match multiline patterns, so we use a more complex approach
-  const lines = result.split('\n');
-  const fixedLines: string[] = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    if (!line) {
-      fixedLines.push('');
-      i++;
-      continue;
-    }
-    // Check if this line matches "fieldKey:" followed by a conditional
-    const fieldMatch = line.match(/^(\s+)(\w+):\s*$/);
-    if (fieldMatch && i + 1 < lines.length) {
-      const baseIndent = fieldMatch[1];
-      const fieldKey = fieldMatch[2];
-      const nextLine = lines[i + 1];
-      if (nextLine) {
-        // Check if the next line starts with a conditional (with or without - before }})
-        const ifMatch = nextLine.match(/^(\s+)(\{\{- if[^}]+\}\})\s*$/) || 
-                        nextLine.match(/^(\s+)(\{\{- if[^}]+\s*-\}\})\s*$/);
-        if (ifMatch && ifMatch[2]) {
-          // Found a field with a conditional - find the value and end tag
-          const ifTag = ifMatch[2].replace(/\s*-\}\}/, ' }}'); // Remove - before }} if present
-          let valueLine = '';
-          let endLine = '';
-          let j = i + 2;
-          // Find the value line (should be indented more than the if line)
-          while (j < lines.length) {
-            const currentLine = lines[j];
-            if (currentLine) {
-              // Check if this is the end tag (with or without -)
-              const endMatch = currentLine.match(/^(\s+)(\{\{-?\s*end\s*-?\}\})\s*$/);
-              if (endMatch && endMatch[2]) {
-                endLine = endMatch[2].replace(/\s*-\}\}/, ' }}'); // Remove - before }} if present
-                break;
-              }
-              // This should be the value line
-              if (!valueLine && currentLine.trim()) {
-                valueLine = currentLine.trim();
-              }
-            }
-            j++;
-          }
-          if (valueLine && endLine) {
-            // Reconstruct the correct format
-            fixedLines.push(`${baseIndent}${ifTag}`);
-            fixedLines.push(`${baseIndent}  ${fieldKey}: ${valueLine}`);
-            fixedLines.push(`${baseIndent}${endLine}`);
-            i = j + 1;
-            continue;
-          }
-        }
-      }
-    }
-    fixedLines.push(line);
-    i++;
-  }
-  result = fixedLines.join('\n');
-
-  // Also handle the old __fieldConditionalContent pattern for backwards compatibility
-  while (result.includes('__fieldConditionalContent:')) {
-    const markerIndex = result.indexOf('__fieldConditionalContent:');
+  // Transform field-level with blocks (__FIELD_WITH__ marker)
+  while (result.includes('__FIELD_WITH__:')) {
+    const markerIndex = result.indexOf('__FIELD_WITH__:');
     if (markerIndex === -1) break;
     
-    // Find the start of the line containing the marker to get base indentation
-    const lineStart = result.lastIndexOf('\n', markerIndex);
-    const lineBeforeMarker = result.substring(lineStart + 1, markerIndex);
-    const indentMatch = lineBeforeMarker.match(/^(\s*)/);
-    const baseIndent = indentMatch && indentMatch[1] ? indentMatch[1] : '';
+    // Find the field key line (e.g., "  __fieldWithTemplate_nodeSelector: |-")
+    const beforeMarker = result.substring(0, markerIndex);
+    const lastNewline = beforeMarker.lastIndexOf('\n');
+    const secondLastNewline = beforeMarker.lastIndexOf('\n', lastNewline - 1);
+    const fieldKeyLine = result.substring(secondLastNewline + 1, lastNewline);
     
-    // Find the content after the marker
+    const fieldKeyMatch = fieldKeyLine.match(/^(\s*)__fieldWithTemplate_\w+:\s*\|\-?\s*$/);
+    if (!fieldKeyMatch) break;
+    
+    const baseIndent = fieldKeyMatch[1];
+    
+    // Extract template: __FIELD_WITH__:fieldKey:TEMPLATE
     const afterMarker = result.substring(markerIndex);
+    const markerMatch = afterMarker.match(/^__FIELD_WITH__:\w+:(.+?\{\{-?\s*end\s*-?\}\})/s);
+    if (!markerMatch || !markerMatch[1]) break;
     
-    // Find the pipe character (| or |-) that indicates block literal
-    // It can be on the same line or on the next line
-    let pipeLineMatch = afterMarker.match(/^__fieldConditionalContent:\s*(\|-?)\s*\n(\s*)/);
-    let pipeOnSameLine = true;
-    if (!pipeLineMatch) {
-      // Try pattern with pipe on next line
-      pipeLineMatch = afterMarker.match(/^__fieldConditionalContent:\s*\n(\s*)(\|-?)\s*\n/);
-      pipeOnSameLine = false;
-    }
-    if (!pipeLineMatch) break;
+    const template = markerMatch[1];
+    const markerEnd = markerIndex + markerMatch[0].length;
     
-    const pipeChar = pipeOnSameLine ? pipeLineMatch[1] : pipeLineMatch[2];
-    const pipeIndent = pipeOnSameLine ? (pipeLineMatch[2] || '') : (pipeLineMatch[1] || '');
-    if (!pipeChar) break;
+    // Process template: remove block indent, add base indent
+    const lines = template.split('\n');
+    const processed = lines.map(line => {
+      if (!line.trim()) return '';
+      const trimmed = line.trimStart();
+      return baseIndent + trimmed;
+    }).join('\n');
     
-    // Calculate the index after the pipe line
-    const pipeIndex = markerIndex + pipeLineMatch[0].length;
-    
-    // Find the template start ({{- if)
-    // After the pipe line, there's a newline and then spaces before the template
-    const afterPipe = result.substring(pipeIndex);
-    // Match: newline (required after pipe), then spaces, then {{-
-    const templateStartMatch = afterPipe.match(/^\n(\s*)(\{\{-)/);
-    if (!templateStartMatch) break;
-    
-    const templateIndent = templateStartMatch[1] || '';
-    const templateStart = templateStartMatch[2];
-    if (!templateStart) break;
-    // templateStartIndex is after the newline and spaces, at the start of {{-
-    const templateStartIndex = pipeIndex + templateStartMatch[0].length;
-    
-    // Find the template end ({{- end }})
-    const templateSection = result.substring(templateStartIndex);
-    const endMatch = templateSection.match(/(\{\{-?\s*end\s*-?\}\})/);
-    if (!endMatch) break;
-    
-    const endIndex = endMatch.index;
-    if (endIndex === undefined) break;
-    const templateEndIndex = templateStartIndex + endIndex + endMatch[0].length;
-    
-    // Extract the template content
-    const templateContent = result.substring(templateStartIndex, templateEndIndex);
-    
-    // Remove the marker line, pipe line, and adjust the template
-    // The template should start at the baseIndent level
-    const beforeMarker = result.substring(0, lineStart + 1);
-    const afterTemplate = result.substring(templateEndIndex);
-    
-    // The template content has indentation from the pipe (pipeIndent)
-    // We need to replace that with baseIndent to get the correct final indentation
-    const pipeIndentEscaped = pipeIndent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Replace pipe indent with base indent on each line
-    const adjustedTemplate = templateContent.replace(new RegExp(`^${pipeIndentEscaped}`, 'gm'), baseIndent);
-    
-    result = beforeMarker + adjustedTemplate + afterTemplate;
+    // Replace: remove fieldKey line and marker, insert processed template
+    result = result.substring(0, secondLastNewline + 1) + processed + result.substring(markerEnd);
   }
   
-  // Remove escaped backslashes that appear before spaces in YAML
-  // Pattern: "\  " -> "  " (two spaces)
-  result = result.replace(/\\\\/g, '');
+  // Transform field-level conditionals with __FIELD_CONDITIONAL__ marker
+  // Pattern: "fieldKey: |-\n    __FIELD_CONDITIONAL__:fieldKey:{{- if ... }}\n  fieldKey: value\n{{- end }}"
+  // Should become: "{{- if ... }}\n  fieldKey: value\n{{- end }}"
+  while (result.includes('__FIELD_CONDITIONAL__:')) {
+    const markerIndex = result.indexOf('__FIELD_CONDITIONAL__:');
+    if (markerIndex === -1) break;
+    
+    // Find the field key line (e.g., "  fieldKey: |-")
+    const beforeMarker = result.substring(0, markerIndex);
+    const lastNewline = beforeMarker.lastIndexOf('\n');
+    const secondLastNewline = beforeMarker.lastIndexOf('\n', lastNewline - 1);
+    const fieldKeyLine = result.substring(secondLastNewline + 1, lastNewline);
+    
+    const fieldKeyMatch = fieldKeyLine.match(/^(\s*)(\w+):\s*\|\-?\s*$/);
+    if (!fieldKeyMatch) break;
+    
+    const baseIndent = fieldKeyMatch[1];
+    
+    // Extract template: __FIELD_CONDITIONAL__:fieldKey:TEMPLATE
+    const afterMarker = result.substring(markerIndex);
+    const markerMatch = afterMarker.match(/^__FIELD_CONDITIONAL__:\w+:(.+?\{\{-?\s*end\s*-?\}\})/s);
+    if (!markerMatch || !markerMatch[1]) break;
+    
+    const template = markerMatch[1];
+    const markerEnd = markerIndex + markerMatch[0].length;
+    
+    // Process template: remove block indent, add base indent
+    const lines = template.split('\n');
+    const processed = lines.map(line => {
+      if (!line.trim()) return '';
+      // Remove leading spaces (block indent from YAML serialization)
+      const trimmed = line.trimStart();
+      // Add base indent
+      return baseIndent + trimmed;
+    }).join('\n');
+    
+    // Replace: remove fieldKey line and marker, insert processed template
+    result = result.substring(0, secondLastNewline + 1) + processed + result.substring(markerEnd);
+  }
 
-  // Post-process to handle template-only values that should be raw YAML
-  // These are values that are ONLY a Helm template (start with {{ and end with }})
-  // They should not be quoted so Helm can expand them as YAML structure
-
-  // 1. Handle Block Literals (multiline constructs like if/range)
-  // Pattern: "| \n  {{- if ... }}" -> "{{- if ... }}" (indented)
-  // We need to remove the pipe and the newline after it, but keep indentation
-  // The yaml library outputs: key: |
-  //                             {{- if ... }}
-  // We want: key:
-  //            {{- if ... }}
-
-  // Actually, we just need to remove the "| " (or "|\n") if it's followed by a Helm block
-  // But regex on the whole string is risky for context.
-
-  // Let's stick to the previous approach but handle the pipe if present.
-  // If we used BLOCK_LITERAL, the output is:
-  // key: |
-  //   {{- if ... }}
-
-  // We can replace ": |" with ":" ? No, that affects all block literals.
-
-  // Let's refine:
-  // Match: ": |" or ": |-" or ": |+" followed by newline and indent and {{
-  // regex: /:\s*\|[-+]?\s*\n(\s*\{\{)/g
+  
+  // Clean up pipe literals
   result = result.replace(/:\s*\|[-+]?\s*\n(\s*\{\{)/g, ':\n$1');
   
-  // Pattern 2: "key: |\n  {{- if ... }}\n  key: value\n{{- end }}"
-  // Should become: "\n  {{- if ... }}\n  key: value\n{{- end }}"
-  result = result.replace(/(\n\s+)(\w+):\s*\|\s*\n(\s+)(\{\{-?\s*if\s+([^}]+)\s*-?\}\})\s*\n(\s+)(\w+):\s*([^\n\{\}]+)\s*\n(\s+)(\{\{-?\s*end\s*-?\}\})/g,
-    (match, baseIndent, key1, indent1, ifBlock, condition, indent2, key2, value, indent3, endBlock) => {
-      // If key1 === key2, this is a field-level conditional
-      if (key1 === key2) {
-        const baseIndentStr = baseIndent.replace(/\n/, '');
-        // Remove the "key: |" line and return just the conditional
-        return `\n${baseIndentStr}${ifBlock}\n${baseIndentStr}  ${key2}: ${value.trim()}\n${baseIndentStr}  ${endBlock}`;
-      }
-      return match; // Don't modify if keys don't match
-    }
-  );
-
-  // 2. Handle Quoted Strings (single line expressions)
-  // Pattern: "{{- include "name" . | nindent 4 }}" -> {{- include "name" . | nindent 4 }}
-  // We need to remove quotes around pure template expressions, including multiline blocks
-  // Match any quoted string that starts with {{ and ends with }}
-  // Use [\s\S]*? for non-greedy multiline match
+  // Remove quotes around Helm expressions
   result = result.replace(/"(\{\{[\s\S]*?\}\})"/g, '$1');
-
+  
   return result;
 }
 

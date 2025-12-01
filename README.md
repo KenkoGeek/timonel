@@ -69,6 +69,43 @@ tl umbrella add backend
 tl umbrella synth
 ```
 
+## 🔧 Dynamic Environment Variables
+
+Timonel supports flexible environment variable configuration that can be defined in code or
+loaded from external sources (e.g., Vault during CI/CD).
+
+### Configuration Methods
+
+**1. In-Code Defaults:**
+```typescript
+const envVars = [
+  { name: 'VERSION', type: 'value', defaultValue: '1.0.0' },
+  { name: 'DATABASE_URL', type: 'secret', secretName: 'app-secrets' },
+];
+```
+
+**2. External JSON/YAML (CI/CD):**
+```bash
+# Load from Vault during CI
+vault kv get -format=json secret/app/env | jq '.data.data' > env-config.json
+pnpm run synth
+```
+
+**3. Generated Templates:**
+```yaml
+# Value variables
+- name: VERSION
+  value: {{ .Values.global.env.VERSION | default "1.0.0" }}
+
+# Secret variables
+- name: DATABASE_URL
+  valueFrom:
+    secretKeyRef:
+      name: app-secrets
+      key: DATABASE_URL
+      optional: true
+```
+
 ## 💡 Examples
 
 ### Simple Web Application
