@@ -852,9 +852,14 @@ await Promise.resolve(runner(output, synthOptions));
 console.log('Umbrella chart written to ' + output);
 `;
 
-  const wrapperFile = path.join(process.cwd(), '.timonel-umbrella-wrapper.mjs');
+  const cwd = process.cwd();
+  const wrapperFile = SecurityUtils.validatePath(
+    path.join(cwd, '.timonel-umbrella-wrapper.mjs'),
+    cwd,
+  );
 
   try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
     fs.writeFileSync(wrapperFile, wrapperScript);
 
     const result = spawnSync(process.execPath, [TSX_CLI_PATH, wrapperFile], {
