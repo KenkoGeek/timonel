@@ -229,18 +229,19 @@ async function cmdInit(name?: string, silent = false) {
     );
   }
 
-  const base = path.join(process.cwd(), validName);
-  const chartFile = path.join(base, 'chart.ts');
+  const cwd = process.cwd();
+  const base = SecurityUtils.validatePath(path.join(cwd, validName), cwd);
+  const chartFile = SecurityUtils.validatePath(path.join(base, 'chart.ts'), cwd);
 
   // Create directory
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   fs.mkdirSync(base, { recursive: true });
 
   // Import template generator
   const { generateFlexibleSubchartTemplate } = await import('./lib/templates/flexible-subchart.js');
 
   // Write chart file only - following CDK8s best practices
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   fs.writeFileSync(chartFile, generateFlexibleSubchartTemplate(validName));
 
   log(`Chart created at ${base}`, silent);
@@ -260,26 +261,45 @@ async function cmdInit(name?: string, silent = false) {
  * @since 2.12.2 Supports explicit output directory argument while retaining legacy behavior
  */
 async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOutDir?: string) {
-  let chartDir = process.cwd();
+  const cwd = process.cwd();
+  let chartDir = cwd;
   let outDir: string | undefined;
 
   // If the parameter is a directory containing chart.ts, use it as chart directory
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  if (chartDirOrOutDir && fs.existsSync(path.join(chartDirOrOutDir, 'chart.ts'))) {
-    chartDir = path.resolve(chartDirOrOutDir);
-  } else {
-    // Otherwise, treat it as output directory for backward compatibility
-    outDir = chartDirOrOutDir;
+  if (chartDirOrOutDir) {
+    const resolvedPath = path.resolve(chartDirOrOutDir);
+    const validatedPath = SecurityUtils.validatePath(resolvedPath, cwd, { allowAbsolute: true });
+    const chartTsPath = SecurityUtils.validatePath(
+      path.join(validatedPath, 'chart.ts'),
+      cwd,
+      { allowAbsolute: true },
+    );
+    
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    if (fs.existsSync(chartTsPath)) {
+      chartDir = validatedPath;
+    } else {
+      // Otherwise, treat it as output directory for backward compatibility
+      outDir = chartDirOrOutDir;
+    }
   }
 
   if (explicitOutDir) {
     outDir = explicitOutDir;
   }
 
-  const chartFile = path.join(chartDir, 'chart.ts');
-  const defaultOutDir = path.join(chartDir, 'dist');
+  const chartFile = SecurityUtils.validatePath(
+    path.join(chartDir, 'chart.ts'),
+    cwd,
+    { allowAbsolute: true },
+  );
+  const defaultOutDir = SecurityUtils.validatePath(
+    path.join(chartDir, 'dist'),
+    cwd,
+    { allowAbsolute: true },
+  );
 
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   if (!fs.existsSync(chartFile)) {
     console.error('chart.ts not found. Run `tl init` first.');
     process.exit(1);
@@ -289,7 +309,7 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOut
   const validatedOutDir = resolveOutputDirectory(requestedOutDir, chartDir, flags?.silent);
 
   // Read the original chart file and modify the writeHelmChart output directory
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   const originalContent = fs.readFileSync(chartFile, 'utf8');
   const safeOutDirLiteral = escapeForSingleQuotedLiteral(validatedOutDir);
   let modifiedContent = originalContent.replace(
@@ -305,8 +325,12 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOut
   }
 
   // Create a temporary modified chart file
-  const tempChartFile = path.join(chartDir, '.timonel-temp-chart.ts');
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  const tempChartFile = SecurityUtils.validatePath(
+    path.join(chartDir, '.timonel-temp-chart.ts'),
+    cwd,
+    { allowAbsolute: true },
+  );
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   fs.writeFileSync(tempChartFile, modifiedContent);
 
   // Create wrapper script for tsx execution
@@ -746,10 +770,13 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
   const relativeSubchartPath = path.relative(chartsRoot, subchartDir) || subchartName;
   const normalizedSubchartPath = relativeSubchartPath.split(path.sep).join('/');
 
-  const chartFile = path.join(subchartDir, 'chart.ts');
+  const chartFile = SecurityUtils.validatePath(
+    path.join(subchartDir, 'chart.ts'),
+    chartsRoot,
+  );
   const { generateFlexibleSubchartTemplate } = await import('./lib/templates/flexible-subchart.js');
   const subchartContent = generateFlexibleSubchartTemplate(subchartName);
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   fs.writeFileSync(chartFile, subchartContent);
 
   // Update config
@@ -776,9 +803,17 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
  * @since 2.8.4
  */
 async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
-  const umbrellaFile = path.join(process.cwd(), UMBRELLA_FILE_NAME);
-  const defaultOutDir = path.join(process.cwd(), 'dist');
+  const cwd = process.cwd();
+  const umbrellaFile = SecurityUtils.validatePath(
+    path.join(cwd, UMBRELLA_FILE_NAME),
+    cwd,
+  );
+  const defaultOutDir = SecurityUtils.validatePath(
+    path.join(cwd, 'dist'),
+    cwd,
+  );
 
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   if (!fs.existsSync(umbrellaFile)) {
     console.error('umbrella.ts not found. Run `tl umbrella init` first.');
     process.exit(1);
