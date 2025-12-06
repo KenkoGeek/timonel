@@ -487,17 +487,22 @@ function writeSingleAssetFile(
 ): void {
   const chartSubdir = path.join(outDir, targetDir, ...directorySegments);
   SecurityUtils.validatePath(chartSubdir, outDir);
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   fs.mkdirSync(chartSubdir, { recursive: true });
 
+  // Validate filename to prevent path traversal
   const filename = `${fileBaseName}.yaml`;
+  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    throw new Error(`Invalid filename: ${filename}`);
+  }
+  
   const absolutePath = path.join(chartSubdir, filename);
   SecurityUtils.validatePath(absolutePath, outDir);
 
   // Post-process YAML to transform field-level conditionals
   const processedYaml = postProcessFieldConditionals(yaml);
 
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   fs.writeFileSync(
     absolutePath,
     processedYaml.endsWith('\n') ? processedYaml : `${processedYaml}\n`,
@@ -533,9 +538,15 @@ function writeMultipleAssetFiles(
   parts.forEach((doc, index) => {
     const suffix = parts.length > 1 ? `-${index + 1}` : '';
     const filename = `${fileBaseName}${suffix}.yaml`;
+    
+    // Validate filename to prevent path traversal
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      throw new Error(`Invalid filename: ${filename}`);
+    }
+    
     const absolutePath = path.join(chartSubdir, filename);
     SecurityUtils.validatePath(absolutePath, outDir);
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
     fs.writeFileSync(absolutePath, doc.endsWith('\n') ? doc : `${doc}\n`);
   });
 }
