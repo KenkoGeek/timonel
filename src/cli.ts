@@ -391,6 +391,19 @@ async function cmdValidate(flags?: CliFlags) {
 }
 
 /**
+ * Validates --set flag format to prevent command injection.
+ * @param setValue - The --set value to validate
+ * @since 2.12.3
+ */
+function validateSetFlag(setValue: string): void {
+  if (!/^[a-zA-Z0-9._-]+=.+$/.test(setValue)) {
+    console.error(`Invalid --set format: ${SecurityUtils.sanitizeLogMessage(setValue)}`);
+    console.error('Expected format: key=value');
+    process.exit(1);
+  }
+}
+
+/**
  * Deploys a Helm chart to a Kubernetes cluster.
  * Uses helm upgrade --install to deploy or update a release.
  *
@@ -420,6 +433,7 @@ async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags)
 
   if (flags?.set) {
     for (const setValue of flags.set) {
+      validateSetFlag(setValue);
       args.push('--set', setValue);
     }
   }
