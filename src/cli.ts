@@ -391,6 +391,36 @@ async function cmdValidate(flags?: CliFlags) {
 }
 
 /**
+ * Validates Helm release name format to prevent command injection.
+ * @param release - The release name to validate
+ * @since 2.12.3
+ */
+function validateReleaseName(release: string): void {
+  // Helm naming rules: lowercase alphanumeric with hyphens, max 53 chars
+  // eslint-disable-next-line security/detect-unsafe-regex -- Simple pattern, bounded length check
+  if (!/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(release) || release.length > 53) {
+    console.error(`Invalid release name: ${SecurityUtils.sanitizeLogMessage(release)}`);
+    console.error('Release name must be lowercase alphanumeric with hyphens (max 53 chars)');
+    process.exit(1);
+  }
+}
+
+/**
+ * Validates Kubernetes namespace format to prevent command injection.
+ * @param namespace - The namespace to validate
+ * @since 2.12.3
+ */
+function validateNamespace(namespace: string): void {
+  // Kubernetes naming rules: lowercase alphanumeric with hyphens, max 63 chars
+  // eslint-disable-next-line security/detect-unsafe-regex -- Simple pattern, bounded length check
+  if (!/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(namespace) || namespace.length > 63) {
+    console.error(`Invalid namespace: ${SecurityUtils.sanitizeLogMessage(namespace)}`);
+    console.error('Namespace must be lowercase alphanumeric with hyphens (max 63 chars)');
+    process.exit(1);
+  }
+}
+
+/**
  * Validates --set flag format to prevent command injection.
  * @param setValue - The --set value to validate
  * @since 2.12.3
@@ -416,8 +446,11 @@ function validateSetFlag(setValue: string): void {
 async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags) {
   if (!release) usageAndExit('Missing <release>');
 
-  const args = ['upgrade', '--install', release, '.'];
+  validateReleaseName(release!);
+  const args = ['upgrade', '--install', release!, '.'];
+
   if (namespace) {
+    validateNamespace(namespace);
     args.push('--namespace', namespace);
   }
 
@@ -437,6 +470,13 @@ async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags)
       args.push('--set', setValue);
     }
   }
+
+  // Execute helm command with validated arguments
+  // Security: All user inputs are validated before being added to args:
+  // - validatedRelease: validated against Helm naming rules
+  // - namespace: validated against Kubernetes naming rules
+  // - sanitizedEnv: validated by SecurityUtils.sanitizeEnvironmentName
+  // - setValue: validated by validateSetFlag
 
   const result = spawnSync(
     'helm',
