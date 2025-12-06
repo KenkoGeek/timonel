@@ -501,7 +501,9 @@ export class UmbrellaChartTemplate extends Chart {
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     writeFileSync(join(templatesDir, '_helpers.tpl'), helpersTpl);
 
-    console.log(`Created basic Helm chart structure for subchart: ${subchartName}`);
+    // Sanitize subchart name for logging to prevent log injection
+    const sanitizedName = subchartName.replace(/[\r\n]/g, '');
+    console.log(`Created basic Helm chart structure for subchart: ${sanitizedName}`);
   }
 
   /**
