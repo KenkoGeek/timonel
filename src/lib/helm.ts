@@ -708,6 +708,21 @@ export function helmRange(
     itemVar = '$item',
   } = options;
 
+  // Validate variable names to prevent injection
+  const validateVarName = (varName: string, varType: string) => {
+    if (!varName.startsWith('$')) {
+      throw new Error(`${varType} must start with $ (e.g., $key, $value)`);
+    }
+    if (!/^\$[a-zA-Z_][a-zA-Z0-9_]*$/.test(varName)) {
+      throw new Error(`Invalid ${varType}: ${varName}`);
+    }
+  };
+
+  validateVarName(keyVar, 'keyVar');
+  validateVarName(valueVar, 'valueVar');
+  validateVarName(indexVar, 'indexVar');
+  validateVarName(itemVar, 'itemVar');
+
   let rangeExpression: string;
 
   if (keyValue) {
