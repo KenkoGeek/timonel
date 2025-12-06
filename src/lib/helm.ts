@@ -718,16 +718,25 @@ export function helmRange(
     }
   };
 
-  validateVarName(keyVar, 'keyVar');
-  validateVarName(valueVar, 'valueVar');
-  validateVarName(indexVar, 'indexVar');
-  validateVarName(itemVar, 'itemVar');
+  // Validate all variable names that will be used
+  if (keyValue) {
+    validateVarName(keyVar, 'keyVar');
+    validateVarName(valueVar, 'valueVar');
+  }
+  
+  if (options.indexVar !== undefined) {
+    validateVarName(indexVar, 'indexVar');
+  }
+  
+  if (options.itemVar !== undefined) {
+    validateVarName(itemVar, 'itemVar');
+  }
 
   let rangeExpression: string;
 
   if (keyValue) {
     rangeExpression = `{{- range ${keyVar}, ${valueVar} := ${collection} }}`;
-  } else if (options.indexVar && options.itemVar) {
+  } else if (options.indexVar !== undefined && options.itemVar !== undefined) {
     rangeExpression = `{{- range ${indexVar}, ${itemVar} := ${collection} }}`;
   } else {
     rangeExpression = `{{- range ${collection} }}`;
