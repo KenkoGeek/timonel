@@ -94,7 +94,7 @@ jobs:
           files: ./coverage/coverage-final.json
           flags: node-${{ matrix.node_version }}
           name: node-${{ matrix.node_version }}-tests
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   security:
     name: Security & Quality
@@ -122,7 +122,7 @@ jobs:
 
       - name: Security audit
         run: pnpm security:audit
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Security lint
         run: pnpm security:lint
@@ -133,7 +133,7 @@ jobs:
       - name: Dependency check
         id: deps
         run: pnpm deps:check
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Summarize dependency status
         if: always()

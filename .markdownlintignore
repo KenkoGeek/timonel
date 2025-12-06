@@ -6,4 +6,5 @@ coverage/
 .git/
 CHANGELOG.md
 examples/node_modules/
+examples/
 amazonq/
