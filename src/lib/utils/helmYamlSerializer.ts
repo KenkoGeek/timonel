@@ -1430,11 +1430,13 @@ function checkQuotedExpressions(yaml: string, warnings: HelmValidationError[]): 
     let match;
     pattern.lastIndex = 0;
     while ((match = pattern.exec(yaml)) !== null) {
+      // Sanitize matched content to prevent injection in suggestion text
+      const sanitizedMatch = match[1]?.replace(/[<>&"']/g, '') || '';
       warnings.push({
         type: 'semantic',
         message: 'Helm expression should not be quoted',
-        expression: match[0],
-        suggestion: `Remove quotes around: ${match[1]}`,
+        expression: match[0] || '',
+        suggestion: `Remove quotes around: ${sanitizedMatch}`,
       });
     }
   }
