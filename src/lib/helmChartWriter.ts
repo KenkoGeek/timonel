@@ -205,13 +205,17 @@ export class HelmChartWriter {
    * Creates the necessary directory structure for the chart
    *
    * @private
-   * @param {string} outDir - Output directory path
+   * @param {string} outDir - Output directory path (must be pre-validated)
    * @throws {Error} If directories cannot be created
    * @since 2.8.0+
    */
   private static createDirectories(outDir: string): void {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.mkdirSync(path.join(outDir, 'templates'), { recursive: true });
+    const templatesDir = SecurityUtils.validatePath(
+      path.join(outDir, 'templates'),
+      outDir,
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    fs.mkdirSync(templatesDir, { recursive: true });
     // Create crds directory only if needed later
   }
 
@@ -240,8 +244,12 @@ export class HelmChartWriter {
       icon: meta.icon,
       dependencies: meta.dependencies,
     });
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(path.join(outDir, 'Chart.yaml'), chartYaml);
+    const chartYamlPath = SecurityUtils.validatePath(
+      path.join(outDir, 'Chart.yaml'),
+      outDir,
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    fs.writeFileSync(chartYamlPath, chartYaml);
   }
 
   /**
@@ -259,13 +267,22 @@ export class HelmChartWriter {
     defaultValues: Record<string, unknown>,
     envValues: EnvValuesMap,
   ): void {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(path.join(outDir, 'values.yaml'), dumpHelmAwareYaml(defaultValues));
+    const valuesPath = SecurityUtils.validatePath(
+      path.join(outDir, 'values.yaml'),
+      outDir,
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    fs.writeFileSync(valuesPath, dumpHelmAwareYaml(defaultValues));
+    
     for (const [env, values] of Object.entries(envValues)) {
       // Use centralized environment name sanitization
       const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(env);
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-      fs.writeFileSync(path.join(outDir, `values-${sanitizedEnv}.yaml`), dumpHelmAwareYaml(values));
+      const envValuesPath = SecurityUtils.validatePath(
+        path.join(outDir, `values-${sanitizedEnv}.yaml`),
+        outDir,
+      );
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+      fs.writeFileSync(envValuesPath, dumpHelmAwareYaml(values));
     }
   }
 
@@ -302,8 +319,12 @@ export class HelmChartWriter {
         )
         .join('\n');
     }
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(path.join(outDir, 'templates', '_helpers.tpl'), content);
+    const helpersPath = SecurityUtils.validatePath(
+      path.join(outDir, 'templates', '_helpers.tpl'),
+      outDir,
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    fs.writeFileSync(helpersPath, content);
   }
 
   /**
@@ -317,9 +338,13 @@ export class HelmChartWriter {
   private static writeNotes(outDir: string, notesTpl?: string): void {
     if (!notesTpl) return;
 
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(
+    const notesPath = SecurityUtils.validatePath(
       path.join(outDir, 'templates', 'NOTES.txt'),
+      outDir,
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    fs.writeFileSync(
+      notesPath,
       notesTpl.endsWith('\n') ? notesTpl : notesTpl + '\n',
     );
   }
@@ -335,9 +360,13 @@ export class HelmChartWriter {
   private static writeSchema(outDir: string, valuesSchema?: Record<string, unknown>): void {
     if (!valuesSchema) return;
 
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
-    fs.writeFileSync(
+    const schemaPath = SecurityUtils.validatePath(
       path.join(outDir, 'values.schema.json'),
+      outDir,
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    fs.writeFileSync(
+      schemaPath,
       JSON.stringify(valuesSchema, null, 2) + '\n',
     );
   }
@@ -350,8 +379,11 @@ export class HelmChartWriter {
    * @since 2.8.0+
    */
   private static writeHelmIgnore(outDir: string): void {
-    const helmIgnorePath = path.join(outDir, '.helmignore');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
+    const helmIgnorePath = SecurityUtils.validatePath(
+      path.join(outDir, '.helmignore'),
+      outDir,
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
     if (!fs.existsSync(helmIgnorePath)) {
       const helmIgnore = [
         '# VCS',
