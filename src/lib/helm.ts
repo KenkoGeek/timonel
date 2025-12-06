@@ -178,6 +178,12 @@ export function indent(n: number, expr: string): string {
  * @since 2.8.0+
  */
 export function template(name: string, context = '.'): string {
+  if (!isValidHelmPath(name)) {
+    throw new Error(`Invalid template name: ${name}`);
+  }
+  if (!isValidHelmPath(context)) {
+    throw new Error(`Invalid template context: ${context}`);
+  }
   return `{{ template "${name}" ${context} }}`;
 }
 
@@ -687,6 +693,11 @@ export function helmRange(
 
   if (!collection.startsWith('.')) {
     throw new Error('Collection path must start with "." (e.g., ".Values.items")');
+  }
+
+  // Validate collection path to prevent template injection
+  if (!isValidHelmPath(collection)) {
+    throw new Error(`Invalid collection path: ${collection}`);
   }
 
   const {
