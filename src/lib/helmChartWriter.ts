@@ -469,8 +469,13 @@ function writeSingleAssetFile(
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   fs.mkdirSync(chartSubdir, { recursive: true });
 
-  // Validate filename to prevent path traversal
+  // Validate fileBaseName to prevent path traversal
+  if (fileBaseName.includes('..') || fileBaseName.includes('/') || fileBaseName.includes('\\')) {
+    throw new Error(`Invalid fileBaseName: ${fileBaseName}`);
+  }
+
   const filename = `${fileBaseName}.yaml`;
+  // Validate filename to prevent path traversal
   if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
     throw new Error(`Invalid filename: ${filename}`);
   }
@@ -515,6 +520,11 @@ function writeMultipleAssetFiles(
 
   const parts = splitDocs(processedYaml);
   parts.forEach((doc, index) => {
+    // Validate fileBaseName to prevent path traversal
+    if (fileBaseName.includes('..') || fileBaseName.includes('/') || fileBaseName.includes('\\')) {
+      throw new Error(`Invalid fileBaseName: ${fileBaseName}`);
+    }
+
     const suffix = parts.length > 1 ? `-${index + 1}` : '';
     const filename = `${fileBaseName}${suffix}.yaml`;
 
