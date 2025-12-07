@@ -8,6 +8,7 @@ import { join } from 'path';
 
 import { Chart } from 'cdk8s';
 
+import { SecurityUtils } from '../security.js';
 import { dumpHelmAwareYaml } from '../utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from '../utils/helmHelpers.js';
 
@@ -108,8 +109,11 @@ export class FlexibleSubchart extends Chart {
       version: this.config.version || '1.0.0',
       appVersion: this.config.version || '1.0.0',
     };
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    writeFileSync(join(outputDir, 'Chart.yaml'), dumpHelmAwareYaml(subchartYaml));
+    const chartYamlPath = SecurityUtils.validatePath(join(outputDir, 'Chart.yaml'), process.cwd(), {
+      allowAbsolute: true,
+    });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+    writeFileSync(chartYamlPath, dumpHelmAwareYaml(subchartYaml));
 
     // Create values.yaml for the subchart (filter out functions and non-serializable objects)
     const subchartValues = {
@@ -121,14 +125,21 @@ export class FlexibleSubchart extends Chart {
         ),
       ),
     };
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    writeFileSync(join(outputDir, 'values.yaml'), dumpHelmAwareYaml(subchartValues));
+    const valuesYamlPath = SecurityUtils.validatePath(
+      join(outputDir, 'values.yaml'),
+      process.cwd(),
+      { allowAbsolute: true },
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+    writeFileSync(valuesYamlPath, dumpHelmAwareYaml(subchartValues));
 
     // Create templates directory
-    const templatesDir = join(outputDir, 'templates');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const templatesDir = SecurityUtils.validatePath(join(outputDir, 'templates'), process.cwd(), {
+      allowAbsolute: true,
+    });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
     if (!existsSync(templatesDir)) {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
       mkdirSync(templatesDir, { recursive: true });
     }
 
@@ -137,8 +148,13 @@ export class FlexibleSubchart extends Chart {
       includeKubernetes: true,
       includeSprig: true,
     });
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    writeFileSync(join(templatesDir, '_helpers.tpl'), helpersTpl);
+    const helpersTplPath = SecurityUtils.validatePath(
+      join(templatesDir, '_helpers.tpl'),
+      process.cwd(),
+      { allowAbsolute: true },
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+    writeFileSync(helpersTplPath, helpersTpl);
 
     // Generate templates for manifests
     this._manifests.forEach((item) => {
@@ -146,8 +162,13 @@ export class FlexibleSubchart extends Chart {
         const { manifest, id } = item as { manifest: unknown; id: string };
         if (manifest && typeof manifest === 'object') {
           const templateContent = this._generateManifestTemplate(manifest, id);
-          // eslint-disable-next-line security/detect-non-literal-fs-filename
-          writeFileSync(join(templatesDir, `${id}.yaml`), templateContent);
+          const manifestPath = SecurityUtils.validatePath(
+            join(templatesDir, `${id}.yaml`),
+            process.cwd(),
+            { allowAbsolute: true },
+          );
+          // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+          writeFileSync(manifestPath, templateContent);
         }
       }
     });
