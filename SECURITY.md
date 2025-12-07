@@ -36,13 +36,14 @@ We provide security updates for the following versions:
 
 <!-- markdownlint-disable MD060 -->
 
-| Version | Supported      | Security Updates | End of Life |
-| ------- | -------------- | ---------------- | ----------- |
-| 2.4.0+  | ✅ Current     | Full support     | TBD         |
-| 2.3.x   | ✅ Supported   | Full support     | TBD         |
-| 2.0-2.2 | ⚠️ Limited     | Critical only    | 2024-12-31  |
-| 1.x.x   | ❌ End of life | None             | 2024-06-30  |
-| < 1.0   | ❌ End of life | None             | 2024-01-01  |
+| Version      | Supported      | Security Updates | End of Life |
+| ------------ | -------------- | ---------------- | ----------- |
+| 3.0.0-beta.1 | ✅ Current     | Full support     | TBD         |
+| 2.14.x       | ✅ Supported   | Full support     | TBD         |
+| 2.8.0-2.13.x | ✅ Supported   | Full support     | 2025-06-30  |
+| 2.0-2.7.x    | ⚠️ Limited     | Critical only    | 2025-03-31  |
+| 1.x.x        | ❌ End of life | None             | 2024-06-30  |
+| < 1.0        | ❌ End of life | None             | 2024-01-01  |
 
 **Update policy:**
 
@@ -83,15 +84,28 @@ We provide security updates for the following versions:
 ### Security Features
 
 - **Input validation**: Comprehensive path traversal prevention and sanitization via SecurityUtils
-- **Log injection protection**: All user inputs sanitized before logging
-- **Code injection prevention**: Strict validation for dynamic module loading
-- **TypeScript strict mode**: Compile-time safety checks
+  - CWE-22/23: Path traversal protection with URL-encoded sequence detection
+  - CWE-20: Proper input validation for CLI flags (--set, --env)
+  - Null byte injection prevention
+  - Reserved key validation in resource providers
+- **Log injection protection**: All user inputs sanitized before logging (CWE-117)
+- **Code injection prevention**: Strict validation for dynamic module loading (CWE-94)
+  - Regex escaping for dynamic pattern construction
+  - Function name validation before template generation
+- **Command injection prevention**: Validated inputs for all shell commands (CWE-78/77/88)
+  - Release name validation (RFC 1123 subdomain)
+  - Namespace validation (Kubernetes naming rules)
+  - --set flag validation with support for nested paths and arrays
+- **TypeScript strict mode**: Compile-time safety checks with all strict options enabled
 - **No eval()**: Static code generation only
 - **File system isolation**: Controlled output directory access with path validation
+  - Absolute path support with explicit allowAbsolute flag
+  - Base directory validation for all file operations
 - **Helm template validation**: Input validation for all template functions
 - **Karpenter security**: Secure node pool and scheduling configurations
 - **Performance optimization**: Efficient algorithms preventing DoS via resource exhaustion
-- **OWASP compliance**: Following secure coding guidelines (CWE-22, CWE-94, CWE-117)
+- **OWASP compliance**: Following secure coding guidelines (CWE-22, CWE-23, CWE-94, CWE-117,
+  CWE-78, CWE-77, CWE-88, CWE-20)
 
 ## Security Considerations for Users
 
