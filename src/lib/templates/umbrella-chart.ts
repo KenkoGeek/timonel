@@ -274,9 +274,13 @@ export class UmbrellaChartTemplate extends Chart {
         this._handleObjectChart(subchart, flexibleSubchart);
       }
 
-      console.log(`Added flexible subchart: ${subchart.name}`);
+      // Sanitize subchart name for logging to prevent log injection
+      const sanitizedName = subchart.name.replace(/[\r\n]/g, '');
+      console.log(`Added flexible subchart: ${sanitizedName}`);
     } catch (_error) {
-      console.warn(`Failed to add subchart ${subchart.name}:`, _error);
+      // Sanitize subchart name for logging to prevent log injection
+      const sanitizedName = subchart.name.replace(/[\r\n]/g, '');
+      console.warn(`Failed to add subchart ${sanitizedName}:`, _error);
       this._createFallbackSubchart(subchart, index);
     }
   }
@@ -309,7 +313,9 @@ export class UmbrellaChartTemplate extends Chart {
       version: (subchart.version as string) || '1.0.0',
       description: `${subchart.name} subchart (fallback)`,
     });
-    console.log(`Created fallback subchart: ${subchart.name}`);
+    // Sanitize subchart name for logging to prevent log injection
+    const sanitizedName = subchart.name.replace(/[\r\n]/g, '');
+    console.log(`Created fallback subchart: ${sanitizedName}`);
   }
 
   private _handleFunctionChart(
@@ -327,7 +333,9 @@ export class UmbrellaChartTemplate extends Chart {
         this._processChartInstance(rutterInstance, flexibleSubchart);
       }
     } catch (error) {
-      console.log(`Failed to process subchart ${subchart.name}:`, error);
+      // Sanitize subchart name for logging to prevent log injection
+      const sanitizedName = subchart.name.replace(/[\r\n]/g, '');
+      console.log(`Failed to process subchart ${sanitizedName}:`, error);
     }
   }
 
@@ -431,7 +439,9 @@ export class UmbrellaChartTemplate extends Chart {
           });
         }
       } catch (error) {
-        console.log(`Failed to parse asset ${asset.id}:`, error);
+        // Sanitize asset id for logging to prevent log injection
+        const sanitizedId = asset.id.replace(/[\r\n]/g, '');
+        console.log(`Failed to parse asset ${sanitizedId}:`, error);
       }
     });
   }
@@ -491,7 +501,9 @@ export class UmbrellaChartTemplate extends Chart {
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     writeFileSync(join(templatesDir, '_helpers.tpl'), helpersTpl);
 
-    console.log(`Created basic Helm chart structure for subchart: ${subchartName}`);
+    // Sanitize subchart name for logging to prevent log injection
+    const sanitizedName = subchartName.replace(/[\r\n]/g, '');
+    console.log(`Created basic Helm chart structure for subchart: ${sanitizedName}`);
   }
 
   /**
@@ -603,7 +615,9 @@ export class UmbrellaChartTemplate extends Chart {
               flexibleSubchart.writeHelmChart(subchartDir);
             }
           } catch (fallbackError) {
-            console.warn(`Failed to create subchart ${subchart.name}:`, fallbackError);
+            // Sanitize subchart name for logging to prevent log injection
+            const sanitizedName = subchart.name.replace(/[\r\n]/g, '');
+            console.warn(`Failed to create subchart ${sanitizedName}:`, fallbackError);
             flexibleSubchart.writeHelmChart(subchartDir);
           }
         }
