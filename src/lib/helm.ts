@@ -178,6 +178,12 @@ export function indent(n: number, expr: string): string {
  * @since 2.8.0+
  */
 export function template(name: string, context = '.'): string {
+  if (!isValidHelmPath(name)) {
+    throw new Error(`Invalid template name: ${name}`);
+  }
+  if (!isValidHelmPath(context)) {
+    throw new Error(`Invalid template context: ${context}`);
+  }
   return `{{ template "${name}" ${context} }}`;
 }
 
@@ -689,6 +695,11 @@ export function helmRange(
     throw new Error('Collection path must start with "." (e.g., ".Values.items")');
   }
 
+  // Validate collection path to prevent template injection
+  if (!isValidHelmPath(collection)) {
+    throw new Error(`Invalid collection path: ${collection}`);
+  }
+
   const {
     keyValue = false,
     keyVar = '$key',
@@ -697,11 +708,35 @@ export function helmRange(
     itemVar = '$item',
   } = options;
 
+  // Validate variable names to prevent injection
+  const validateVarName = (varName: string, varType: string) => {
+    if (!varName.startsWith('$')) {
+      throw new Error(`${varType} must start with $ (e.g., $key, $value)`);
+    }
+    if (!/^\$[a-zA-Z_][a-zA-Z0-9_]*$/.test(varName)) {
+      throw new Error(`Invalid ${varType}: ${varName}`);
+    }
+  };
+
+  // Validate all variable names that will be used
+  if (keyValue) {
+    validateVarName(keyVar, 'keyVar');
+    validateVarName(valueVar, 'valueVar');
+  }
+
+  if (options.indexVar !== undefined) {
+    validateVarName(indexVar, 'indexVar');
+  }
+
+  if (options.itemVar !== undefined) {
+    validateVarName(itemVar, 'itemVar');
+  }
+
   let rangeExpression: string;
 
   if (keyValue) {
     rangeExpression = `{{- range ${keyVar}, ${valueVar} := ${collection} }}`;
-  } else if (options.indexVar && options.itemVar) {
+  } else if (options.indexVar !== undefined && options.itemVar !== undefined) {
     rangeExpression = `{{- range ${indexVar}, ${itemVar} := ${collection} }}`;
   } else {
     rangeExpression = `{{- range ${collection} }}`;
