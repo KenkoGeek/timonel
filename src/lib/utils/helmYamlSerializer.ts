@@ -931,8 +931,10 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
       const firstContentLine = contentLines[0]?.trim() || '';
       if (firstContentLine.startsWith(`${fieldKey}:`)) {
         // Remove duplicate fieldKey from content
-        // eslint-disable-next-line security/detect-non-literal-regexp
-        contentLines[0] = contentLines[0].replace(new RegExp(`^\\s*${fieldKey}:\\s*`), '');
+        // Escape fieldKey to prevent regex injection
+        const escapedFieldKey = fieldKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: fieldKey is escaped
+        contentLines[0] = contentLines[0].replace(new RegExp(`^\\s*${escapedFieldKey}:\\s*`), '');
         content = contentLines.join('\n');
       }
       // Reconstruct as field-level conditional
@@ -1398,8 +1400,10 @@ function validateFunctionCalls(_content: string): void {
 function checkCommonIssues(yaml: string, warnings: HelmValidationError[]): void {
   const deprecatedFunctions = ['template'];
   for (const func of deprecatedFunctions) {
-    // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: controlled function names from predefined list
-    const pattern = new RegExp(`\\{\\{[^}]*\\b${func}\\b[^}]*\\}\\}`, 'g');
+    // Escape special regex characters to prevent injection
+    const escapedFunc = func.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: func is escaped from predefined list
+    const pattern = new RegExp(`\\{\\{[^}]*\\b${escapedFunc}\\b[^}]*\\}\\}`, 'g');
     let match;
     while ((match = pattern.exec(yaml)) !== null) {
       warnings.push({
@@ -1426,11 +1430,13 @@ function checkQuotedExpressions(yaml: string, warnings: HelmValidationError[]): 
     let match;
     pattern.lastIndex = 0;
     while ((match = pattern.exec(yaml)) !== null) {
+      // Sanitize matched content to prevent injection in suggestion text
+      const sanitizedMatch = match[1]?.replace(/[<>&"']/g, '') || '';
       warnings.push({
         type: 'semantic',
         message: 'Helm expression should not be quoted',
-        expression: match[0],
-        suggestion: `Remove quotes around: ${match[1]}`,
+        expression: match[0] || '',
+        suggestion: `Remove quotes around: ${sanitizedMatch}`,
       });
     }
   }
