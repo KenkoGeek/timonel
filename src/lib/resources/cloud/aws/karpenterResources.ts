@@ -70,9 +70,17 @@ export function isValidDisruptionBudget(budget: KarpenterDisruptionBudget): bool
  * @since 2.7.1
  */
 export function isValidKubernetesDuration(duration: string): boolean {
-  // eslint-disable-next-line security/detect-unsafe-regex
-  const durationPattern = /^(\d+h)?(\d+m)?(\d+s)?$/;
-  return durationPattern.test(duration) && duration.length > 0;
+  try {
+    // Validate input is a string
+    if (typeof duration !== 'string') {
+      return false;
+    }
+    // eslint-disable-next-line security/detect-unsafe-regex
+    const durationPattern = /^(\d+h)?(\d+m)?(\d+s)?$/;
+    return durationPattern.test(duration) && duration.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -458,10 +466,18 @@ export class KarpenterResources extends BaseResourceProvider {
     }
 
     if (spec.labels) {
+      // Validate labels is an object
+      if (typeof spec.labels !== 'object' || Array.isArray(spec.labels)) {
+        throw new Error('Labels must be a valid object');
+      }
       nodePoolConfig['labels'] = spec.labels;
     }
 
     if (spec.annotations) {
+      // Validate annotations is an object
+      if (typeof spec.annotations !== 'object' || Array.isArray(spec.annotations)) {
+        throw new Error('Annotations must be a valid object');
+      }
       nodePoolConfig['annotations'] = spec.annotations;
     }
 
