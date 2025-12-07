@@ -178,6 +178,10 @@ function serializeValue(value: HelmValue | string | number | boolean): string {
 
 // Create a HelmCondition object
 function createCondition(condition: string): HelmCondition {
+  if (!condition || typeof condition !== 'string') {
+    throw new Error('Condition must be a non-empty string');
+  }
+
   return {
     [HELM_VALUE_SYMBOL]: true,
     __condition: condition,
@@ -185,9 +189,15 @@ function createCondition(condition: string): HelmCondition {
       return createCondition(`not (${this.__condition})`);
     },
     and(other: HelmCondition) {
+      if (!other || typeof other.__condition !== 'string') {
+        throw new Error('Invalid HelmCondition provided to and()');
+      }
       return createCondition(`and (${this.__condition}) (${other.__condition})`);
     },
     or(other: HelmCondition) {
+      if (!other || typeof other.__condition !== 'string') {
+        throw new Error('Invalid HelmCondition provided to or()');
+      }
       return createCondition(`or (${this.__condition}) (${other.__condition})`);
     },
     toString() {
