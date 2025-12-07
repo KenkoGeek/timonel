@@ -159,7 +159,7 @@ export class SecurityUtils {
     const sanitized = env.replace(/[^a-zA-Z0-9-_]/g, '');
 
     if (sanitized !== env) {
-      throw new Error(`Invalid environment name: ${this.sanitizeLogMessage(env)}`);
+      throw new Error(`Invalid environment name: ${SecurityUtils.sanitizeLogMessage(env)}`);
     }
 
     if (sanitized.length === 0 || sanitized.length > 63) {
@@ -299,7 +299,9 @@ export class SecurityUtils {
 
     const nameRegex = /^[A-Z_][A-Z0-9_]*$/;
     if (!nameRegex.test(sanitizedName)) {
-      throw new Error(`Invalid environment variable name: ${this.sanitizeLogMessage(name)}`);
+      throw new Error(
+        `Invalid environment variable name: ${SecurityUtils.sanitizeLogMessage(name)}`,
+      );
     }
 
     // Check for dangerous patterns in value using safer string methods
@@ -326,7 +328,7 @@ export class SecurityUtils {
     const dangerousPattern = hasDangerousPattern(value);
     if (dangerousPattern) {
       throw new Error(
-        `Environment variable value contains dangerous pattern (${dangerousPattern}): ${this.sanitizeLogMessage(value)}`,
+        `Environment variable value contains dangerous pattern (${dangerousPattern}): ${SecurityUtils.sanitizeLogMessage(value)}`,
       );
     }
 
@@ -368,7 +370,7 @@ export class SecurityUtils {
     // Validate tag format (Docker tag rules)
     const tagRegex = /^[a-zA-Z0-9._-]+$/;
     if (!tagRegex.test(trimmedTag)) {
-      throw new Error(`Invalid image tag format: ${this.sanitizeLogMessage(trimmedTag)}`);
+      throw new Error(`Invalid image tag format: ${SecurityUtils.sanitizeLogMessage(trimmedTag)}`);
     }
 
     // Check length limits
