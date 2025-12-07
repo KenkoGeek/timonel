@@ -269,12 +269,10 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOut
   if (chartDirOrOutDir) {
     const resolvedPath = path.resolve(chartDirOrOutDir);
     const validatedPath = SecurityUtils.validatePath(resolvedPath, cwd, { allowAbsolute: true });
-    const chartTsPath = SecurityUtils.validatePath(
-      path.join(validatedPath, 'chart.ts'),
-      cwd,
-      { allowAbsolute: true },
-    );
-    
+    const chartTsPath = SecurityUtils.validatePath(path.join(validatedPath, 'chart.ts'), cwd, {
+      allowAbsolute: true,
+    });
+
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
     if (fs.existsSync(chartTsPath)) {
       chartDir = validatedPath;
@@ -288,16 +286,12 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOut
     outDir = explicitOutDir;
   }
 
-  const chartFile = SecurityUtils.validatePath(
-    path.join(chartDir, 'chart.ts'),
-    cwd,
-    { allowAbsolute: true },
-  );
-  const defaultOutDir = SecurityUtils.validatePath(
-    path.join(chartDir, 'dist'),
-    cwd,
-    { allowAbsolute: true },
-  );
+  const chartFile = SecurityUtils.validatePath(path.join(chartDir, 'chart.ts'), cwd, {
+    allowAbsolute: true,
+  });
+  const defaultOutDir = SecurityUtils.validatePath(path.join(chartDir, 'dist'), cwd, {
+    allowAbsolute: true,
+  });
 
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   if (!fs.existsSync(chartFile)) {
@@ -770,10 +764,7 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
   const relativeSubchartPath = path.relative(chartsRoot, subchartDir) || subchartName;
   const normalizedSubchartPath = relativeSubchartPath.split(path.sep).join('/');
 
-  const chartFile = SecurityUtils.validatePath(
-    path.join(subchartDir, 'chart.ts'),
-    chartsRoot,
-  );
+  const chartFile = SecurityUtils.validatePath(path.join(subchartDir, 'chart.ts'), chartsRoot);
   const { generateFlexibleSubchartTemplate } = await import('./lib/templates/flexible-subchart.js');
   const subchartContent = generateFlexibleSubchartTemplate(subchartName);
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
@@ -804,14 +795,8 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
  */
 async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
   const cwd = process.cwd();
-  const umbrellaFile = SecurityUtils.validatePath(
-    path.join(cwd, UMBRELLA_FILE_NAME),
-    cwd,
-  );
-  const defaultOutDir = SecurityUtils.validatePath(
-    path.join(cwd, 'dist'),
-    cwd,
-  );
+  const umbrellaFile = SecurityUtils.validatePath(path.join(cwd, UMBRELLA_FILE_NAME), cwd);
+  const defaultOutDir = SecurityUtils.validatePath(path.join(cwd, 'dist'), cwd);
 
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   if (!fs.existsSync(umbrellaFile)) {
