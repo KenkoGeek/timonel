@@ -568,10 +568,14 @@ export class UmbrellaChartTemplate extends Chart {
     // Generate Helm charts for each subchart
     // eslint-disable-next-line sonarjs/cognitive-complexity
     this.config.subcharts?.forEach((subchart) => {
-      const subchartDir = join(chartsDir, subchart.name);
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      const subchartDir = SecurityUtils.validatePath(
+        join(chartsDir, subchart.name),
+        process.cwd(),
+        { allowAbsolute: true },
+      );
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
       if (!existsSync(subchartDir)) {
-        // eslint-disable-next-line security/detect-non-literal-fs-filename
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
         mkdirSync(subchartDir, { recursive: true });
       }
 
