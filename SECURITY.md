@@ -36,14 +36,14 @@ We provide security updates for the following versions:
 
 <!-- markdownlint-disable MD060 -->
 
-| Version       | Supported      | Security Updates | End of Life |
-| ------------- | -------------- | ---------------- | ----------- |
-| 3.0.0-beta.1  | ✅ Current     | Full support     | TBD         |
-| 2.14.x        | ✅ Supported   | Full support     | TBD         |
-| 2.8.0-2.13.x  | ✅ Supported   | Full support     | 2025-06-30  |
-| 2.0-2.7.x     | ⚠️ Limited     | Critical only    | 2025-03-31  |
-| 1.x.x         | ❌ End of life | None             | 2024-06-30  |
-| < 1.0         | ❌ End of life | None             | 2024-01-01  |
+| Version      | Supported      | Security Updates | End of Life |
+| ------------ | -------------- | ---------------- | ----------- |
+| 3.0.0-beta.1 | ✅ Current     | Full support     | TBD         |
+| 2.14.x       | ✅ Supported   | Full support     | TBD         |
+| 2.8.0-2.13.x | ✅ Supported   | Full support     | 2025-06-30  |
+| 2.0-2.7.x    | ⚠️ Limited     | Critical only    | 2025-03-31  |
+| 1.x.x        | ❌ End of life | None             | 2024-06-30  |
+| < 1.0        | ❌ End of life | None             | 2024-01-01  |
 
 **Update policy:**
 

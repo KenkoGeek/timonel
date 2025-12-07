@@ -31,6 +31,7 @@ directory.
 #### ValuesRef System (NEW in v3.0 - RECOMMENDED)
 
 Type-safe proxy-based values references with full IDE support:
+
 - Import: `import { valuesRef } from 'timonel'`
 - **Comparison operators**: `eq`, `ne`, `gt`, `ge`, `lt`, `le`
 - **Logical operators**: `not`, `and`, `or`
@@ -44,12 +45,14 @@ Type-safe proxy-based values references with full IDE support:
 #### Composable Helpers
 
 Template definition and inclusion helpers:
+
 - `helmInclude`, `helmDefine`, `helmVar`, `helmBlock`, `helmComment`, `helmFragment`
 - `template`, `include`, `quote`, `indent`
 
 #### Value Reference Helpers
 
 Useful string-based utilities (no ValuesRef equivalent):
+
 - `requiredValuesRef` - Required value with validation
 - `numberRef`, `boolRef`, `floatRef` - Type-cast references (int, bool, float64)
 - `base64Ref` - Base64 encoding
@@ -57,6 +60,7 @@ Useful string-based utilities (no ValuesRef equivalent):
 #### Legacy Helpers (NOT RECOMMENDED)
 
 **⚠️ Use ValuesRef instead:**
+
 - `valuesRef(path)` → use `v.path`
 - `stringRef()` → use `v.quote()`
 - `defaultRef()` → use `v.default()`
@@ -302,10 +306,7 @@ const myTemplate = helmDefine('myapp.config', {
 });
 
 // Combine multiple constructs
-const combined = helmFragment(
-  helmInclude('chart.labels', '.'),
-  { customKey: 'customValue' },
-);
+const combined = helmFragment(helmInclude('chart.labels', '.'), { customKey: 'customValue' });
 ```
 
 #### Legacy Flow Control (NOT RECOMMENDED)
@@ -314,11 +315,7 @@ const combined = helmFragment(
 
 ```typescript
 // ❌ OLD WAY - helmIf, helmRange, helmWith (string-based, no type safety)
-const config = helmIf(
-  '.Values.production',
-  { replicas: 5 },
-  { replicas: 1 },
-);
+const config = helmIf('.Values.production', { replicas: 5 }, { replicas: 1 });
 
 // ✅ NEW WAY - v.if(), v.range(), v.with() (type-safe with ValuesRef)
 const v = valuesRef<MyValues>();
