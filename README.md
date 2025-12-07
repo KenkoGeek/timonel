@@ -18,14 +18,14 @@ directory.
 ## ✨ Key Features
 
 <<<<<<< HEAD
+
 - **🔒 Type-safe API** with strict TypeScript and cdk8s constructs
 - **🎯 Type-Safe Helm Helpers** with 9 composable template helpers (`helmIf`, `helmRange`,
   `helmWith`, `helmInclude`, etc.)
 - **🔧 Flexible resource creation** with built-in methods and `addManifest()` for custom resources
 - **🌍 Multi-environment support** with automatic values files generation
 - **☂️ Umbrella Charts** for managing multiple subcharts as a single unit
-- **🛠️ Enhanced Helm Helpers** with environment, GitOps, observability, and validation helpers
-=======
+- # **🛠️ Enhanced Helm Helpers** with environment, GitOps, observability, and validation helpers
 - **🔒 Type-safe API** with strict TypeScript and cdk8s constructs.
 - **🎯 Type-Safe Helm Helpers** with 9 composable template helpers (`helmIf`, `helmRange`,
   `helmWith`, `helmInclude`, etc.)
@@ -33,7 +33,7 @@ directory.
 - **🌍 Multi-environment support** with automatic values files generation.
 - **☂️ Umbrella Charts** for managing multiple subcharts as a single unit.
 - **🛠️ Enhanced Helm Helpers** with environment, GitOps, observability, and validation helpers.
->>>>>>> develop
+  > > > > > > > develop
 - **☁️ Cloud integrations**:
   - **AWS**: EBS/EFS StorageClass, ALB Ingress, IRSA ServiceAccount, ECR, and Karpenter.
 - **🛡️ Security-first approach** with NetworkPolicies and best practices.
@@ -171,8 +171,8 @@ Timonel provides 9 composable, type-safe helpers for Helm template generation: `
 
 **Benefits:**
 
-<<<<<<< HEAD
-=======
+# <<<<<<< HEAD
+
 ## 🔧 Dynamic Environment Variables
 
 Timonel supports flexible environment variable configuration that can be defined in code or
@@ -297,7 +297,8 @@ Timonel provides 9 composable, type-safe helpers for Helm template generation: `
 
 **Benefits:**
 
->>>>>>> develop
+> > > > > > > develop
+
 - ✅ 100% Type-Safe - catch errors at compile time
 - ✅ No Raw Strings - eliminate manual template interpolation
 - ✅ Composable - nest and combine helpers freely
