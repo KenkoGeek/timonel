@@ -210,10 +210,7 @@ export class HelmChartWriter {
    * @since 2.8.0+
    */
   private static createDirectories(outDir: string): void {
-    const templatesDir = SecurityUtils.validatePath(
-      path.join(outDir, 'templates'),
-      outDir,
-    );
+    const templatesDir = SecurityUtils.validatePath(path.join(outDir, 'templates'), outDir);
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
     fs.mkdirSync(templatesDir, { recursive: true });
     // Create crds directory only if needed later
@@ -244,10 +241,7 @@ export class HelmChartWriter {
       icon: meta.icon,
       dependencies: meta.dependencies,
     });
-    const chartYamlPath = SecurityUtils.validatePath(
-      path.join(outDir, 'Chart.yaml'),
-      outDir,
-    );
+    const chartYamlPath = SecurityUtils.validatePath(path.join(outDir, 'Chart.yaml'), outDir);
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
     fs.writeFileSync(chartYamlPath, chartYaml);
   }
@@ -267,13 +261,10 @@ export class HelmChartWriter {
     defaultValues: Record<string, unknown>,
     envValues: EnvValuesMap,
   ): void {
-    const valuesPath = SecurityUtils.validatePath(
-      path.join(outDir, 'values.yaml'),
-      outDir,
-    );
+    const valuesPath = SecurityUtils.validatePath(path.join(outDir, 'values.yaml'), outDir);
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
     fs.writeFileSync(valuesPath, dumpHelmAwareYaml(defaultValues));
-    
+
     for (const [env, values] of Object.entries(envValues)) {
       // Use centralized environment name sanitization
       const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(env);
@@ -343,10 +334,7 @@ export class HelmChartWriter {
       outDir,
     );
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
-    fs.writeFileSync(
-      notesPath,
-      notesTpl.endsWith('\n') ? notesTpl : notesTpl + '\n',
-    );
+    fs.writeFileSync(notesPath, notesTpl.endsWith('\n') ? notesTpl : notesTpl + '\n');
   }
 
   /**
@@ -360,15 +348,9 @@ export class HelmChartWriter {
   private static writeSchema(outDir: string, valuesSchema?: Record<string, unknown>): void {
     if (!valuesSchema) return;
 
-    const schemaPath = SecurityUtils.validatePath(
-      path.join(outDir, 'values.schema.json'),
-      outDir,
-    );
+    const schemaPath = SecurityUtils.validatePath(path.join(outDir, 'values.schema.json'), outDir);
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
-    fs.writeFileSync(
-      schemaPath,
-      JSON.stringify(valuesSchema, null, 2) + '\n',
-    );
+    fs.writeFileSync(schemaPath, JSON.stringify(valuesSchema, null, 2) + '\n');
   }
 
   /**
@@ -379,10 +361,7 @@ export class HelmChartWriter {
    * @since 2.8.0+
    */
   private static writeHelmIgnore(outDir: string): void {
-    const helmIgnorePath = SecurityUtils.validatePath(
-      path.join(outDir, '.helmignore'),
-      outDir,
-    );
+    const helmIgnorePath = SecurityUtils.validatePath(path.join(outDir, '.helmignore'), outDir);
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
     if (!fs.existsSync(helmIgnorePath)) {
       const helmIgnore = [
@@ -495,7 +474,7 @@ function writeSingleAssetFile(
   if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
     throw new Error(`Invalid filename: ${filename}`);
   }
-  
+
   const absolutePath = path.join(chartSubdir, filename);
   SecurityUtils.validatePath(absolutePath, outDir);
 
@@ -538,12 +517,12 @@ function writeMultipleAssetFiles(
   parts.forEach((doc, index) => {
     const suffix = parts.length > 1 ? `-${index + 1}` : '';
     const filename = `${fileBaseName}${suffix}.yaml`;
-    
+
     // Validate filename to prevent path traversal
     if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
       throw new Error(`Invalid filename: ${filename}`);
     }
-    
+
     const absolutePath = path.join(chartSubdir, filename);
     SecurityUtils.validatePath(absolutePath, outDir);
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
