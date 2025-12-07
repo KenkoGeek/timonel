@@ -147,6 +147,7 @@ export abstract class BaseResourceProvider implements IResourceProvider {
         ...(labels && Object.keys(labels).length > 0 ? { labels } : {}),
         ...(annotations && Object.keys(annotations).length > 0 ? { annotations } : {}),
       },
+      // Safe: fields validated above to not contain reserved keys (apiVersion, kind, metadata)
       ...fields, // Fields go at root level, not under spec
     });
   }
