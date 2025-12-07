@@ -1,6 +1,7 @@
 import type { YAMLMap } from 'yaml';
 import { Document, Scalar, isMap, isScalar, visit, Pair } from 'yaml';
 
+import { SecurityUtils } from '../security.js';
 import type { HelmConstruct } from './helmControlStructures.js';
 import {
   isHelmConstruct,
@@ -1293,14 +1294,17 @@ export function parseHelmExpressions(content: string): Array<{
     for (const { regex, type } of COMPILED_PATTERNS) {
       let match;
       regex.lastIndex = 0;
+      // Note: regex.exec() is RegExp matching, NOT OS command execution
       while ((match = regex.exec(line)) !== null) {
+        // Sanitize matched expression to prevent any injection in downstream processing
+        const sanitizedExpression = SecurityUtils.sanitizeLogMessage(match[0] || '');
         expressions.push({
           type,
-          expression: match[0],
+          expression: sanitizedExpression,
           startLine: i + 1,
           startCol: match.index + 1,
           endLine: i + 1,
-          endCol: match.index + match[0].length + 1,
+          endCol: match.index + (match[0]?.length || 0) + 1,
         });
         if (match.index === regex.lastIndex) regex.lastIndex++;
       }
@@ -1400,17 +1404,23 @@ function validateFunctionCalls(_content: string): void {
 function checkCommonIssues(yaml: string, warnings: HelmValidationError[]): void {
   const deprecatedFunctions = ['template'];
   for (const func of deprecatedFunctions) {
+    // Validate func is alphanumeric only to prevent injection
+    if (!/^[a-zA-Z0-9_]+$/.test(func)) {
+      continue; // Skip invalid function names
+    }
     // Escape special regex characters to prevent injection
     const escapedFunc = func.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: func is escaped from predefined list
+    // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: func is validated and escaped
     const pattern = new RegExp(`\\{\\{[^}]*\\b${escapedFunc}\\b[^}]*\\}\\}`, 'g');
     let match;
     while ((match = pattern.exec(yaml)) !== null) {
+      // Sanitize function name for output to prevent injection in error messages
+      const sanitizedFunc = SecurityUtils.sanitizeLogMessage(func);
       warnings.push({
         type: 'semantic',
-        message: `Function '${func}' is deprecated`,
+        message: `Function '${sanitizedFunc}' is deprecated`,
         expression: match[0],
-        suggestion: `Consider avoiding deprecated function '${func}'`,
+        suggestion: `Consider avoiding deprecated function '${sanitizedFunc}'`,
       });
     }
   }
@@ -1431,11 +1441,12 @@ function checkQuotedExpressions(yaml: string, warnings: HelmValidationError[]): 
     pattern.lastIndex = 0;
     while ((match = pattern.exec(yaml)) !== null) {
       // Sanitize matched content to prevent injection in suggestion text
-      const sanitizedMatch = match[1]?.replace(/[<>&"']/g, '') || '';
+      const sanitizedMatch = SecurityUtils.sanitizeLogMessage(match[1] || '');
+      const sanitizedExpression = SecurityUtils.sanitizeLogMessage(match[0] || '');
       warnings.push({
         type: 'semantic',
         message: 'Helm expression should not be quoted',
-        expression: match[0] || '',
+        expression: sanitizedExpression,
         suggestion: `Remove quotes around: ${sanitizedMatch}`,
       });
     }
