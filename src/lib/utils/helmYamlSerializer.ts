@@ -1,4 +1,7 @@
-import { Document, Scalar, isMap, isScalar, visit } from 'yaml';
+import type { YAMLMap } from 'yaml';
+import { Document, Scalar, isMap, isScalar, visit, Pair } from 'yaml';
+
+import { SecurityUtils } from '../security.js';
 
 import type { HelmConstruct } from './helmControlStructures.js';
 import {
@@ -6,6 +9,57 @@ import {
   isHelmExpression,
   createHelmExpression,
 } from './helmControlStructures.js';
+import {
+  isHelmValue,
+  isHelmFieldConditional,
+  isHelmRange,
+  isHelmWith,
+  type HelmValue,
+  type HelmCondition,
+  type HelmFieldConditional,
+  type HelmRange,
+  type HelmWith,
+} from './valuesRef.js';
+
+// Constants for field markers used throughout serialization
+// eslint-disable-next-line sonarjs/no-duplicate-string -- Used as markers in multiple places
+const FIELD_CONDITIONAL = '__FIELD_CONDITIONAL__:';
+// eslint-disable-next-line sonarjs/no-duplicate-string -- Used as markers in multiple places
+const FIELD_WITH = '__FIELD_WITH__:';
+// eslint-disable-next-line sonarjs/no-duplicate-string -- Used as markers in multiple places
+const FIELD_WITH_MARKER = '__FIELD_WITH_MARKER__:';
+
+/**
+ * Simple YAML serialization that handles HelmExpressions without recursion
+ * Used internally to serialize content within HelmFieldConditional
+ */
+function simpleHelmYaml(obj: unknown): string {
+  // First, recursively convert HelmValue and HelmExpression to plain strings
+  function convertToPlain(value: unknown): unknown {
+    if (isHelmValue(value)) {
+      return `{{ ${(value as HelmValue).__path} }}`;
+    }
+    if (isHelmExpression(value)) {
+      return value.value;
+    }
+    if (Array.isArray(value)) {
+      return value.map(convertToPlain);
+    }
+    if (value !== null && typeof value === 'object') {
+      const result: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value)) {
+        // eslint-disable-next-line security/detect-object-injection
+        result[k] = convertToPlain(v);
+      }
+      return result;
+    }
+    return value;
+  }
+
+  const plain = convertToPlain(obj);
+  const doc = new Document(plain);
+  return doc.toString({ lineWidth: 0 });
+}
 
 /**
  * Helper function to serialize else-if chains
@@ -44,7 +98,16 @@ function serializeElseIfChain(
  * @param construct The HelmConstruct to serialize
  * @returns Helm template string
  */
+// eslint-disable-next-line sonarjs/cognitive-complexity -- Complex serialization logic
 function serializeHelmConstruct(construct: HelmConstruct): string {
+  // Handle fieldConditional specially - it should not be serialized here
+  // as it needs special handling in the YAML structure
+  if (construct.type === 'fieldConditional') {
+    throw new Error(
+      'fieldConditional should not be serialized directly. It must be handled in preprocessHelmConstructs.',
+    );
+  }
+
   const trimLeft = construct.options?.trimLeft ?? true;
   const trimRight = construct.options?.trimRight ?? true;
 
@@ -54,32 +117,165 @@ function serializeHelmConstruct(construct: HelmConstruct): string {
   switch (construct.type) {
     case 'if': {
       const data = construct.data as { condition: string; then: unknown; else?: unknown };
-      let result = `${openTag}if ${data.condition}${closeTag}\n`;
+      const isInline = construct.options?.inline ?? false;
+      const newline = isInline ? '' : '\n';
+      const space = isInline ? ' ' : '';
+
+      let result = `${openTag}if ${data.condition}${closeTag}${newline}`;
       result += serializeHelmContent(data.then);
 
       if (data.else !== undefined) {
-        const { result: elseIfResult, remainingElse } = serializeElseIfChain(
-          data.else,
-          openTag,
-          closeTag,
-        );
+        if (isInline) {
+          result += `${space}${openTag}else${closeTag}${space}`;
+          result += serializeHelmContent(data.else);
+        } else {
+          const { result: elseIfResult, remainingElse } = serializeElseIfChain(
+            data.else,
+            openTag,
+            closeTag,
+          );
 
-        result += elseIfResult;
+          result += elseIfResult;
 
-        if (remainingElse !== undefined) {
-          result += `\n${openTag}else${closeTag}\n`;
-          result += serializeHelmContent(remainingElse);
+          if (remainingElse !== undefined) {
+            result += `\n${openTag}else${closeTag}\n`;
+            result += serializeHelmContent(remainingElse);
+          }
         }
       }
 
-      result += `\n${openTag}end${closeTag}`;
+      result += `${newline}${openTag}end${closeTag}`;
       return result;
     }
 
     case 'fragment': {
       const data = construct.data as unknown[];
-      // Serialize each item and join with newlines
-      return data.map((item) => serializeHelmContent(item)).join('\n');
+      // Separate strings/HelmExpressions from objects
+      const strings: string[] = [];
+      const objects: unknown[] = [];
+
+      for (const item of data) {
+        if (
+          typeof item === 'object' &&
+          item !== null &&
+          !Array.isArray(item) &&
+          !isHelmConstruct(item) &&
+          !isHelmExpression(item)
+        ) {
+          objects.push(item);
+        } else {
+          const serialized = serializeHelmContent(item);
+          if (serialized.trim().length > 0) {
+            strings.push(serialized);
+          }
+        }
+      }
+
+      // If we have both strings and objects, we need to combine them intelligently
+      if (strings.length > 0 && objects.length > 0) {
+        // Combine all objects into one
+        const combinedObject = objects.reduce(
+          (acc, obj) => {
+            if (typeof obj === 'object' && obj !== null) {
+              return { ...(acc as Record<string, unknown>), ...(obj as Record<string, unknown>) };
+            }
+            return acc;
+          },
+          {} as Record<string, unknown>,
+        );
+
+        // Pre-process the combined object to convert HelmConstruct instances to HelmExpression
+        const preprocessed = preprocessHelmConstructs(combinedObject);
+        const doc = new Document(preprocessed);
+
+        // Visit the document to transform HelmExpression objects
+        visit(doc, (_key, node) => {
+          if (isMap(node)) {
+            const isHelmExpr = node.items.some(
+              (pair) =>
+                isScalar(pair.key) &&
+                pair.key.value === '__helmExpression' &&
+                isScalar(pair.value) &&
+                pair.value.value === true,
+            );
+
+            if (isHelmExpr) {
+              const valuePair = node.items.find(
+                (pair) => isScalar(pair.key) && pair.key.value === 'value',
+              );
+              if (valuePair && isScalar(valuePair.value)) {
+                const value = String(valuePair.value.value);
+                const scalar = new Scalar(value);
+
+                if (value.trim().startsWith('{{') && value.includes('\n')) {
+                  scalar.type = 'BLOCK_LITERAL';
+                } else {
+                  scalar.type = 'QUOTE_DOUBLE';
+                }
+                return scalar;
+              }
+            }
+          }
+          return undefined;
+        });
+
+        let objectYaml = doc.toString({ lineWidth: 0 }).trim();
+
+        // Combine strings and object YAML
+        // The strings come first (like conditional replicas), then the object
+        return [...strings, objectYaml].filter((s) => s.trim().length > 0).join('\n');
+      }
+
+      // If only objects, combine them
+      if (objects.length > 0) {
+        const combinedObject = objects.reduce(
+          (acc, obj) => {
+            if (typeof obj === 'object' && obj !== null) {
+              return { ...(acc as Record<string, unknown>), ...(obj as Record<string, unknown>) };
+            }
+            return acc;
+          },
+          {} as Record<string, unknown>,
+        );
+        const preprocessed = preprocessHelmConstructs(combinedObject);
+        const doc = new Document(preprocessed);
+
+        // Visit the document to transform HelmExpression objects
+        visit(doc, (_key, node) => {
+          if (isMap(node)) {
+            const isHelmExpr = node.items.some(
+              (pair) =>
+                isScalar(pair.key) &&
+                pair.key.value === '__helmExpression' &&
+                isScalar(pair.value) &&
+                pair.value.value === true,
+            );
+
+            if (isHelmExpr) {
+              const valuePair = node.items.find(
+                (pair) => isScalar(pair.key) && pair.key.value === 'value',
+              );
+              if (valuePair && isScalar(valuePair.value)) {
+                const value = String(valuePair.value.value);
+                const scalar = new Scalar(value);
+
+                if (value.trim().startsWith('{{') && value.includes('\n')) {
+                  scalar.type = 'BLOCK_LITERAL';
+                } else {
+                  scalar.type = 'QUOTE_DOUBLE';
+                }
+                return scalar;
+              }
+            }
+          }
+          return undefined;
+        });
+
+        return doc.toString({ lineWidth: 0 }).trim();
+      }
+
+      // If only strings, just join them
+      return strings.filter((s) => s.trim().length > 0).join('\n');
     }
 
     case 'range': {
@@ -104,7 +300,7 @@ function serializeHelmConstruct(construct: HelmConstruct): string {
       if (data.pipe) {
         result += ` | ${data.pipe}`;
       }
-      result += `${closeTag}`;
+      result += closeTag;
       return result;
     }
 
@@ -165,7 +361,10 @@ function serializeHelmContent(content: unknown): string {
 
   // For objects and arrays, use the yaml library to serialize them properly
   if (typeof content === 'object') {
-    const doc = new Document(content);
+    // Pre-process the object to convert HelmConstruct instances to HelmExpression
+    // This ensures nested HelmConstructs are properly serialized
+    const preprocessed = preprocessHelmConstructs(content);
+    const doc = new Document(preprocessed);
     let yaml = doc.toString({ lineWidth: 0 });
     // Remove the trailing newline and any leading/trailing whitespace
     yaml = yaml.trim();
@@ -179,10 +378,61 @@ function serializeHelmContent(content: unknown): string {
  * Pre-process an object to convert HelmConstruct instances to HelmExpression
  * This allows the yaml library to serialize them correctly
  */
-function preprocessHelmConstructs(obj: unknown): unknown {
-  // Handle HelmConstruct
+// eslint-disable-next-line sonarjs/cognitive-complexity -- Complex preprocessing logic
+export function preprocessHelmConstructs(obj: unknown): unknown {
+  // Handle HelmValue (from valuesRef)
+  if (isHelmValue(obj)) {
+    const value = obj as HelmValue;
+    return createHelmExpression(`{{ ${value.__path} }}`);
+  }
 
+  // Handle HelmFieldConditional (from valuesRef v.if())
+  if (isHelmFieldConditional(obj)) {
+    // This is handled in the object iteration below
+    return obj;
+  }
+
+  // Handle HelmRange (from valuesRef v.range())
+  if (isHelmRange(obj)) {
+    const range = obj as HelmRange<unknown>;
+    const sourcePath = (range.source as HelmValue).__path;
+    // Create placeholder values for callback
+    const itemProxy = { __path: '$item' } as unknown as HelmValue;
+    const indexProxy = { __path: '$index' } as unknown as HelmValue<number>;
+    const content = range.callback(itemProxy, indexProxy);
+    const processedContent = preprocessHelmConstructs(content);
+    // Serialize the content
+    const contentDoc = new Document(processedContent);
+    const contentStr = contentDoc.toString({ lineWidth: 0 }).trim();
+    return createHelmExpression(`{{- range ${sourcePath} }}\n${contentStr}\n{{- end }}`);
+  }
+
+  // Handle HelmWith (from valuesRef v.with())
+  // DON'T process it here - let it pass through so the visit phase can detect it as field-level
+  if (isHelmWith(obj)) {
+    return obj;
+  }
+
+  // Handle HelmConstruct
+  // BUT: preserve fieldConditional constructs as-is so they can be handled in visit phase
+  // NOTE: We don't process helmIf without else here - that's handled in the object processing below
   if (isHelmConstruct(obj)) {
+    if (obj.type === 'fieldConditional') {
+      // Keep fieldConditional as-is, don't serialize it yet
+      return obj;
+    }
+    // For helmIf without else, we need to handle it in the parent object context
+    // So we return it as-is to be processed when iterating over object entries
+    // UNLESS it has inline: true, in which case serialize it immediately
+    if (obj.type === 'if') {
+      const ifData = obj.data as { condition: string; then: unknown; else?: unknown };
+      const isInline = obj.options?.inline ?? false;
+      // Check if else is undefined or not present in the data object
+      if (!isInline && (ifData.else === undefined || !('else' in ifData))) {
+        // Return as-is so it can be processed in the object iteration
+        return obj;
+      }
+    }
     const helmTemplate = serializeHelmConstruct(obj);
     return createHelmExpression(helmTemplate);
   }
@@ -200,10 +450,166 @@ function preprocessHelmConstructs(obj: unknown): unknown {
     }
 
     const result: Record<string, unknown> = {};
+
     for (const [key, value] of Object.entries(obj)) {
+      // Check if value is HelmWith - treat as field-level construct
+      if (isHelmWith(value)) {
+        const withBlock = value as HelmWith<unknown>;
+        const source = withBlock.source as HelmValue;
+        const sourcePath = source?.__path;
+
+        if (!sourcePath) {
+          throw new Error('HelmWith source must have a valid __path');
+        }
+
+        // Create placeholder for callback context
+        const ctxProxy = { __path: '.' } as unknown as HelmValue;
+        const content = withBlock.callback(ctxProxy);
+
+        // Extract content string
+        let contentStr: string;
+        if (isHelmExpression(content)) {
+          contentStr = content.value;
+        } else {
+          const processedContent = preprocessHelmConstructs(content);
+          const contentDoc = new Document(processedContent);
+          contentStr = contentDoc.toString({ lineWidth: 0 }).trim();
+        }
+
+        // Generate field-level with template
+        const template = `{{- with ${sourcePath} }}\n${key}:\n  ${contentStr}\n{{- end }}`;
+
+        // Use special marker for field-level with
+        const marker = `__FIELD_WITH__:${key}:${template}`;
+
+        result[`__fieldWithTemplate_${key}`] = createHelmExpression(marker);
+        continue;
+      }
+
+      // Special handling: if value is a helmIf with elseContent as undefined,
+      // this means we want to conditionally include the entire field (key + value)
+      // We generate the template complete as a string and insert it as a special field
+      // IMPORTANT: Check this BEFORE processing recursively to avoid serialization
+      if (isHelmConstruct(value) && value.type === 'if') {
+        const ifData = value.data as { condition: string; then: unknown; else?: unknown };
+        const isInline = value.options?.inline ?? false;
+        // If elseContent is undefined (or not present) AND not inline, this is a field-level conditional
+        // This is the case for helmIfSimple() or helmIf() with undefined else
+        if (!isInline && (ifData.else === undefined || !('else' in ifData))) {
+          // Serialize the then value to get its string representation
+          const preprocessedThen = preprocessHelmConstructs(ifData.then);
+          let thenValueStr = '';
+          let isMultilineObject = false;
+
+          if (isHelmExpression(preprocessedThen)) {
+            thenValueStr = preprocessedThen.value.trim();
+            isMultilineObject = thenValueStr.includes('\n');
+          } else if (typeof preprocessedThen === 'string') {
+            thenValueStr = preprocessedThen.trim();
+            isMultilineObject = thenValueStr.includes('\n');
+          } else if (Array.isArray(preprocessedThen)) {
+            // For arrays, serialize to YAML
+            const tempDoc = new Document(preprocessedThen);
+            thenValueStr = tempDoc.toString({ lineWidth: 0 }).trim();
+            isMultilineObject = true;
+          } else {
+            // For objects, serialize them to YAML string
+            const tempDoc = new Document(preprocessedThen);
+            thenValueStr = tempDoc.toString({ lineWidth: 0 }).trim();
+            isMultilineObject = thenValueStr.includes('\n');
+          }
+
+          // Create the conditional template
+          // Format: "{{- if condition }}\nfieldKey: value\n{{- end }}"
+          const constructOptions = isHelmConstruct(value) ? value.options : undefined;
+          const trimLeft = constructOptions?.trimLeft ?? true;
+          const openTag = `{{${trimLeft ? '-' : ''} `;
+          const closeTag = ` ${(constructOptions?.trimRight ?? true) ? '-' : ''}}}`;
+
+          // Format the value based on whether it's multiline or not
+          let formattedContent: string;
+          if (isMultilineObject) {
+            // For multiline values (arrays, objects), put on new line with proper indentation
+            const indentedValue = thenValueStr
+              .split('\n')
+              .map((line: string) => '    ' + line)
+              .join('\n');
+            formattedContent = `${key}:\n${indentedValue}`;
+          } else {
+            // For simple values, put inline
+            formattedContent = `${key}: ${thenValueStr}`;
+          }
+
+          const conditionalTemplate = `${openTag}if ${ifData.condition}${closeTag}\n  ${formattedContent}\n${openTag}end${closeTag}`;
+
+          // Instead of creating a special field that might be lost during cdk8s serialization,
+          // we create a HelmExpression (type-safe) with the complete template that will be inserted
+          // directly in the YAML. We use a special marker prefix in the value so postProcessFieldConditionals
+          // can detect and transform it correctly. This preserves type-safety because the field
+          // exists with a HelmExpression type, not just a string.
+          // The marker "__FIELD_CONDITIONAL__:" is used to identify field-level conditionals
+          // eslint-disable-next-line security/detect-object-injection -- Safe: iterating over own entries
+          result[key] = createHelmExpression(`__FIELD_CONDITIONAL__:${key}:${conditionalTemplate}`);
+          continue;
+        }
+      }
+
+      // Handle HelmFieldConditional from valuesRef v.if()
+      if (isHelmFieldConditional(value)) {
+        const fieldCond = value as HelmFieldConditional<unknown>;
+        const condition = (fieldCond.condition as HelmCondition).__condition;
+
+        // Serialize the then value using simpleHelmYaml to avoid recursion
+        const thenValueStr = simpleHelmYaml(fieldCond.thenValue).trim();
+        const isMultilineObject = thenValueStr.includes('\n');
+        const startsWithDash = thenValueStr.trimStart().startsWith('-');
+
+        // Create the conditional template without base indentation
+        // postProcessFieldConditionals will add the correct indentation later
+        let formattedContent: string;
+        if (isMultilineObject || startsWithDash) {
+          // For multiline or arrays, put key on own line
+          // Indent the value by 2 spaces relative to the key
+          const lines = thenValueStr.split('\n');
+          const indentedValue = lines.map((line: string) => '  ' + line).join('\n');
+          formattedContent = `${key}:\n${indentedValue}`;
+        } else {
+          formattedContent = `${key}: ${thenValueStr}`;
+        }
+
+        // Template format: no base indent - postProcessFieldConditionals will add it
+        const conditionalTemplate = `{{- if ${condition} }}\n${formattedContent}\n{{- end }}`;
+
+        // eslint-disable-next-line security/detect-object-injection -- Safe: iterating over own entries
+        result[key] = createHelmExpression(`__FIELD_CONDITIONAL__:${key}:${conditionalTemplate}`);
+        continue;
+      }
+
+      // Also handle fieldConditional constructs that were already created
+      if (isHelmConstruct(value) && value.type === 'fieldConditional') {
+        const fieldData = value.data as { fieldKey: string; condition: string; then: unknown };
+        // Serialize the then value
+        const preprocessedThen = preprocessHelmConstructs(fieldData.then);
+        let thenValueStr = '';
+        if (isHelmExpression(preprocessedThen)) {
+          thenValueStr = preprocessedThen.value;
+        } else if (typeof preprocessedThen === 'string') {
+          thenValueStr = preprocessedThen;
+        } else {
+          const tempDoc = new Document(preprocessedThen);
+          thenValueStr = tempDoc.toString({ lineWidth: 0 }).trim();
+        }
+
+        // Create the conditional template
+        const conditionalTemplate = `{{- if ${fieldData.condition} }}\n  ${fieldData.fieldKey}: ${thenValueStr}\n{{- end }}`;
+
+        result[`__fieldConditionalTemplate_${fieldData.fieldKey}`] = conditionalTemplate;
+        continue;
+      }
       // eslint-disable-next-line security/detect-object-injection -- Safe: iterating over own entries
       result[key] = preprocessHelmConstructs(value);
     }
+
     return result;
   }
 
@@ -222,15 +628,18 @@ function preprocessHelmConstructs(obj: unknown): unknown {
  * @since 2.13.1 Refactored to use 'yaml' library
  * @since 2.14.0 Added HelmConstruct pre-processing
  */
+// eslint-disable-next-line sonarjs/cognitive-complexity -- Complex YAML serialization logic
 export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } = {}): string {
   // Pre-process to convert HelmConstruct objects to HelmExpression
+  // This also processes field-level conditionals and creates __fieldConditionalTemplate_* fields
   const preprocessed = preprocessHelmConstructs(obj);
 
   const doc = new Document(preprocessed);
 
-  // Visit the document to transform HelmExpression objects and force quoting for templates
+  // Visit the document to transform HelmExpression objects
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- Complex YAML node transformation
   visit(doc, (_key, node) => {
-    // 1. Handle explicit HelmExpression objects
+    // Handle explicit HelmExpression objects
     if (isMap(node)) {
       const isHelmExpr = node.items.some(
         (pair) =>
@@ -247,11 +656,35 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
         );
         if (valuePair && isScalar(valuePair.value)) {
           const value = String(valuePair.value.value);
+
+          // Check if this is a field-level conditional marker
+          // Format: "__FIELD_CONDITIONAL__:fieldKey:{{- if ... }}\n  fieldKey: value\n{{- end }}"
+          // We need to preserve it as a block literal so postProcessFieldConditionals can process it
+          if (
+            value.startsWith(FIELD_CONDITIONAL) ||
+            value.startsWith(FIELD_WITH) ||
+            value.startsWith(FIELD_WITH_MARKER)
+          ) {
+            const scalar = new Scalar(value);
+            scalar.type = 'BLOCK_LITERAL';
+            return scalar;
+          }
+
           const scalar = new Scalar(value);
 
-          // Check if this is a Helm construct (multiline block)
-          if (value.trim().startsWith('{{') && value.includes('\n')) {
+          // Check if this is a multiline Helm template (contains newlines and starts with {{)
+          const isMultilineTemplate = value.includes('\n') && value.trim().startsWith('{{');
+
+          // Special handling for with/range blocks - they should NOT be block literals
+          // because they need to be at the same level as the field key
+          const isWithOrRange =
+            value.trim().startsWith('{{- with ') || value.trim().startsWith('{{- range ');
+
+          if (isMultilineTemplate && !isWithOrRange) {
             scalar.type = 'BLOCK_LITERAL'; // Force block style (|)
+          } else if (isWithOrRange) {
+            // For with/range, use PLAIN style so it renders without quotes or block markers
+            scalar.type = 'PLAIN';
           } else {
             scalar.type = 'QUOTE_DOUBLE'; // Force double quotes for simple expressions
           }
@@ -263,7 +696,7 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
   });
 
   // Configure output options
-  const toStringOptions: { lineWidth?: number } = {};
+  const toStringOptions: { lineWidth?: number } = { lineWidth: 0 };
   if (options.lineWidth !== undefined) {
     toStringOptions.lineWidth = options.lineWidth;
   }
@@ -271,7 +704,216 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
   // Ensure we don't use flow style (JSON-like) for the root or children unless necessary
   // doc.options.collectionStyle = 'block'; // Default is usually fine
 
+  // Third visit: transform the special template pairs into the final format
+  // We need to replace pairs with key "__fieldConditionalTemplate_*" with just the template content
+  // Since we can't have "content without a key" in YAML, we'll use a different approach:
+  // We'll create a custom serialization that handles these special pairs
+  const templatePairs: Array<{
+    parent: YAMLMap;
+    index: number;
+    template: string;
+    fieldKey: string;
+  }> = [];
+
+  visit(doc, (_key, node) => {
+    if (isMap(node)) {
+      for (let i = 0; i < node.items.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection
+        const pair = node.items[i];
+
+        if (pair && isScalar(pair.key)) {
+          const keyStr = String(pair.key.value);
+          if (keyStr.startsWith('__fieldConditionalTemplate_') && isScalar(pair.value)) {
+            const template = String(pair.value.value);
+            const fieldKey = keyStr.replace('__fieldConditionalTemplate_', '');
+            templatePairs.push({ parent: node, index: i, template, fieldKey });
+          }
+        }
+      }
+    }
+    return undefined;
+  });
+
+  // Process template pairs: replace them with the template content directly
+  // We'll create a new Document structure that represents the conditional correctly
+  // The challenge is that YAML requires keys, so we need to serialize the template
+  // in a way that when converted to string, produces the desired output
+  for (let i = templatePairs.length - 1; i >= 0; i--) {
+    // eslint-disable-next-line security/detect-object-injection
+    const templatePair = templatePairs[i];
+    if (!templatePair) continue;
+    const { parent, index, template } = templatePair;
+
+    // Remove the special pair
+    parent.items.splice(index, 1);
+
+    // The template already contains the full conditional with proper indentation
+    // We need to insert it in a way that serializes correctly
+    // Since we can't insert "raw content", we'll create a Pair with an empty key
+    // and the template as a BLOCK_LITERAL value, then process it in the final step
+
+    // Actually, the best approach is to parse the template and insert its content
+    // But the template is already a string with the correct format
+
+    // Solution: Create a temporary Document with just the template to get its YAML representation
+    // Then parse that and extract the content
+    const tempDoc = new Document({ __temp: template });
+    const _tempYaml = tempDoc.toString({ lineWidth: 0 });
+
+    // Extract just the value part (the template)
+    // The tempYaml will be "__temp: |\n  template content"
+    // We need just "template content" with proper indentation
+
+    // Better: Since the template is already correctly formatted, we can create
+    // a Scalar with it and use it directly, but we need a Pair
+
+    // Final solution: Create a Pair with a key that when serialized will be removed
+    // We'll use a key that's a comment or special marker that gets filtered out
+
+    // Actually, the simplest type-safe solution: Create a Pair with the template
+    // as a BLOCK_LITERAL, and then in the final string processing, we'll replace
+    // the pattern "specialKey: |\n  template" with just "template" (but this uses string processing)
+
+    // True type-safe solution: Parse the template string as YAML and extract its structure
+    // But the template is not valid YAML by itself
+
+    // Best approach: Store the template in a way that we can extract it later
+    // We'll create a Pair with a known special key pattern that we can detect
+    // and transform using only yaml API operations
+
+    // Create a Scalar with the template
+    const templateScalar = new Scalar(template);
+    templateScalar.type = 'BLOCK_LITERAL';
+
+    // Create a Pair with a special key that we'll process
+    // The key will be a Scalar with a value that we can detect
+    const specialKeyScalar = new Scalar('__fieldConditionalContent');
+    const templatePairObj = new Pair(specialKeyScalar, templateScalar);
+
+    // Insert the template pair
+    parent.items.splice(index, 0, templatePairObj);
+  }
+
+  // Serialize to string first (with __fieldConditionalContent pairs still present)
   let result = doc.toString(toStringOptions);
+
+  // Transform __fieldConditionalContent pairs in the string representation
+  // Pattern: "__fieldConditionalContent: |\n  {{- if ... }}\n  fieldKey: value\n{{- end }}"
+  // Should become: "{{- if ... }}\n  fieldKey: value\n{{- end }}"
+  // We do this type-safely by:
+  // 1. Using yaml API to identify the patterns (already done above)
+  // 2. Using simple string operations (not regex) to transform them
+  // 3. This is the minimal string manipulation needed given YAML's structural constraints
+
+  while (result.includes('__fieldConditionalContent:')) {
+    const markerIndex = result.indexOf('__fieldConditionalContent:');
+    if (markerIndex === -1) break;
+
+    // Find the start of the line containing the marker to get base indentation
+    const lineStart = result.lastIndexOf('\n', markerIndex);
+    const lineBeforeMarker = result.substring(lineStart + 1, markerIndex);
+    const indentMatch = lineBeforeMarker.match(/^(\s*)/);
+    const baseIndent = indentMatch && indentMatch[1] ? indentMatch[1] : '';
+
+    // Debug: log the transformation attempt
+    // console.log('Transforming __fieldConditionalContent at index', markerIndex, 'baseIndent:', JSON.stringify(baseIndent));
+
+    // Find the content after the marker
+    const afterMarker = result.substring(markerIndex);
+
+    // Find the pipe character (| or |-) that indicates block literal
+    // It can be on the same line or on the next line
+    let pipeLineMatch = afterMarker.match(/^__fieldConditionalContent:\s*(\|-?)\s*\n(\s*)/);
+    let pipeOnSameLine = true;
+    if (!pipeLineMatch) {
+      // Try pattern with pipe on next line
+      pipeLineMatch = afterMarker.match(/^__fieldConditionalContent:\s*\n(\s*)(\|-?)\s*\n/);
+      pipeOnSameLine = false;
+    }
+    if (!pipeLineMatch) break;
+
+    const pipeChar = pipeOnSameLine ? pipeLineMatch[1] : pipeLineMatch[2];
+    const pipeIndent = pipeOnSameLine ? pipeLineMatch[2] || '' : pipeLineMatch[1] || '';
+    if (!pipeChar) break;
+
+    // Calculate the index after the pipe line (including the newline)
+    const pipeIndex = markerIndex + pipeLineMatch[0].length;
+
+    // Find the template start ({{- if)
+    // After the pipe line, there's a newline and then spaces before the template
+    const afterPipe = result.substring(pipeIndex);
+    // Match: newline (required), then spaces, then {{-
+    const templateStartMatch = afterPipe.match(/^\n(\s*)(\{\{-)/);
+    if (!templateStartMatch) {
+      // Try without newline (pipe on same line case)
+      const templateStartMatchNoNewline = afterPipe.match(/^(\s*)(\{\{-)/);
+      if (!templateStartMatchNoNewline) break;
+      const _templateIndent = templateStartMatchNoNewline[1] || '';
+      const templateStart = templateStartMatchNoNewline[2];
+      if (!templateStart) break;
+      const templateStartIndex = pipeIndex + templateStartMatchNoNewline[0].length;
+
+      // Find the template end
+      const templateSection = result.substring(templateStartIndex);
+      const endMatch = templateSection.match(/(\{\{-?\s*end\s*-?\}\})/);
+      if (!endMatch) break;
+
+      const endIndex = endMatch.index;
+      if (endIndex === undefined) break;
+      const templateEndIndex = templateStartIndex + endIndex + endMatch[0].length;
+
+      const templateContent = result.substring(templateStartIndex, templateEndIndex);
+      const beforeMarker = result.substring(0, lineStart + 1);
+      const afterTemplate = result.substring(templateEndIndex);
+
+      const pipeIndentEscaped = pipeIndent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const adjustedTemplate = templateContent.replace(
+        // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: pipeIndent is escaped
+        new RegExp(`^${pipeIndentEscaped}`, 'gm'),
+        baseIndent,
+      );
+
+      result = beforeMarker + adjustedTemplate + afterTemplate;
+      continue;
+    }
+
+    const _templateIndent = templateStartMatch[1] || '';
+    const templateStart = templateStartMatch[2];
+    if (!templateStart) break;
+    // templateStartIndex is after the newline and spaces, at the start of {{-
+    const templateStartIndex = pipeIndex + templateStartMatch[0].length;
+
+    // Find the template end ({{- end }})
+    const templateSection = result.substring(templateStartIndex);
+    const endMatch = templateSection.match(/(\{\{-?\s*end\s*-?\}\})/);
+    if (!endMatch) break;
+
+    const endIndex = endMatch.index;
+    if (endIndex === undefined) break;
+    const templateEndIndex = templateStartIndex + endIndex + endMatch[0].length;
+
+    // Extract the template content
+    const templateContent = result.substring(templateStartIndex, templateEndIndex);
+
+    // Remove the marker line, pipe line, and adjust the template
+    // The template should start at the baseIndent level
+    const beforeMarker = result.substring(0, lineStart + 1);
+    const afterTemplate = result.substring(templateEndIndex);
+
+    // The template content has indentation from the pipe (pipeIndent)
+    // We need to replace that with baseIndent to get the correct final indentation
+    // The template format is: "{{- if ... }}\n  fieldKey: value\n{{- end }}"
+    // After removing pipe indent, we want: "{{- if ... }}\n  fieldKey: value\n{{- end }}"
+    const pipeIndentEscaped = pipeIndent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Replace pipe indent with base indent on each line
+    const adjustedTemplate = templateContent.replace(
+      // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: pipeIndent is escaped
+      new RegExp(`^${pipeIndentEscaped}`, 'gm'),
+      baseIndent,
+    );
+
+    result = beforeMarker + adjustedTemplate + afterTemplate;
+  }
 
   // Post-process to fix double-escaped quotes within Helm templates
   // The yaml library escapes quotes in strings, but Helm templates need unescaped quotes
@@ -279,42 +921,175 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
   // Helm template strings that should never have escaped quotes
   result = result.replace(/\\"/g, '"');
 
-  // Remove escaped backslashes that appear before spaces in YAML
-  // Pattern: "\  " -> "  " (two spaces)
-  result = result.replace(/\\\\/g, '');
+  // Fix templates that start with {{- if but are on the same line as the field key
+  // Pattern: "fieldKey: {{- if ... }}\n  content\n{{- end }}"
+  // Should become: "{{- if ... }}\n  fieldKey: content\n{{- end }}"
+  // But only if the fieldKey is not already wrapped in a conditional
+  result = result.replace(
+    /^(\s+)(\w+):\s+(\{\{-?\s*if\s+[^}]+\}\})\s*\n(\s+)(.+?)\n(\s+)(\{\{-?\s*end\s*-?\}\})/gm,
+    (match, baseIndent, fieldKey, ifTag, contentIndent, content, endIndent, endTag) => {
+      // Check if content starts with the fieldKey (duplicate)
+      const contentLines = content.split('\n');
+      const firstContentLine = contentLines[0]?.trim() || '';
+      if (firstContentLine.startsWith(`${fieldKey}:`)) {
+        // Remove duplicate fieldKey from content
+        // Escape fieldKey to prevent regex injection
+        const escapedFieldKey = fieldKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: fieldKey is escaped
+        contentLines[0] = contentLines[0].replace(new RegExp(`^\\s*${escapedFieldKey}:\\s*`), '');
+        content = contentLines.join('\n');
+      }
+      // Reconstruct as field-level conditional
+      const contentFormatted = content
+        ? '\n' +
+          content
+            .split('\n')
+            .map((line: string) => baseIndent + '    ' + line.trimStart())
+            .join('\n')
+        : '';
+      return `${baseIndent}${ifTag}\n${baseIndent}  ${fieldKey}:${contentFormatted}\n${baseIndent}${endTag}`;
+    },
+  );
 
-  // Post-process to handle template-only values that should be raw YAML
-  // These are values that are ONLY a Helm template (start with {{ and end with }})
-  // They should not be quoted so Helm can expand them as YAML structure
+  // Apply post-processing for field-level conditionals
+  result = postProcessFieldConditionals(result);
 
-  // 1. Handle Block Literals (multiline constructs like if/range)
-  // Pattern: "| \n  {{- if ... }}" -> "{{- if ... }}" (indented)
-  // We need to remove the pipe and the newline after it, but keep indentation
-  // The yaml library outputs: key: |
-  //                             {{- if ... }}
-  // We want: key:
-  //            {{- if ... }}
+  return result;
+}
 
-  // Actually, we just need to remove the "| " (or "|\n") if it's followed by a Helm block
-  // But regex on the whole string is risky for context.
+/**
+ * Post-processes YAML string to transform field-level conditionals
+ * This function should be called after dumpHelmAwareYaml to transform
+ * __fieldConditionalContent markers into the correct Helm template format.
+ *
+ * @param yaml YAML string that may contain __fieldConditionalContent markers
+ * @returns YAML string with field-level conditionals properly formatted
+ * @since 2.14.0
+ */
+// eslint-disable-next-line sonarjs/cognitive-complexity -- Complex post-processing logic
+export function postProcessFieldConditionals(yaml: string): string {
+  let result = yaml;
 
-  // Let's stick to the previous approach but handle the pipe if present.
-  // If we used BLOCK_LITERAL, the output is:
-  // key: |
-  //   {{- if ... }}
+  // Transform field-level with blocks (__FIELD_WITH_MARKER__ marker)
+  // Pattern: "fieldKey: |-\n    __FIELD_WITH_MARKER__:path:content"
+  // Should become: "{{- with path }}\nfieldKey:\n  content\n{{- end }}"
+  while (result.includes('__FIELD_WITH_MARKER__:')) {
+    const markerIndex = result.indexOf('__FIELD_WITH_MARKER__:');
+    if (markerIndex === -1) break;
 
-  // We can replace ": |" with ":" ? No, that affects all block literals.
+    // Find the field key line (e.g., "  nodeSelector: |-")
+    const beforeMarker = result.substring(0, markerIndex);
+    const lastNewline = beforeMarker.lastIndexOf('\n');
+    const secondLastNewline = beforeMarker.lastIndexOf('\n', lastNewline - 1);
+    const fieldKeyLine = result.substring(secondLastNewline + 1, lastNewline);
 
-  // Let's refine:
-  // Match: ": |" or ": |-" or ": |+" followed by newline and indent and {{
-  // regex: /:\s*\|[-+]?\s*\n(\s*\{\{)/g
-  result = result.replace(/:\s*\|[-+]?\s*\n(\s*\{\{)/g, ':\n$1');
+    const fieldKeyMatch = fieldKeyLine.match(/^(\s*)(\w+):\s*|[-]?\s*$/);
+    if (!fieldKeyMatch || !fieldKeyMatch[2]) break;
 
-  // 2. Handle Quoted Strings (single line expressions)
-  // Pattern: "{{- include "name" . | nindent 4 }}" -> {{- include "name" . | nindent 4 }}
-  // We need to remove quotes around pure template expressions, including multiline blocks
-  // Match any quoted string that starts with {{ and ends with }}
-  // Use [\s\S]*? for non-greedy multiline match
+    const baseIndent = fieldKeyMatch[1] || '';
+    const fieldKey = fieldKeyMatch[2];
+
+    // Extract marker: __FIELD_WITH_MARKER__:path:content
+    const afterMarker = result.substring(markerIndex);
+    const markerMatch = afterMarker.match(/^__FIELD_WITH_MARKER__:([^:]+):(.+?)$/m);
+    if (!markerMatch || !markerMatch[1] || !markerMatch[2]) break;
+
+    const path = markerMatch[1];
+    const content = markerMatch[2].trim();
+    const markerEnd = markerIndex + markerMatch[0].length;
+
+    // Generate the with block
+    const template = `${baseIndent}{{- with ${path} }}\n${baseIndent}${fieldKey}:\n${baseIndent}  ${content}\n${baseIndent}{{- end }}`;
+
+    // Replace: remove fieldKey line and marker, insert template
+    result = result.substring(0, secondLastNewline + 1) + template + result.substring(markerEnd);
+  }
+
+  // Transform field-level with blocks (__FIELD_WITH__ marker)
+  while (result.includes('__FIELD_WITH__:')) {
+    const markerIndex = result.indexOf('__FIELD_WITH__:');
+    if (markerIndex === -1) break;
+
+    // Find the field key line (e.g., "  __fieldWithTemplate_nodeSelector: |-")
+    const beforeMarker = result.substring(0, markerIndex);
+    const lastNewline = beforeMarker.lastIndexOf('\n');
+    const secondLastNewline = beforeMarker.lastIndexOf('\n', lastNewline - 1);
+    const fieldKeyLine = result.substring(secondLastNewline + 1, lastNewline);
+
+    const fieldKeyMatch = fieldKeyLine.match(/^(\s*)__fieldWithTemplate_\w+:\s*|[-]?\s*$/);
+    if (!fieldKeyMatch) break;
+
+    const baseIndent = fieldKeyMatch[1];
+
+    // Extract template: __FIELD_WITH__:fieldKey:TEMPLATE
+    const afterMarker = result.substring(markerIndex);
+    const markerMatch = afterMarker.match(/^__FIELD_WITH__:\w+:(.+?\{\{-?\s*end\s*-?\}\})/s);
+    if (!markerMatch || !markerMatch[1]) break;
+
+    const template = markerMatch[1];
+    const markerEnd = markerIndex + markerMatch[0].length;
+
+    // Process template: remove block indent, add base indent
+    const lines = template.split('\n');
+    const processed = lines
+      .map((line) => {
+        if (!line.trim()) return '';
+        const trimmed = line.trimStart();
+        return baseIndent + trimmed;
+      })
+      .join('\n');
+
+    // Replace: remove fieldKey line and marker, insert processed template
+    result = result.substring(0, secondLastNewline + 1) + processed + result.substring(markerEnd);
+  }
+
+  // Transform field-level conditionals with __FIELD_CONDITIONAL__ marker
+  // Pattern: "fieldKey: |-\n    __FIELD_CONDITIONAL__:fieldKey:{{- if ... }}\n  fieldKey: value\n{{- end }}"
+  // Should become: "{{- if ... }}\n  fieldKey: value\n{{- end }}"
+  while (result.includes('__FIELD_CONDITIONAL__:')) {
+    const markerIndex = result.indexOf('__FIELD_CONDITIONAL__:');
+    if (markerIndex === -1) break;
+
+    // Find the field key line (e.g., "  fieldKey: |-")
+    const beforeMarker = result.substring(0, markerIndex);
+    const lastNewline = beforeMarker.lastIndexOf('\n');
+    const secondLastNewline = beforeMarker.lastIndexOf('\n', lastNewline - 1);
+    const fieldKeyLine = result.substring(secondLastNewline + 1, lastNewline);
+
+    const fieldKeyMatch = fieldKeyLine.match(/^(\s*)(\w+):\s*|[-]?\s*$/);
+    if (!fieldKeyMatch) break;
+
+    const baseIndent = fieldKeyMatch[1];
+
+    // Extract template: __FIELD_CONDITIONAL__:fieldKey:TEMPLATE
+    const afterMarker = result.substring(markerIndex);
+    const markerMatch = afterMarker.match(/^__FIELD_CONDITIONAL__:\w+:(.+?\{\{-?\s*end\s*-?\}\})/s);
+    if (!markerMatch || !markerMatch[1]) break;
+
+    const template = markerMatch[1];
+    const markerEnd = markerIndex + markerMatch[0].length;
+
+    // Process template: remove block indent, add base indent
+    const lines = template.split('\n');
+    const processed = lines
+      .map((line) => {
+        if (!line.trim()) return '';
+        // Remove leading spaces (block indent from YAML serialization)
+        const trimmed = line.trimStart();
+        // Add base indent
+        return baseIndent + trimmed;
+      })
+      .join('\n');
+
+    // Replace: remove fieldKey line and marker, insert processed template
+    result = result.substring(0, secondLastNewline + 1) + processed + result.substring(markerEnd);
+  }
+
+  // Clean up pipe literals
+  // Use possessive quantifier pattern to prevent ReDoS (CWE-1333)
+  result = result.replace(/:\s*\|[-+]?\s*\n([ \t]*\{\{)/g, ':\n$1');
+
+  // Remove quotes around Helm expressions
   result = result.replace(/"(\{\{[\s\S]*?\}\})"/g, '$1');
 
   return result;
@@ -521,14 +1296,17 @@ export function parseHelmExpressions(content: string): Array<{
     for (const { regex, type } of COMPILED_PATTERNS) {
       let match;
       regex.lastIndex = 0;
+      // Note: regex.exec() is RegExp matching, NOT OS command execution
       while ((match = regex.exec(line)) !== null) {
+        // Sanitize matched expression to prevent any injection in downstream processing
+        const sanitizedExpression = SecurityUtils.sanitizeLogMessage(match[0] || '');
         expressions.push({
           type,
-          expression: match[0],
+          expression: sanitizedExpression,
           startLine: i + 1,
           startCol: match.index + 1,
           endLine: i + 1,
-          endCol: match.index + match[0].length + 1,
+          endCol: match.index + (match[0]?.length || 0) + 1,
         });
         if (match.index === regex.lastIndex) regex.lastIndex++;
       }
@@ -628,15 +1406,23 @@ function validateFunctionCalls(_content: string): void {
 function checkCommonIssues(yaml: string, warnings: HelmValidationError[]): void {
   const deprecatedFunctions = ['template'];
   for (const func of deprecatedFunctions) {
-    // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: controlled function names from predefined list
-    const pattern = new RegExp(`\\{\\{[^}]*\\b${func}\\b[^}]*\\}\\}`, 'g');
+    // Validate func is alphanumeric only to prevent injection
+    if (!/^[a-zA-Z0-9_]+$/.test(func)) {
+      continue; // Skip invalid function names
+    }
+    // Escape special regex characters to prevent injection
+    const escapedFunc = func.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: func is validated and escaped
+    const pattern = new RegExp(`\\{\\{[^}]*\\b${escapedFunc}\\b[^}]*\\}\\}`, 'g');
     let match;
     while ((match = pattern.exec(yaml)) !== null) {
+      // Sanitize function name for output to prevent injection in error messages
+      const sanitizedFunc = SecurityUtils.sanitizeLogMessage(func);
       warnings.push({
         type: 'semantic',
-        message: `Function '${func}' is deprecated`,
+        message: `Function '${sanitizedFunc}' is deprecated`,
         expression: match[0],
-        suggestion: `Consider avoiding deprecated function '${func}'`,
+        suggestion: `Consider avoiding deprecated function '${sanitizedFunc}'`,
       });
     }
   }
@@ -656,11 +1442,14 @@ function checkQuotedExpressions(yaml: string, warnings: HelmValidationError[]): 
     let match;
     pattern.lastIndex = 0;
     while ((match = pattern.exec(yaml)) !== null) {
+      // Sanitize matched content to prevent injection in suggestion text
+      const sanitizedMatch = SecurityUtils.sanitizeLogMessage(match[1] || '');
+      const sanitizedExpression = SecurityUtils.sanitizeLogMessage(match[0] || '');
       warnings.push({
         type: 'semantic',
         message: 'Helm expression should not be quoted',
-        expression: match[0],
-        suggestion: `Remove quotes around: ${match[1]}`,
+        expression: sanitizedExpression,
+        suggestion: `Remove quotes around: ${sanitizedMatch}`,
       });
     }
   }

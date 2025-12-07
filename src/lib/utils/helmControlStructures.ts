@@ -10,12 +10,19 @@
  */
 export interface HelmConstruct {
   __helmConstruct: true;
-  type: 'if' | 'range' | 'with' | 'include' | 'define' | 'var' | 'block' | 'comment' | 'fragment';
+  type:
+    | 'if'
+    | 'range'
+    | 'with'
+    | 'include'
+    | 'define'
+    | 'var'
+    | 'block'
+    | 'comment'
+    | 'fragment'
+    | 'fieldConditional';
   data: unknown;
-  options?: {
-    trimLeft?: boolean;
-    trimRight?: boolean;
-  };
+  options?: HelmWhitespaceOptions;
 }
 
 /**
@@ -285,6 +292,8 @@ export interface HelmWhitespaceOptions {
   trimLeft?: boolean;
   /** Trim whitespace to the right of the construct (-}}) */
   trimRight?: boolean;
+  /** Render as inline (no newlines) */
+  inline?: boolean;
 }
 
 /**
@@ -339,6 +348,49 @@ export function helmIf(
       condition,
       then: thenContent,
       else: elseContent,
+    },
+    ...(options ? { options } : {}),
+  };
+}
+
+/**
+ * Creates a simple Helm if block without else (field-level conditional).
+ * This is specifically designed for conditionally including entire fields.
+ * When used as a field value, it wraps the field (key + value) in the conditional.
+ *
+ * @param condition - Helm template condition expression (e.g., '.Values.enabled')
+ * @param thenContent - Content to render if condition is true
+ * @param options - Whitespace control options
+ * @returns HelmConstruct representing the if block that wraps the field
+ *
+ * @example
+ * // Conditionally include replicas field
+ * {
+ *   spec: {
+ *     replicas: helmIfSimple('not .Values.autoscaling.enabled', helm('{{ .Values.replicaCount }}'))
+ *   }
+ * }
+ * // Output:
+ * // spec:
+ * //   {{- if not .Values.autoscaling.enabled }}
+ * //     replicas: {{ .Values.replicaCount }}
+ * //   {{- end }}
+ *
+ * @since 2.14.0
+ */
+export function helmIfSimple(
+  condition: string,
+  thenContent: HelmContent,
+  options?: HelmWhitespaceOptions,
+): HelmConstruct {
+  return {
+    __helmConstruct: true,
+    type: 'if',
+    data: {
+      condition,
+      then: thenContent,
+      // Explicitly set else to undefined to mark this as a field-level conditional
+      else: undefined,
     },
     ...(options ? { options } : {}),
   };

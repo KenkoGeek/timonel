@@ -320,7 +320,11 @@ export class AWSResources extends BaseResourceProvider {
     // For Kubernetes Ingress paths, we allow URL patterns but warn about suspicious ones
     if (normalizedPath.includes('../') || normalizedPath.includes('./')) {
       // Note: These could be valid URL patterns in some cases, but are suspicious
-      console.warn(`Warning: Ingress path "${path}" contains path traversal-like sequences`);
+      // Sanitize path for logging to prevent log injection
+      const sanitizedPath = path.replace(/[\r\n]/g, '');
+      console.warn(
+        `Warning: Ingress path "${sanitizedPath}" contains path traversal-like sequences`,
+      );
     }
   }
 

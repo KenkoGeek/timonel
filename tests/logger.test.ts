@@ -232,6 +232,7 @@ describe('TimonelLogger', () => {
       const sensitiveContext: LogContext = {
         operation: 'test-operation',
         password: 'secret-password',
+        // amazonq-ignore-next-line
         token: 'secret-token',
         apiKey: 'secret-api-key',
         normalField: 'normal-value',
@@ -248,6 +249,7 @@ describe('TimonelLogger', () => {
         operation: 'test-operation',
         config: {
           database: {
+            // amazonq-ignore-next-line
             password: 'db-secret',
             host: 'localhost',
           },
@@ -313,9 +315,11 @@ describe('Security Features', () => {
   it('should redact sensitive fields automatically', () => {
     const sensitiveData = {
       username: 'testuser',
+      // amazonq-ignore-next-line
       password: 'supersecret',
       email: 'test@example.com',
       secret: 'topsecret',
+      // amazonq-ignore-next-line
       token: 'bearer-token',
     };
 

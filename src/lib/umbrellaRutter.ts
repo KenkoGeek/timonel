@@ -137,10 +137,13 @@ export class UmbrellaRutter {
     });
 
     // Create output directory structure
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
     mkdirSync(validatedOutDir, { recursive: true });
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    mkdirSync(join(validatedOutDir, 'charts'), { recursive: true });
+    const chartsDir = SecurityUtils.validatePath(join(validatedOutDir, 'charts'), process.cwd(), {
+      allowAbsolute: true,
+    });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+    mkdirSync(chartsDir, { recursive: true });
 
     // Write each subchart to charts/ directory
     for (const subchart of this.props.subcharts) {
@@ -151,7 +154,11 @@ export class UmbrellaRutter {
         );
       }
       const sanitizedName = subchart.name; // Already validated by SecurityUtils
-      const subchartDir = join(validatedOutDir, 'charts', sanitizedName);
+      const subchartDir = SecurityUtils.validatePath(
+        join(validatedOutDir, 'charts', sanitizedName),
+        process.cwd(),
+        { allowAbsolute: true },
+      );
       subchart.rutter.write(subchartDir);
     }
 
@@ -162,10 +169,20 @@ export class UmbrellaRutter {
     this.writeParentValues(validatedOutDir);
 
     // Generate empty templates directory (umbrella charts typically don't have templates)
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    mkdirSync(join(validatedOutDir, 'templates'), { recursive: true });
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    writeFileSync(join(validatedOutDir, 'templates', 'NOTES.txt'), this.generateNotesTemplate());
+    const templatesDir = SecurityUtils.validatePath(
+      join(validatedOutDir, 'templates'),
+      process.cwd(),
+      { allowAbsolute: true },
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+    mkdirSync(templatesDir, { recursive: true });
+    const notesPath = SecurityUtils.validatePath(
+      join(validatedOutDir, 'templates', 'NOTES.txt'),
+      process.cwd(),
+      { allowAbsolute: true },
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+    writeFileSync(notesPath, this.generateNotesTemplate());
   }
 
   private writeParentChart(outDir: string): void {
@@ -192,8 +209,11 @@ export class UmbrellaRutter {
       }),
     };
 
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    writeFileSync(join(outDir, 'Chart.yaml'), dumpHelmAwareYaml(chartYaml));
+    const chartYamlPath = SecurityUtils.validatePath(join(outDir, 'Chart.yaml'), process.cwd(), {
+      allowAbsolute: true,
+    });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+    writeFileSync(chartYamlPath, dumpHelmAwareYaml(chartYaml));
   }
 
   private writeParentValues(outDir: string): void {
@@ -213,8 +233,11 @@ export class UmbrellaRutter {
       }
     }
 
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-    writeFileSync(join(outDir, 'values.yaml'), dumpHelmAwareYaml(values));
+    const valuesYamlPath = SecurityUtils.validatePath(join(outDir, 'values.yaml'), process.cwd(), {
+      allowAbsolute: true,
+    });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+    writeFileSync(valuesYamlPath, dumpHelmAwareYaml(values));
 
     // Write environment-specific values files
     if (this.props.envValues) {
@@ -222,8 +245,13 @@ export class UmbrellaRutter {
         // Use centralized environment name sanitization
         const sanitizedEnv = SecurityUtils.sanitizeEnvironmentName(env);
         const envValues = this.deepMerge(values, envVals);
-        // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-        writeFileSync(join(outDir, `values-${sanitizedEnv}.yaml`), dumpHelmAwareYaml(envValues));
+        const envValuesPath = SecurityUtils.validatePath(
+          join(outDir, `values-${sanitizedEnv}.yaml`),
+          process.cwd(),
+          { allowAbsolute: true },
+        );
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+        writeFileSync(envValuesPath, dumpHelmAwareYaml(envValues));
       }
     }
   }

@@ -313,14 +313,21 @@ export const AWS_HELPERS: HelperDefinition[] = [
  */
 export function formatHelpers(helpers: HelperDefinition[]): string {
   return helpers
-    .map(
-      (helper) => `{{/*
+    .map((helper) => {
+      // Validate helper has required properties
+      if (!helper.name || typeof helper.name !== 'string') {
+        throw new Error('Helper must have a valid name property');
+      }
+      if (!helper.template || typeof helper.template !== 'string') {
+        throw new Error(`Helper '${helper.name}' must have a valid template property`);
+      }
+      return `{{/*
 ${helper.name}
 */}}
 {{- define "${helper.name}" -}}
 ${helper.template}
-{{- end }}`,
-    )
+{{- end }}`;
+    })
     .join('\n\n');
 }
 
