@@ -723,11 +723,11 @@ export function helmRange(
     validateVarName(keyVar, 'keyVar');
     validateVarName(valueVar, 'valueVar');
   }
-  
+
   if (options.indexVar !== undefined) {
     validateVarName(indexVar, 'indexVar');
   }
-  
+
   if (options.itemVar !== undefined) {
     validateVarName(itemVar, 'itemVar');
   }
