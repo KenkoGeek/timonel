@@ -316,27 +316,31 @@ export class TimonelLogger {
    * @since 2.10.3
    */
   private requestSerializer(req: unknown): Record<string, unknown> {
-    if (!req || typeof req !== 'object') return {};
+    try {
+      if (!req || typeof req !== 'object') return {};
 
-    const request = req as {
-      method?: string;
-      url?: string;
-      headers?: Record<string, string>;
-      remoteAddress?: string;
-      remotePort?: number;
-    };
+      const request = req as {
+        method?: string;
+        url?: string;
+        headers?: Record<string, string>;
+        remoteAddress?: string;
+        remotePort?: number;
+      };
 
-    return {
-      method: request.method,
-      url: SecurityUtils.sanitizeLogMessage(request.url || ''),
-      headers: {
-        'user-agent': request.headers?.['user-agent'],
-        'content-type': request.headers?.['content-type'],
-        // Exclude sensitive headers
-      },
-      remoteAddress: request.remoteAddress,
-      remotePort: request.remotePort,
-    };
+      return {
+        method: request.method,
+        url: SecurityUtils.sanitizeLogMessage(request.url || ''),
+        headers: {
+          'user-agent': request.headers?.['user-agent'],
+          'content-type': request.headers?.['content-type'],
+          // Exclude sensitive headers
+        },
+        remoteAddress: request.remoteAddress,
+        remotePort: request.remotePort,
+      };
+    } catch {
+      return {};
+    }
   }
 
   /**
@@ -476,27 +480,31 @@ export class TimonelLogger {
    * @since 2.10.3
    */
   private sanitizeContext(context: LogContext): LogContext {
-    const sanitized: LogContext = {};
+    try {
+      const sanitized: LogContext = {};
 
-    for (const [key, value] of Object.entries(context)) {
-      if (TimonelLogger.SENSITIVE_FIELDS.has(key.toLowerCase())) {
-        // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
-        sanitized[key] = '[REDACTED]';
-      } else if (typeof value === 'string') {
-        // Safe assignment - key comes from Object.entries
-        // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
-        sanitized[key] = SecurityUtils.sanitizeLogMessage(value);
-      } else if (value && typeof value === 'object') {
-        // Recursively sanitize nested objects (limited depth)
-        // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
-        sanitized[key] = this.sanitizeNestedObject(value, 2);
-      } else {
-        // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
-        sanitized[key] = value;
+      for (const [key, value] of Object.entries(context)) {
+        if (TimonelLogger.SENSITIVE_FIELDS.has(key.toLowerCase())) {
+          // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
+          sanitized[key] = '[REDACTED]';
+        } else if (typeof value === 'string') {
+          // Safe assignment - key comes from Object.entries
+          // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
+          sanitized[key] = SecurityUtils.sanitizeLogMessage(value);
+        } else if (value && typeof value === 'object') {
+          // Recursively sanitize nested objects (limited depth)
+          // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
+          sanitized[key] = this.sanitizeNestedObject(value, 2);
+        } else {
+          // eslint-disable-next-line security/detect-object-injection -- Safe: key from Object.entries
+          sanitized[key] = value;
+        }
       }
-    }
 
-    return sanitized;
+      return sanitized;
+    } catch {
+      return {};
+    }
   }
 
   /**
@@ -507,27 +515,31 @@ export class TimonelLogger {
    * @since 2.10.3
    */
   private sanitizeNestedObject(obj: unknown, depth: number): unknown {
-    if (depth <= 0 || !obj || typeof obj !== 'object') {
+    try {
+      if (depth <= 0 || !obj || typeof obj !== 'object') {
+        return obj;
+      }
+
+      const sanitized: Record<string, unknown> = {};
+
+      for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+        if (typeof value === 'string') {
+          // Safe assignment - key comes from Object.entries
+          // eslint-disable-next-line security/detect-object-injection
+          sanitized[key] = SecurityUtils.sanitizeLogMessage(value);
+        } else if (value && typeof value === 'object') {
+          // eslint-disable-next-line security/detect-object-injection
+          sanitized[key] = this.sanitizeNestedObject(value, depth - 1);
+        } else {
+          // eslint-disable-next-line security/detect-object-injection
+          sanitized[key] = value;
+        }
+      }
+
+      return sanitized;
+    } catch {
       return obj;
     }
-
-    const sanitized: Record<string, unknown> = {};
-
-    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-      if (typeof value === 'string') {
-        // Safe assignment - key comes from Object.entries
-        // eslint-disable-next-line security/detect-object-injection
-        sanitized[key] = SecurityUtils.sanitizeLogMessage(value);
-      } else if (value && typeof value === 'object') {
-        // eslint-disable-next-line security/detect-object-injection
-        sanitized[key] = this.sanitizeNestedObject(value, depth - 1);
-      } else {
-        // eslint-disable-next-line security/detect-object-injection
-        sanitized[key] = value;
-      }
-    }
-
-    return sanitized;
   }
 
   /**

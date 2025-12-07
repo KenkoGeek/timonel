@@ -99,12 +99,16 @@ app.kubernetes.io/instance: {{ .Release.Name }}`,
 
   // Fix frontend helper templates
   const frontendHelpersPath = join(chartDir, 'charts', 'frontend', 'templates', '_helpers.tpl');
-  if (existsSync(frontendHelpersPath)) {
-    const existingHelpers = readFileSync(frontendHelpersPath, 'utf8');
-    if (!existingHelpers.includes('frontend.name')) {
-      const additionalHelpers = '\n\n' + formatHelpers(frontendHelpers);
-      writeFileSync(frontendHelpersPath, existingHelpers + additionalHelpers);
+  try {
+    if (existsSync(frontendHelpersPath)) {
+      const existingHelpers = readFileSync(frontendHelpersPath, 'utf8');
+      if (!existingHelpers.includes('frontend.name')) {
+        const additionalHelpers = '\n\n' + formatHelpers(frontendHelpers);
+        writeFileSync(frontendHelpersPath, existingHelpers + additionalHelpers);
+      }
     }
+  } catch (error) {
+    console.error('Failed to fix frontend helpers:', error);
   }
 
   // Fix backend helper templates

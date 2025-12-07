@@ -229,18 +229,19 @@ async function cmdInit(name?: string, silent = false) {
     );
   }
 
-  const base = path.join(process.cwd(), validName);
-  const chartFile = path.join(base, 'chart.ts');
+  const cwd = process.cwd();
+  const base = SecurityUtils.validatePath(path.join(cwd, validName), cwd);
+  const chartFile = SecurityUtils.validatePath(path.join(base, 'chart.ts'), cwd);
 
   // Create directory
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   fs.mkdirSync(base, { recursive: true });
 
   // Import template generator
   const { generateFlexibleSubchartTemplate } = await import('./lib/templates/flexible-subchart.js');
 
   // Write chart file only - following CDK8s best practices
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   fs.writeFileSync(chartFile, generateFlexibleSubchartTemplate(validName));
 
   log(`Chart created at ${base}`, silent);
@@ -260,26 +261,39 @@ async function cmdInit(name?: string, silent = false) {
  * @since 2.12.2 Supports explicit output directory argument while retaining legacy behavior
  */
 async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOutDir?: string) {
-  let chartDir = process.cwd();
+  const cwd = process.cwd();
+  let chartDir = cwd;
   let outDir: string | undefined;
 
   // If the parameter is a directory containing chart.ts, use it as chart directory
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  if (chartDirOrOutDir && fs.existsSync(path.join(chartDirOrOutDir, 'chart.ts'))) {
-    chartDir = path.resolve(chartDirOrOutDir);
-  } else {
-    // Otherwise, treat it as output directory for backward compatibility
-    outDir = chartDirOrOutDir;
+  if (chartDirOrOutDir) {
+    const resolvedPath = path.resolve(chartDirOrOutDir);
+    const validatedPath = SecurityUtils.validatePath(resolvedPath, cwd, { allowAbsolute: true });
+    const chartTsPath = SecurityUtils.validatePath(path.join(validatedPath, 'chart.ts'), cwd, {
+      allowAbsolute: true,
+    });
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    if (fs.existsSync(chartTsPath)) {
+      chartDir = validatedPath;
+    } else {
+      // Otherwise, treat it as output directory for backward compatibility
+      outDir = chartDirOrOutDir;
+    }
   }
 
   if (explicitOutDir) {
     outDir = explicitOutDir;
   }
 
-  const chartFile = path.join(chartDir, 'chart.ts');
-  const defaultOutDir = path.join(chartDir, 'dist');
+  const chartFile = SecurityUtils.validatePath(path.join(chartDir, 'chart.ts'), cwd, {
+    allowAbsolute: true,
+  });
+  const defaultOutDir = SecurityUtils.validatePath(path.join(chartDir, 'dist'), cwd, {
+    allowAbsolute: true,
+  });
 
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   if (!fs.existsSync(chartFile)) {
     console.error('chart.ts not found. Run `tl init` first.');
     process.exit(1);
@@ -289,7 +303,7 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOut
   const validatedOutDir = resolveOutputDirectory(requestedOutDir, chartDir, flags?.silent);
 
   // Read the original chart file and modify the writeHelmChart output directory
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   const originalContent = fs.readFileSync(chartFile, 'utf8');
   const safeOutDirLiteral = escapeForSingleQuotedLiteral(validatedOutDir);
   let modifiedContent = originalContent.replace(
@@ -305,8 +319,12 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOut
   }
 
   // Create a temporary modified chart file
-  const tempChartFile = path.join(chartDir, '.timonel-temp-chart.ts');
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  const tempChartFile = SecurityUtils.validatePath(
+    path.join(chartDir, '.timonel-temp-chart.ts'),
+    cwd,
+    { allowAbsolute: true },
+  );
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   fs.writeFileSync(tempChartFile, modifiedContent);
 
   // Create wrapper script for tsx execution
@@ -391,6 +409,49 @@ async function cmdValidate(flags?: CliFlags) {
 }
 
 /**
+ * Validates Helm release name format to prevent command injection.
+ * @param release - The release name to validate
+ * @since 2.12.3
+ */
+function validateReleaseName(release: string): void {
+  // Helm naming rules: lowercase alphanumeric with hyphens, max 53 chars
+  // eslint-disable-next-line security/detect-unsafe-regex -- Simple pattern, bounded length check
+  if (!/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(release) || release.length > 53) {
+    console.error(`Invalid release name: ${SecurityUtils.sanitizeLogMessage(release)}`);
+    console.error('Release name must be lowercase alphanumeric with hyphens (max 53 chars)');
+    process.exit(1);
+  }
+}
+
+/**
+ * Validates Kubernetes namespace format to prevent command injection.
+ * @param namespace - The namespace to validate
+ * @since 2.12.3
+ */
+function validateNamespace(namespace: string): void {
+  // Kubernetes naming rules: lowercase alphanumeric with hyphens, max 63 chars
+  // eslint-disable-next-line security/detect-unsafe-regex -- Simple pattern, bounded length check
+  if (!/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(namespace) || namespace.length > 63) {
+    console.error(`Invalid namespace: ${SecurityUtils.sanitizeLogMessage(namespace)}`);
+    console.error('Namespace must be lowercase alphanumeric with hyphens (max 63 chars)');
+    process.exit(1);
+  }
+}
+
+/**
+ * Validates --set flag format to prevent command injection.
+ * @param setValue - The --set value to validate
+ * @since 2.12.3
+ */
+function validateSetFlag(setValue: string): void {
+  if (!/^[a-zA-Z0-9._-]+=.+$/.test(setValue)) {
+    console.error(`Invalid --set format: ${SecurityUtils.sanitizeLogMessage(setValue)}`);
+    console.error('Expected format: key=value');
+    process.exit(1);
+  }
+}
+
+/**
  * Deploys a Helm chart to a Kubernetes cluster.
  * Uses helm upgrade --install to deploy or update a release.
  *
@@ -403,8 +464,11 @@ async function cmdValidate(flags?: CliFlags) {
 async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags) {
   if (!release) usageAndExit('Missing <release>');
 
-  const args = ['upgrade', '--install', release, '.'];
+  validateReleaseName(release!);
+  const args = ['upgrade', '--install', release!, '.'];
+
   if (namespace) {
+    validateNamespace(namespace);
     args.push('--namespace', namespace);
   }
 
@@ -420,9 +484,17 @@ async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags)
 
   if (flags?.set) {
     for (const setValue of flags.set) {
+      validateSetFlag(setValue);
       args.push('--set', setValue);
     }
   }
+
+  // Execute helm command with validated arguments
+  // Security: All user inputs are validated before being added to args:
+  // - validatedRelease: validated against Helm naming rules
+  // - namespace: validated against Kubernetes naming rules
+  // - sanitizedEnv: validated by SecurityUtils.sanitizeEnvironmentName
+  // - setValue: validated by validateSetFlag
 
   const result = spawnSync(
     'helm',
@@ -746,10 +818,10 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
   const relativeSubchartPath = path.relative(chartsRoot, subchartDir) || subchartName;
   const normalizedSubchartPath = relativeSubchartPath.split(path.sep).join('/');
 
-  const chartFile = path.join(subchartDir, 'chart.ts');
+  const chartFile = SecurityUtils.validatePath(path.join(subchartDir, 'chart.ts'), chartsRoot);
   const { generateFlexibleSubchartTemplate } = await import('./lib/templates/flexible-subchart.js');
   const subchartContent = generateFlexibleSubchartTemplate(subchartName);
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   fs.writeFileSync(chartFile, subchartContent);
 
   // Update config
@@ -776,9 +848,11 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
  * @since 2.8.4
  */
 async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
-  const umbrellaFile = path.join(process.cwd(), UMBRELLA_FILE_NAME);
-  const defaultOutDir = path.join(process.cwd(), 'dist');
+  const cwd = process.cwd();
+  const umbrellaFile = SecurityUtils.validatePath(path.join(cwd, UMBRELLA_FILE_NAME), cwd);
+  const defaultOutDir = SecurityUtils.validatePath(path.join(cwd, 'dist'), cwd);
 
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
   if (!fs.existsSync(umbrellaFile)) {
     console.error('umbrella.ts not found. Run `tl umbrella init` first.');
     process.exit(1);
@@ -817,9 +891,14 @@ await Promise.resolve(runner(output, synthOptions));
 console.log('Umbrella chart written to ' + output);
 `;
 
-  const wrapperFile = path.join(process.cwd(), '.timonel-umbrella-wrapper.mjs');
+  const cwd = process.cwd();
+  const wrapperFile = SecurityUtils.validatePath(
+    path.join(cwd, '.timonel-umbrella-wrapper.mjs'),
+    cwd,
+  );
 
   try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
     fs.writeFileSync(wrapperFile, wrapperScript);
 
     const result = spawnSync(process.execPath, [TSX_CLI_PATH, wrapperFile], {

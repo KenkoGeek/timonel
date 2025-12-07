@@ -130,6 +130,15 @@ export abstract class BaseResourceProvider implements IResourceProvider {
     this.validateKubernetesName(name, kind);
     this.validateLabels(labels, kind);
 
+    // Validate that fields doesn't contain reserved keys
+    const reservedKeys = ['apiVersion', 'kind', 'metadata'];
+    const conflictingKeys = Object.keys(fields).filter((key) => reservedKeys.includes(key));
+    if (conflictingKeys.length > 0) {
+      throw new Error(
+        `Fields object contains reserved keys: ${conflictingKeys.join(', ')}. These keys cannot be overridden.`,
+      );
+    }
+
     return new ApiObject(this.chart, name, {
       apiVersion,
       kind,
@@ -138,6 +147,7 @@ export abstract class BaseResourceProvider implements IResourceProvider {
         ...(labels && Object.keys(labels).length > 0 ? { labels } : {}),
         ...(annotations && Object.keys(annotations).length > 0 ? { annotations } : {}),
       },
+      // Safe: fields validated above to not contain reserved keys (apiVersion, kind, metadata)
       ...fields, // Fields go at root level, not under spec
     });
   }

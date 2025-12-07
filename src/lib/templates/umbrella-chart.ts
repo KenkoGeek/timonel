@@ -4,6 +4,7 @@ import { join } from 'path';
 import { parse } from 'yaml';
 import { App, Chart, ApiObject } from 'cdk8s';
 
+import { SecurityUtils } from '../security.js';
 import type { ChartProps } from '../types.js';
 import type { UmbrellaRutter } from '../umbrellaRutter.js';
 import { dumpHelmAwareYaml } from '../utils/helmYamlSerializer.js';
@@ -25,7 +26,7 @@ interface HelmChart extends Chart {
  */
 export function generateUmbrellaChart(name: string): string {
   return `import { App } from 'cdk8s';
-import { Rutter } from 'timonel';
+import { Rutter, helmInclude, helmIf, helmWith, createHelmExpression as helm } from 'timonel';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { parse, stringify } from 'yaml';
@@ -274,9 +275,13 @@ export class UmbrellaChartTemplate extends Chart {
         this._handleObjectChart(subchart, flexibleSubchart);
       }
 
-      console.log(`Added flexible subchart: ${subchart.name}`);
+      // Sanitize subchart name for logging to prevent log injection
+      const sanitizedName = subchart.name.replace(/[\r\n]/g, '');
+      console.log(`Added flexible subchart: ${sanitizedName}`);
     } catch (_error) {
-      console.warn(`Failed to add subchart ${subchart.name}:`, _error);
+      // Sanitize subchart name for logging to prevent log injection
+      const sanitizedName = subchart.name.replace(/[\r\n]/g, '');
+      console.warn(`Failed to add subchart ${sanitizedName}:`, _error);
       this._createFallbackSubchart(subchart, index);
     }
   }
@@ -309,7 +314,9 @@ export class UmbrellaChartTemplate extends Chart {
       version: (subchart.version as string) || '1.0.0',
       description: `${subchart.name} subchart (fallback)`,
     });
-    console.log(`Created fallback subchart: ${subchart.name}`);
+    // Sanitize subchart name for logging to prevent log injection
+    const sanitizedName = subchart.name.replace(/[\r\n]/g, '');
+    console.log(`Created fallback subchart: ${sanitizedName}`);
   }
 
   private _handleFunctionChart(
@@ -327,7 +334,9 @@ export class UmbrellaChartTemplate extends Chart {
         this._processChartInstance(rutterInstance, flexibleSubchart);
       }
     } catch (error) {
-      console.log(`Failed to process subchart ${subchart.name}:`, error);
+      // Sanitize subchart name for logging to prevent log injection
+      const sanitizedName = subchart.name.replace(/[\r\n]/g, '');
+      console.log(`Failed to process subchart ${sanitizedName}:`, error);
     }
   }
 
@@ -431,7 +440,9 @@ export class UmbrellaChartTemplate extends Chart {
           });
         }
       } catch (error) {
-        console.log(`Failed to parse asset ${asset.id}:`, error);
+        // Sanitize asset id for logging to prevent log injection
+        const sanitizedId = asset.id.replace(/[\r\n]/g, '');
+        console.log(`Failed to parse asset ${sanitizedId}:`, error);
       }
     });
   }
@@ -491,7 +502,9 @@ export class UmbrellaChartTemplate extends Chart {
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     writeFileSync(join(templatesDir, '_helpers.tpl'), helpersTpl);
 
-    console.log(`Created basic Helm chart structure for subchart: ${subchartName}`);
+    // Sanitize subchart name for logging to prevent log injection
+    const sanitizedName = subchartName.replace(/[\r\n]/g, '');
+    console.log(`Created basic Helm chart structure for subchart: ${sanitizedName}`);
   }
 
   /**
@@ -555,10 +568,14 @@ export class UmbrellaChartTemplate extends Chart {
     // Generate Helm charts for each subchart
     // eslint-disable-next-line sonarjs/cognitive-complexity
     this.config.subcharts?.forEach((subchart) => {
-      const subchartDir = join(chartsDir, subchart.name);
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      const subchartDir = SecurityUtils.validatePath(
+        join(chartsDir, subchart.name),
+        process.cwd(),
+        { allowAbsolute: true },
+      );
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
       if (!existsSync(subchartDir)) {
-        // eslint-disable-next-line security/detect-non-literal-fs-filename
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
         mkdirSync(subchartDir, { recursive: true });
       }
 
@@ -603,7 +620,9 @@ export class UmbrellaChartTemplate extends Chart {
               flexibleSubchart.writeHelmChart(subchartDir);
             }
           } catch (fallbackError) {
-            console.warn(`Failed to create subchart ${subchart.name}:`, fallbackError);
+            // Sanitize subchart name for logging to prevent log injection
+            const sanitizedName = subchart.name.replace(/[\r\n]/g, '');
+            console.warn(`Failed to create subchart ${sanitizedName}:`, fallbackError);
             flexibleSubchart.writeHelmChart(subchartDir);
           }
         }
@@ -624,10 +643,12 @@ export class UmbrellaChartTemplate extends Chart {
     });
 
     // Create templates directory
-    const templatesDir = join(outputDir, 'templates');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const templatesDir = SecurityUtils.validatePath(join(outputDir, 'templates'), process.cwd(), {
+      allowAbsolute: true,
+    });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
     if (!existsSync(templatesDir)) {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
       mkdirSync(templatesDir, { recursive: true });
     }
 
@@ -646,8 +667,13 @@ export class UmbrellaChartTemplate extends Chart {
       },
     };
 
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    writeFileSync(join(templatesDir, 'namespace.yaml'), dumpHelmAwareYaml(namespaceYaml));
+    const namespaceYamlPath = SecurityUtils.validatePath(
+      join(templatesDir, 'namespace.yaml'),
+      process.cwd(),
+      { allowAbsolute: true },
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+    writeFileSync(namespaceYamlPath, dumpHelmAwareYaml(namespaceYaml));
 
     // Create _helpers.tpl using programmatic generation
     const helpersTpl = generateHelpersTemplate('aws', undefined, {
