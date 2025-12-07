@@ -60,15 +60,17 @@ Useful string-based utilities (no ValuesRef equivalent):
 
 #### Legacy Helpers (NOT RECOMMENDED)
 
-**⚠️ Use ValuesRef for value references, helmIf/helmRange/helmWith for control flow:**
+**⚠️ Use ValuesRef system instead:**
 
 - `valuesRef(path)` → use `v.path` (ValuesRef system)
 - `stringRef()` → use `v.quote()` (ValuesRef system)
 - `defaultRef()` → use `v.default()` (ValuesRef system)
 - `jsonRef()` → use `v.toJson()` (ValuesRef system)
-- `conditionalRef()` → use `helmIf()` (control flow helper)
-- `helmIfSimple` → use `helmIf()` (control flow helper)
-- `helmIfElseIf` → use `helmIf()` with nested conditions
+- `conditionalRef()` → use `v.if()` (ValuesRef system)
+- `helmIf`, `helmIfSimple` → use `v.if()` (ValuesRef system)
+- `helmRange` → use `v.range()` (ValuesRef system)
+- `helmWith` → use `v.with()` (ValuesRef system)
+- `helmIfElseIf` → use `v.if()` with nested conditions
 
 ### Enhanced Helm Helpers
 
