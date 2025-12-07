@@ -322,7 +322,9 @@ export class AWSResources extends BaseResourceProvider {
       // Note: These could be valid URL patterns in some cases, but are suspicious
       // Sanitize path for logging to prevent log injection
       const sanitizedPath = path.replace(/[\r\n]/g, '');
-      console.warn(`Warning: Ingress path "${sanitizedPath}" contains path traversal-like sequences`);
+      console.warn(
+        `Warning: Ingress path "${sanitizedPath}" contains path traversal-like sequences`,
+      );
     }
   }
 
