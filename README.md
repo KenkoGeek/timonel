@@ -236,13 +236,14 @@ const umbrellaConfig = {
 export const umbrella = new UmbrellaChartTemplate(umbrellaConfig);
 ```
 
-### Type-Safe Helm Helpers (v3.0+)
+### Using Type-Safe Helm Helpers
 
-#### ValuesRef System (NEW in v3.0 - RECOMMENDED)
+#### ValuesRef System (Recommended)
 
 The new ValuesRef system provides a type-safe, proxy-based approach to Helm values with full IDE support.
 
-**⚠️ Important:** This is completely different from the legacy `valuesRef(path: string)` helper. The new system uses generics and returns a proxy object with methods.
+**⚠️ Important:** This is completely different from the legacy `valuesRef(path: string)` helper.
+The new system uses generics and returns a proxy object with methods.
 
 ```typescript
 import { valuesRef } from 'timonel';
@@ -290,7 +291,7 @@ const dbConfig = v.database.with((db) => ({
 }));
 ```
 
-#### Composable Helpers
+#### Template Composition Helpers
 
 Use these helpers for template definitions and inclusions:
 

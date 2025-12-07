@@ -104,7 +104,8 @@ We provide security updates for the following versions:
 - **Helm template validation**: Input validation for all template functions
 - **Karpenter security**: Secure node pool and scheduling configurations
 - **Performance optimization**: Efficient algorithms preventing DoS via resource exhaustion
-- **OWASP compliance**: Following secure coding guidelines (CWE-22, CWE-23, CWE-94, CWE-117, CWE-78, CWE-77, CWE-88, CWE-20)
+- **OWASP compliance**: Following secure coding guidelines (CWE-22, CWE-23, CWE-94, CWE-117,
+  CWE-78, CWE-77, CWE-88, CWE-20)
 
 ## Security Considerations for Users
 
