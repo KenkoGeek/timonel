@@ -4,6 +4,7 @@ import { join } from 'path';
 import { parse } from 'yaml';
 import { App, Chart, ApiObject } from 'cdk8s';
 
+import { SecurityUtils } from '../security.js';
 import type { ChartProps } from '../types.js';
 import type { UmbrellaRutter } from '../umbrellaRutter.js';
 import { dumpHelmAwareYaml } from '../utils/helmYamlSerializer.js';
@@ -638,10 +639,12 @@ export class UmbrellaChartTemplate extends Chart {
     });
 
     // Create templates directory
-    const templatesDir = join(outputDir, 'templates');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const templatesDir = SecurityUtils.validatePath(join(outputDir, 'templates'), process.cwd(), {
+      allowAbsolute: true,
+    });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
     if (!existsSync(templatesDir)) {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
       mkdirSync(templatesDir, { recursive: true });
     }
 
@@ -660,8 +663,13 @@ export class UmbrellaChartTemplate extends Chart {
       },
     };
 
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    writeFileSync(join(templatesDir, 'namespace.yaml'), dumpHelmAwareYaml(namespaceYaml));
+    const namespaceYamlPath = SecurityUtils.validatePath(
+      join(templatesDir, 'namespace.yaml'),
+      process.cwd(),
+      { allowAbsolute: true },
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+    writeFileSync(namespaceYamlPath, dumpHelmAwareYaml(namespaceYaml));
 
     // Create _helpers.tpl using programmatic generation
     const helpersTpl = generateHelpersTemplate('aws', undefined, {

@@ -3,6 +3,8 @@ import { join } from 'path';
 
 import { parse as parseYaml } from 'yaml';
 
+import { SecurityUtils } from '../security.js';
+
 import { createHelmExpression } from './helmControlStructures.js';
 
 /**
@@ -44,24 +46,41 @@ export function loadEnvVarsConfig(options: LoadEnvVarsOptions = {}): EnvVarConfi
 
   try {
     // If specific path provided, use it
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    if (configPath && existsSync(configPath)) {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const data = readFileSync(configPath, 'utf-8');
-      return configPath.endsWith('.yaml') || configPath.endsWith('.yml')
-        ? parseYaml(data)
-        : JSON.parse(data);
+    if (configPath) {
+      const validatedConfigPath = SecurityUtils.validatePath(configPath, process.cwd(), {
+        allowAbsolute: true,
+      });
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+      if (existsSync(validatedConfigPath)) {
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
+        const data = readFileSync(validatedConfigPath, 'utf-8');
+        return validatedConfigPath.endsWith('.yaml') || validatedConfigPath.endsWith('.yml')
+          ? parseYaml(data)
+          : JSON.parse(data);
+      }
     }
 
     // Try default locations
-    const yamlPath = join(process.cwd(), 'env-config.yaml');
+    const yamlPath = SecurityUtils.validatePath(
+      join(process.cwd(), 'env-config.yaml'),
+      process.cwd(),
+      { allowAbsolute: true },
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
     if (existsSync(yamlPath)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
       const data = readFileSync(yamlPath, 'utf-8');
       return parseYaml(data);
     }
 
-    const jsonPath = join(process.cwd(), 'env-config.json');
+    const jsonPath = SecurityUtils.validatePath(
+      join(process.cwd(), 'env-config.json'),
+      process.cwd(),
+      { allowAbsolute: true },
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
     if (existsSync(jsonPath)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
       const data = readFileSync(jsonPath, 'utf-8');
       return JSON.parse(data);
     }
