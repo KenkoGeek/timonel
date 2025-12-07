@@ -36,6 +36,7 @@ Type-safe proxy-based values references with full IDE support:
 - **Comparison operators**: `eq`, `ne`, `gt`, `ge`, `lt`, `le`
 - **Logical operators**: `not`, `and`, `or`
 - **String functions**: `quote`, `upper`, `lower`, `trim`, `replace`, `contains`
+- **Default values**: `default()`
 - **Type checking**: `kindIs`, `hasKey`
 - **YAML functions**: `toYaml`, `toJson`, `nindent`, `indent`
 - **Field-level conditionals**: `v.if()`, `v.ifElse()` - Complex conditional logic
@@ -59,17 +60,15 @@ Useful string-based utilities (no ValuesRef equivalent):
 
 #### Legacy Helpers (NOT RECOMMENDED)
 
-**⚠️ Use ValuesRef instead:**
+**⚠️ Use ValuesRef for value references, helmIf/helmRange/helmWith for control flow:**
 
-- `valuesRef(path)` → use `v.path`
-- `stringRef()` → use `v.quote()`
-- `defaultRef()` → use `v.default()`
-- `jsonRef()` → use `v.toJson()`
-- `conditionalRef()` → use `v.if()`
-- `helmIf`, `helmIfSimple` → use `v.if()`
-- `helmRange` → use `v.range()`
-- `helmWith` → use `v.with()`
-- `helmIfElseIf` → use `v.if()` with nested conditions
+- `valuesRef(path)` → use `v.path` (ValuesRef system)
+- `stringRef()` → use `v.quote()` (ValuesRef system)
+- `defaultRef()` → use `v.default()` (ValuesRef system)
+- `jsonRef()` → use `v.toJson()` (ValuesRef system)
+- `conditionalRef()` → use `helmIf()` (control flow helper)
+- `helmIfSimple` → use `helmIf()` (control flow helper)
+- `helmIfElseIf` → use `helmIf()` with nested conditions
 
 ### Enhanced Helm Helpers
 
@@ -271,6 +270,9 @@ const notEnabled = v.autoscaling.enabled.not(); // not .Values.autoscaling.enabl
 const upperEnv = v.environment.upper(); // .Values.environment | upper
 const quotedTag = v.image.tag.quote(); // .Values.image.tag | quote
 
+// Default values
+const port = v.port.default(8080); // {{ .Values.port | default 8080 }}
+
 // Field-level conditionals
 const deployment = {
   spec: {
@@ -312,14 +314,21 @@ const combined = helmFragment(helmInclude('chart.labels', '.'), { customKey: 'cu
 
 #### Legacy Flow Control (NOT RECOMMENDED)
 
-**⚠️ These are legacy and NOT RECOMMENDED. Use ValuesRef system instead:**
+**⚠️ These are legacy and NOT RECOMMENDED. Use ValuesRef system (v.if, v.range, v.with)
+instead:**
 
 ```typescript
-// ❌ OLD WAY - helmIf, helmRange, helmWith (string-based, no type safety)
+// ❌ OLD WAY - string-based valuesRef (no type safety)
+const oldRef = valuesRef('.Values.production');
+
+// ✅ NEW WAY - ValuesRef system (type-safe)
+const v = valuesRef<MyValues>();
+const newRef = v.production; // {{ .Values.production }}
+
+// ❌ OLD WAY - helmIf, helmRange, helmWith (string-based)
 const config = helmIf('.Values.production', { replicas: 5 }, { replicas: 1 });
 
-// ✅ NEW WAY - v.if(), v.range(), v.with() (type-safe with ValuesRef)
-const v = valuesRef<MyValues>();
+// ✅ NEW WAY - v.if(), v.range(), v.with() (type-safe)
 const config = v.if(v.production, { replicas: 5 });
 ```
 
@@ -332,7 +341,8 @@ const config = v.if(v.production, { replicas: 5 });
 - ✅ **Composable** - Nest and combine operations naturally
 - ❌ **Legacy helpers** - String-based, error-prone, no IDE support
 
-**Migration:** Replace `helmIf`, `helmRange`, `helmWith` with `v.if()`, `v.range()`, `v.with()`
+**Migration:** Replace `valuesRef(path)` with `v.path`. Replace `helmIf`, `helmRange`, `helmWith`
+with `v.if()`, `v.range()`, `v.with()`.
 
 **Learn more:** See the
 [Type-Safe Helm Helpers Guide](https://github.com/KenkoGeek/timonel/wiki/Helm-Helpers-System) for
