@@ -2,6 +2,7 @@ import type { YAMLMap } from 'yaml';
 import { Document, Scalar, isMap, isScalar, visit, Pair } from 'yaml';
 
 import { SecurityUtils } from '../security.js';
+
 import type { HelmConstruct } from './helmControlStructures.js';
 import {
   isHelmConstruct,
@@ -1085,7 +1086,8 @@ export function postProcessFieldConditionals(yaml: string): string {
   }
 
   // Clean up pipe literals
-  result = result.replace(/:\s*\|[-+]?\s*\n(\s*\{\{)/g, ':\n$1');
+  // Use possessive quantifier pattern to prevent ReDoS (CWE-1333)
+  result = result.replace(/:\s*\|[-+]?\s*\n([ \t]*\{\{)/g, ':\n$1');
 
   // Remove quotes around Helm expressions
   result = result.replace(/"(\{\{[\s\S]*?\}\})"/g, '$1');
