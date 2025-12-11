@@ -14,10 +14,10 @@ importers:
     dependencies:
       cdk8s:
         specifier: ^2.70.28
-        version: 2.70.28(constructs@10.4.3)
+        version: 2.70.31(constructs@10.4.3)
       cdk8s-plus-33:
         specifier: ^2.4.6
-        version: 2.4.6(cdk8s@2.70.28(constructs@10.4.3))(constructs@10.4.3)
+        version: 2.4.6(cdk8s@2.70.31(constructs@10.4.3))(constructs@10.4.3)
       constructs:
         specifier: ^10.4.3
         version: 10.4.3
@@ -1227,8 +1227,8 @@ packages:
     bundledDependencies:
       - minimatch
 
-  cdk8s@2.70.28:
-    resolution: {integrity: sha512-bmAjZlB9UcEmt4wQ9L631x8e5k1laeFfLV5koav8NABsxbRd2TwamZtO9UywkwTuTzaHi0xsfcH6vcJ1BCT8Tg==}
+  cdk8s@2.70.31:
+    resolution: {integrity: sha512-D3uKxgWudkWJJGUgYsTRZ23mmsMKegDN6QL3xTlQFQE6s7aUOVI3OXeEg1kSiu9BouA6pukVoxzIT9hWOslbWQ==}
     engines: {node: '>= 16.20.0'}
     peerDependencies:
       constructs: ^10
@@ -4928,12 +4928,12 @@ snapshots:
 
   callsites@3.1.0: {}
 
-  cdk8s-plus-33@2.4.6(cdk8s@2.70.28(constructs@10.4.3))(constructs@10.4.3):
+  cdk8s-plus-33@2.4.6(cdk8s@2.70.31(constructs@10.4.3))(constructs@10.4.3):
     dependencies:
-      cdk8s: 2.70.28(constructs@10.4.3)
+      cdk8s: 2.70.31(constructs@10.4.3)
       constructs: 10.4.3
 
-  cdk8s@2.70.28(constructs@10.4.3):
+  cdk8s@2.70.31(constructs@10.4.3):
     dependencies:
       constructs: 10.4.3
 
