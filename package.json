@@ -131,7 +131,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "markdownlint": "^0.40.0",
-    "markdownlint-cli": "^0.46.0",
+    "markdownlint-cli": "^0.47.0",
     "prettier": "^3.6.2",
     "semantic-release": "^25.0.2",
     "tsx": "^4.20.6",
