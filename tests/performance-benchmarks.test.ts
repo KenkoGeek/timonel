@@ -149,7 +149,7 @@ describe('Performance Benchmarking Tests', () => {
           manifests.forEach((manifest: Record<string, unknown>, index) => {
             // Get metadata first
             const metadata = manifest.metadata as Record<string, unknown> | undefined;
-            
+
             // Simulate resource validation
             if (manifest.kind === 'Deployment') {
               const spec = manifest.spec as Record<string, unknown> | undefined;

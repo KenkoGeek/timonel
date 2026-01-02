@@ -1,9 +1,9 @@
 /**
  * Policy Engine Error Types
- * 
+ *
  * This module defines custom error types for the Timonel Policy Engine system.
  * These errors provide structured error handling and debugging capabilities.
- * 
+ *
  * @since 3.0.0
  */
 
@@ -14,11 +14,11 @@ export class PolicyEngineError extends Error {
   constructor(
     message: string,
     public readonly code?: string,
-    public readonly context?: Record<string, unknown>
+    public readonly context?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'PolicyEngineError';
-    
+
     // Maintain proper stack trace for where our error was thrown (only available on V8)
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, PolicyEngineError);
@@ -33,11 +33,11 @@ export class PluginError extends PolicyEngineError {
   constructor(
     message: string,
     public readonly pluginName: string,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
     super(message, 'PLUGIN_ERROR', { ...context, pluginName });
     this.name = 'PluginError';
-    
+
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, PluginError);
     }
@@ -49,13 +49,12 @@ export class PluginError extends PolicyEngineError {
  */
 export class ValidationTimeoutError extends PolicyEngineError {
   constructor(pluginName: string, timeout: number) {
-    super(
-      `Plugin '${pluginName}' timed out after ${timeout}ms`,
-      'VALIDATION_TIMEOUT',
-      { pluginName, timeout }
-    );
+    super(`Plugin '${pluginName}' timed out after ${timeout}ms`, 'VALIDATION_TIMEOUT', {
+      pluginName,
+      timeout,
+    });
     this.name = 'ValidationTimeoutError';
-    
+
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, ValidationTimeoutError);
     }
@@ -69,11 +68,11 @@ export class PluginRegistrationError extends PolicyEngineError {
   constructor(
     message: string,
     public readonly pluginName?: string,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
     super(message, 'PLUGIN_REGISTRATION_ERROR', { ...context, pluginName });
     this.name = 'PluginRegistrationError';
-    
+
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, PluginRegistrationError);
     }
@@ -88,11 +87,11 @@ export class PluginConfigurationError extends PolicyEngineError {
     message: string,
     public readonly pluginName: string,
     public readonly configPath?: string,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
     super(message, 'PLUGIN_CONFIGURATION_ERROR', { ...context, pluginName, configPath });
     this.name = 'PluginConfigurationError';
-    
+
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, PluginConfigurationError);
     }
@@ -106,11 +105,11 @@ export class ValidationOrchestrationError extends PolicyEngineError {
   constructor(
     message: string,
     public readonly failedPlugins?: string[],
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
     super(message, 'VALIDATION_ORCHESTRATION_ERROR', { ...context, failedPlugins });
     this.name = 'ValidationOrchestrationError';
-    
+
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, ValidationOrchestrationError);
     }
@@ -126,11 +125,16 @@ export class PluginRetryExhaustedError extends PolicyEngineError {
     public readonly pluginName: string,
     public readonly attempts: number,
     public readonly lastError: Error,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
-    super(message, 'PLUGIN_RETRY_EXHAUSTED', { ...context, pluginName, attempts, lastError: lastError.message });
+    super(message, 'PLUGIN_RETRY_EXHAUSTED', {
+      ...context,
+      pluginName,
+      attempts,
+      lastError: lastError.message,
+    });
     this.name = 'PluginRetryExhaustedError';
-    
+
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, PluginRetryExhaustedError);
     }
@@ -145,11 +149,15 @@ export class GracefulDegradationError extends PolicyEngineError {
     message: string,
     public readonly degradedPlugins: string[],
     public readonly originalErrors: Error[],
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
   ) {
-    super(message, 'GRACEFUL_DEGRADATION', { ...context, degradedPlugins, errorCount: originalErrors.length });
+    super(message, 'GRACEFUL_DEGRADATION', {
+      ...context,
+      degradedPlugins,
+      errorCount: originalErrors.length,
+    });
     this.name = 'GracefulDegradationError';
-    
+
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, GracefulDegradationError);
     }

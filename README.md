@@ -224,12 +224,10 @@ import { Rutter, PolicyEngine } from 'timonel';
 import { securityPolicies } from '@mycompany/k8s-security-policies';
 
 // Create policy engine with custom plugins
-const policyEngine = new PolicyEngine()
-  .use(securityPolicies)
-  .configure({ 
-    timeout: 5000,
-    parallel: true 
-  });
+const policyEngine = new PolicyEngine().use(securityPolicies).configure({
+  timeout: 5000,
+  parallel: true,
+});
 
 const chart = new Rutter({
   meta: {
@@ -253,10 +251,10 @@ export const mySecurityPolicy: PolicyPlugin = {
   name: 'my-security-policy',
   version: '1.0.0',
   description: 'Custom security validation rules',
-  
+
   async validate(manifests, context) {
     const violations: PolicyViolation[] = [];
-    
+
     for (const manifest of manifests) {
       if (manifest.kind === 'Deployment') {
         // Check for security context
@@ -266,14 +264,14 @@ export const mySecurityPolicy: PolicyPlugin = {
             severity: 'error',
             message: 'Deployment must specify securityContext',
             resourcePath: `${manifest.kind}/${manifest.metadata?.name}`,
-            suggestion: 'Add spec.template.spec.securityContext to your Deployment'
+            suggestion: 'Add spec.template.spec.securityContext to your Deployment',
           });
         }
       }
     }
-    
+
     return violations;
-  }
+  },
 };
 ```
 
@@ -442,7 +440,7 @@ import { Rutter, PolicyEngine } from 'timonel';
 const policyEngine = new PolicyEngine({
   timeout: 10000,
   parallel: true,
-  gracefulDegradation: true
+  gracefulDegradation: true,
 });
 
 // Register plugins
@@ -486,20 +484,20 @@ export const customSecurityPolicy: PolicyPlugin = {
   name: 'custom-security-policy',
   version: '1.0.0',
   description: 'Custom security validation rules',
-  
+
   // Optional: Configuration schema for validation
   configSchema: {
     type: 'object',
     properties: {
       strictMode: { type: 'boolean', default: false },
-      allowedNamespaces: { type: 'array', items: { type: 'string' } }
-    }
+      allowedNamespaces: { type: 'array', items: { type: 'string' } },
+    },
   },
-  
+
   async validate(manifests: unknown[], context: ValidationContext): Promise<PolicyViolation[]> {
     const violations: PolicyViolation[] = [];
     const config = context.config as { strictMode?: boolean; allowedNamespaces?: string[] };
-    
+
     for (const manifest of manifests) {
       if (manifest.kind === 'Deployment') {
         // Validate security context
@@ -511,13 +509,13 @@ export const customSecurityPolicy: PolicyPlugin = {
             resourcePath: `${manifest.kind}/${manifest.metadata?.name}`,
             field: 'spec.template.spec.securityContext',
             suggestion: 'Add securityContext with runAsNonRoot: true',
-            context: { 
+            context: {
               kubernetesVersion: context.kubernetesVersion,
-              environment: context.environment 
-            }
+              environment: context.environment,
+            },
           });
         }
-        
+
         // Validate namespace restrictions
         const namespace = manifest.metadata?.namespace || 'default';
         if (config?.allowedNamespaces && !config.allowedNamespaces.includes(namespace)) {
@@ -527,14 +525,14 @@ export const customSecurityPolicy: PolicyPlugin = {
             message: `Deployment in unauthorized namespace: ${namespace}`,
             resourcePath: `${manifest.kind}/${manifest.metadata?.name}`,
             field: 'metadata.namespace',
-            suggestion: `Deploy to allowed namespaces: ${config.allowedNamespaces.join(', ')}`
+            suggestion: `Deploy to allowed namespaces: ${config.allowedNamespaces.join(', ')}`,
           });
         }
       }
     }
-    
+
     return violations;
-  }
+  },
 };
 ```
 
@@ -543,32 +541,32 @@ export const customSecurityPolicy: PolicyPlugin = {
 ```typescript
 const policyEngine = new PolicyEngine({
   // Execution settings
-  timeout: 15000,        // 15 second timeout per plugin
-  parallel: true,        // Run plugins in parallel for better performance
-  failFast: false,       // Collect all violations before failing
+  timeout: 15000, // 15 second timeout per plugin
+  parallel: true, // Run plugins in parallel for better performance
+  failFast: false, // Collect all violations before failing
   gracefulDegradation: true, // Continue on plugin failures
-  
+
   // Performance optimization
   cacheOptions: {
-    maxSize: 1000,       // Cache up to 1000 validation results
-    ttl: 300000,         // 5 minute cache TTL
-    enableStats: true    // Enable cache performance monitoring
+    maxSize: 1000, // Cache up to 1000 validation results
+    ttl: 300000, // 5 minute cache TTL
+    enableStats: true, // Enable cache performance monitoring
   },
-  
+
   // Parallel execution tuning
   parallelOptions: {
-    maxConcurrency: 4,   // Run up to 4 plugins concurrently
-    enableResourceMonitoring: true
+    maxConcurrency: 4, // Run up to 4 plugins concurrently
+    enableResourceMonitoring: true,
   },
-  
+
   // Retry configuration
   retryConfig: {
     maxAttempts: 3,
     baseDelay: 1000,
     retryOnTimeout: true,
-    retryOnPluginError: false
+    retryOnPluginError: false,
   },
-  
+
   // Plugin-specific configuration
   pluginConfig: {
     'security-plugin': {
@@ -576,23 +574,23 @@ const policyEngine = new PolicyEngine({
       allowedNamespaces: ['default', 'kube-system'],
       securityContext: {
         required: true,
-        runAsNonRoot: true
-      }
+        runAsNonRoot: true,
+      },
     },
     'best-practices-plugin': {
       enforceResourceLimits: true,
       requireLabels: ['app', 'version', 'environment'],
-      maxReplicas: 50
+      maxReplicas: 50,
     },
     'aws-plugin': {
       region: 'us-west-2',
       enforceTagging: true,
       costOptimization: {
         enabled: true,
-        maxInstanceSize: 'xlarge'
-      }
-    }
-  }
+        maxInstanceSize: 'xlarge',
+      },
+    },
+  },
 });
 
 // Register plugins
@@ -609,16 +607,13 @@ const createPolicyEngine = (environment: string) => {
   const engine = new PolicyEngine({
     environment,
     configurationLoader: {
-      configurationFiles: [
-        'config/policy-engine.json',
-        `config/environments/${environment}.json`
-      ]
-    }
+      configurationFiles: ['config/policy-engine.json', `config/environments/${environment}.json`],
+    },
   });
-  
+
   // Base security policies for all environments
   await engine.use(baseSecurity);
-  
+
   // Environment-specific policies
   switch (environment) {
     case 'production':
@@ -635,7 +630,7 @@ const createPolicyEngine = (environment: string) => {
       await engine.use(basicSecurity);
       break;
   }
-  
+
   return engine;
 };
 ```
@@ -648,48 +643,47 @@ import { Rutter, PolicyEngine, PolicyEngineError } from 'timonel';
 
 const validateChart = async (chartPath: string, environment: string) => {
   const policyEngine = await createPolicyEngine(environment);
-  
+
   try {
     const chart = new Rutter({
       meta: { name: 'my-app', version: process.env.VERSION },
-      policyEngine
+      policyEngine,
     });
-    
+
     await chart.write(chartPath);
-    
+
     // Log validation success with metrics
     const stats = policyEngine.getCacheStats();
     console.log('✅ Chart validation passed', {
       environment,
       cacheHitRate: stats.hitRate,
-      pluginCount: policyEngine.getPluginCount()
+      pluginCount: policyEngine.getPluginCount(),
     });
-    
   } catch (error) {
     if (error instanceof PolicyEngineError) {
       console.error('❌ Policy violations found:');
-      
+
       // Group violations by severity
-      const errors = error.violations.filter(v => v.severity === 'error');
-      const warnings = error.violations.filter(v => v.severity === 'warning');
-      
+      const errors = error.violations.filter((v) => v.severity === 'error');
+      const warnings = error.violations.filter((v) => v.severity === 'warning');
+
       if (errors.length > 0) {
         console.error(`\n🚨 Errors (${errors.length}):`);
-        errors.forEach(v => {
+        errors.forEach((v) => {
           console.error(`  • ${v.resourcePath}: ${v.message}`);
           if (v.suggestion) {
             console.error(`    💡 ${v.suggestion}`);
           }
         });
       }
-      
+
       if (warnings.length > 0) {
         console.warn(`\n⚠️  Warnings (${warnings.length}):`);
-        warnings.forEach(v => {
+        warnings.forEach((v) => {
           console.warn(`  • ${v.resourcePath}: ${v.message}`);
         });
       }
-      
+
       // Fail CI/CD on errors, but allow warnings
       if (errors.length > 0) {
         process.exit(1);
@@ -763,7 +757,7 @@ console.log('Validation Performance:', {
   executionTime: result.metadata.executionTime,
   pluginCount: result.metadata.pluginCount,
   manifestCount: result.metadata.manifestCount,
-  violationsFound: result.violations.length
+  violationsFound: result.violations.length,
 });
 
 // Cache performance monitoring
@@ -772,7 +766,7 @@ console.log('Cache Performance:', {
   hitRate: cacheStats.hitRate,
   totalHits: cacheStats.hits,
   totalMisses: cacheStats.misses,
-  cacheSize: cacheStats.size
+  cacheSize: cacheStats.size,
 });
 
 // Clear cache when needed
