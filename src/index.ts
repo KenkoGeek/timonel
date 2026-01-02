@@ -12,12 +12,16 @@ export * from './lib/umbrella.js';
 // Policy Engine
 export * from './lib/policy/index.js';
 
+// Input Validation
+export * from './lib/validation/inputValidator.js';
+
 // Templates
 export { FlexibleSubchart, createFlexibleSubchart } from './lib/templates/flexible-subchart.js';
 export { UmbrellaChartTemplate as UmbrellaChart } from './lib/templates/umbrella-chart.js';
 
 // Types
 export type { ChartProps, SubchartProps } from './lib/types.js';
+export type { PolicyConfig, PolicyRule, PolicyContext, PluginConfig } from './types/index.js';
 
 // AWS Resources
 export type {
