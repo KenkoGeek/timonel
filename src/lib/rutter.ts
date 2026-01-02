@@ -89,8 +89,7 @@ export class Rutter {
       if (!this.props.policyEngine) {
         return this.toSynthArraySync();
       }
-      // Otherwise, return the async version (tests should use await)
-      // Note: Current toSynthArray() doesn't accept arguments, but proxy accepts them for future compatibility
+      // Otherwise, return the async version (toSynthArray doesn't accept arguments)
       return originalToSynthArray();
     };
   }

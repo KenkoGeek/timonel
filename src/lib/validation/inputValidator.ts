@@ -275,14 +275,17 @@ export class InputValidator {
     while (sanitized.length !== previousLength) {
       previousLength = sanitized.length;
 
-      // Remove script tags (all variations including with spaces)
-      sanitized = sanitized.replace(/<\s*script[^>]*>.*?<\s*\/\s*script\s*>/gis, '');
+      // Remove script tags (all variations including with spaces and case variations)
+      sanitized = sanitized.replace(/<\s*script[^>]*>.*?<\s*\/\s*script\s*[^>]*>/gis, '');
 
       // Remove dangerous URL schemes including data: and vbscript:
       sanitized = sanitized.replace(/(?:javascript|data|vbscript):/gi, '');
 
-      // Remove event handlers (comprehensive pattern)
-      sanitized = sanitized.replace(/\bon\w+\s*=/gi, '');
+      // Remove event handlers with comprehensive pattern (handles spaces and variations)
+      sanitized = sanitized.replace(/\s*on\w+\s*=\s*[^>\s]*/gi, '');
+
+      // Additional pass for nested event handlers
+      sanitized = sanitized.replace(/\bon[a-z]+\s*=/gi, '');
 
       // Remove common script content patterns
       sanitized = sanitized.replace(/alert\s*\([^)]*\)/gi, '');
