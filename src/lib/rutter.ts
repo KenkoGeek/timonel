@@ -734,6 +734,58 @@ ${yamlContent.trim()}
       apiObjectCount: apiObjectIds.length,
       operation: 'manifest_processing',
     });
+
+    // Optional policy validation BEFORE enrichment to allow policies to control label injection
+    if (this.props.policyEngine) {
+      this.logger.debug('Starting policy validation before enrichment', {
+        chartName: this.meta.name,
+        manifestCount: manifestObjs.length,
+        operation: 'policy_validation_start',
+      });
+
+      try {
+        const validationResult = await this.props.policyEngine.validate(manifestObjs);
+
+        if (!validationResult.valid) {
+          const errorMessage = this.formatPolicyErrors(validationResult);
+          this.logger.error('Policy validation failed', {
+            chartName: this.meta.name,
+            violationCount: validationResult.violations.length,
+            operation: 'policy_validation_failed',
+          });
+          throw new Error(`Policy validation failed: ${errorMessage}`);
+        }
+
+        // Log warnings but continue
+        if (validationResult.warnings.length > 0) {
+          this.logger.warn('Policy validation warnings', {
+            chartName: this.meta.name,
+            warningCount: validationResult.warnings.length,
+            warnings: validationResult.warnings.map((w) => ({
+              plugin: w.plugin,
+              message: w.message,
+              severity: w.severity,
+            })),
+            operation: 'policy_validation_warnings',
+          });
+        }
+
+        this.logger.info('Policy validation completed successfully before enrichment', {
+          chartName: this.meta.name,
+          pluginCount: validationResult.metadata.pluginCount,
+          executionTime: validationResult.metadata.executionTime,
+          operation: 'policy_validation_success',
+        });
+      } catch (error) {
+        this.logger.error('Policy validation error', {
+          chartName: this.meta.name,
+          error: error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE,
+          operation: 'policy_validation_error',
+        });
+        throw error;
+      }
+    }
+
     // Enforce common labels best-practice on all rendered objects
     // IMPORTANT: Also pre-process HelmConstructs AFTER Testing.synth serializes the objects
     // This ensures that field-level conditionals are detected and transformed
@@ -766,57 +818,6 @@ ${yamlContent.trim()}
       }
       return preprocessed;
     });
-
-    // Optional policy validation
-    if (this.props.policyEngine) {
-      this.logger.debug('Starting policy validation', {
-        chartName: this.meta.name,
-        manifestCount: enriched.length,
-        operation: 'policy_validation_start',
-      });
-
-      try {
-        const validationResult = await this.props.policyEngine.validate(enriched);
-
-        if (!validationResult.valid) {
-          const errorMessage = this.formatPolicyErrors(validationResult);
-          this.logger.error('Policy validation failed', {
-            chartName: this.meta.name,
-            violationCount: validationResult.violations.length,
-            operation: 'policy_validation_failed',
-          });
-          throw new Error(`Policy validation failed: ${errorMessage}`);
-        }
-
-        // Log warnings but continue
-        if (validationResult.warnings.length > 0) {
-          this.logger.warn('Policy validation warnings', {
-            chartName: this.meta.name,
-            warningCount: validationResult.warnings.length,
-            warnings: validationResult.warnings.map((w) => ({
-              plugin: w.plugin,
-              message: w.message,
-              severity: w.severity,
-            })),
-            operation: 'policy_validation_warnings',
-          });
-        }
-
-        this.logger.info('Policy validation completed successfully', {
-          chartName: this.meta.name,
-          pluginCount: validationResult.metadata.pluginCount,
-          executionTime: validationResult.metadata.executionTime,
-          operation: 'policy_validation_success',
-        });
-      } catch (error) {
-        this.logger.error('Policy validation error', {
-          chartName: this.meta.name,
-          error: error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE,
-          operation: 'policy_validation_error',
-        });
-        throw error;
-      }
-    }
 
     const synthAssets: SynthAsset[] = [];
 
