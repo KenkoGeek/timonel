@@ -254,13 +254,14 @@ export class InputValidator {
 
   /**
    * Sanitizes a string by removing potentially dangerous characters
+   * Focuses on policy configuration validation, not HTML sanitization
    */
   private sanitizeString(value: string): string {
     if (!this.options.sanitizeStrings) {
       return value;
     }
 
-    // Remove null bytes, control characters, and potential script injection
+    // Remove null bytes and control characters only
     let sanitized = value
       .replace(/\0/g, '') // Remove null bytes
       .split('')
@@ -270,31 +271,11 @@ export class InputValidator {
       })
       .join('');
 
-    // Multi-pass sanitization to prevent bypass attempts
-    let previousLength = 0;
-    while (sanitized.length !== previousLength) {
-      previousLength = sanitized.length;
+    // Remove only genuinely dangerous patterns for policy configurations
+    // No HTML sanitization needed - these are policy configs, not web content
+    sanitized = sanitized.trim();
 
-      // Remove script tags (all variations including with spaces and case variations)
-      sanitized = sanitized.replace(/<\s*script[^>]*>.*?<\s*\/\s*script\s*[^>]*>/gis, '');
-
-      // Remove dangerous URL schemes including data: and vbscript:
-      sanitized = sanitized.replace(/(?:javascript|data|vbscript):/gi, '');
-
-      // Remove event handlers with comprehensive pattern (handles spaces and variations)
-      sanitized = sanitized.replace(/\s*on\w+\s*=\s*[^>\s]*/gi, '');
-
-      // Additional pass for nested event handlers
-      sanitized = sanitized.replace(/\bon[a-z]+\s*=/gi, '');
-
-      // Remove common script content patterns
-      sanitized = sanitized.replace(/alert\s*\([^)]*\)/gi, '');
-      sanitized = sanitized.replace(/eval\s*\([^)]*\)/gi, '');
-      sanitized = sanitized.replace(/document\s*\./gi, '');
-      sanitized = sanitized.replace(/window\s*\./gi, '');
-    }
-
-    return sanitized.trim();
+    return sanitized;
   }
 
   /**
