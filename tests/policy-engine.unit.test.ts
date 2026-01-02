@@ -1,10 +1,10 @@
 /**
  * Unit Tests for Policy Engine Core Functionality
- * 
+ *
  * These tests validate specific functionality of individual components
  * in the Timonel Policy Engine system. Unlike property tests that validate
  * universal behaviors, unit tests focus on specific examples and edge cases.
- * 
+ *
  * @since 3.0.0
  */
 
@@ -14,12 +14,12 @@ import { PolicyEngine } from '../src/lib/policy/policyEngine.js';
 import { PluginRegistry } from '../src/lib/policy/pluginRegistry.js';
 import { ConfigurationLoader } from '../src/lib/policy/configurationLoader.js';
 import { ErrorContextGenerator } from '../src/lib/policy/errorContextGenerator.js';
-import { 
+import {
   DefaultResultFormatter,
   JsonResultFormatter,
   CompactResultFormatter,
   GitHubActionsResultFormatter,
-  SarifResultFormatter
+  SarifResultFormatter,
 } from '../src/lib/policy/resultFormatter.js';
 import {
   PolicyEngineError,
@@ -29,14 +29,14 @@ import {
   PluginConfigurationError,
   ValidationOrchestrationError,
   PluginRetryExhaustedError,
-  GracefulDegradationError
+  GracefulDegradationError,
 } from '../src/lib/policy/errors.js';
-import type { 
-  PolicyPlugin, 
-  PolicyViolation, 
+import type {
+  PolicyPlugin,
+  PolicyViolation,
   ValidationContext,
   PolicyEngineOptions,
-  PolicyResult
+  PolicyResult,
 } from '../src/lib/policy/types.js';
 
 describe('Policy Engine Unit Tests', () => {
@@ -63,9 +63,9 @@ describe('Policy Engine Unit Tests', () => {
           timeout: 10000,
           parallel: true,
           failFast: true,
-          gracefulDegradation: false
+          gracefulDegradation: false,
         };
-        
+
         const customEngine = new PolicyEngine(options);
         expect(customEngine).toBeInstanceOf(PolicyEngine);
       });
@@ -73,9 +73,9 @@ describe('Policy Engine Unit Tests', () => {
       it('should allow configuration updates after initialization', () => {
         const newOptions: PolicyEngineOptions = {
           timeout: 2000,
-          parallel: true
+          parallel: true,
         };
-        
+
         const result = engine.configure(newOptions);
         expect(result).toBe(engine); // Should return self for chaining
       });
@@ -83,7 +83,7 @@ describe('Policy Engine Unit Tests', () => {
       it('should merge configuration options correctly', () => {
         engine.configure({ timeout: 1000 });
         engine.configure({ parallel: true });
-        
+
         // Both options should be preserved
         // We can't directly test this without exposing internals,
         // but we can test the behavior indirectly through validation
@@ -98,7 +98,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         const result = await engine.use(plugin);
@@ -110,7 +110,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         } as PolicyPlugin;
 
         await expect(engine.use(invalidPlugin)).rejects.toThrow();
@@ -121,7 +121,7 @@ describe('Policy Engine Unit Tests', () => {
           name: 'test-plugin',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         } as PolicyPlugin;
 
         await expect(engine.use(invalidPlugin)).rejects.toThrow();
@@ -130,7 +130,7 @@ describe('Policy Engine Unit Tests', () => {
       it('should reject plugin with missing validate method', async () => {
         const invalidPlugin = {
           name: 'test-plugin',
-          version: '1.0.0'
+          version: '1.0.0',
         } as PolicyPlugin;
 
         await expect(engine.use(invalidPlugin)).rejects.toThrow();
@@ -142,7 +142,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         } as unknown as PolicyPlugin;
 
         await expect(engine.use(invalidPlugin)).rejects.toThrow();
@@ -154,7 +154,7 @@ describe('Policy Engine Unit Tests', () => {
           version: 123,
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         } as unknown as PolicyPlugin;
 
         await expect(engine.use(invalidPlugin)).rejects.toThrow();
@@ -164,7 +164,7 @@ describe('Policy Engine Unit Tests', () => {
         const invalidPlugin = {
           name: 'test-plugin',
           version: '1.0.0',
-          validate: 'not-a-function'
+          validate: 'not-a-function',
         } as unknown as PolicyPlugin;
 
         await expect(engine.use(invalidPlugin)).rejects.toThrow();
@@ -180,15 +180,15 @@ describe('Policy Engine Unit Tests', () => {
           configSchema: {
             type: 'object',
             properties: {
-              enabled: { type: 'boolean' }
-            }
-          }
+              enabled: { type: 'boolean' },
+            },
+          },
         };
 
         engine.configure({
           pluginConfig: {
-            'config-plugin': { enabled: true }
-          }
+            'config-plugin': { enabled: true },
+          },
         });
 
         await expect(engine.use(plugin)).resolves.toBe(engine);
@@ -197,9 +197,7 @@ describe('Policy Engine Unit Tests', () => {
 
     describe('Validation Execution', () => {
       it('should return successful result with no plugins', async () => {
-        const manifests = [
-          { kind: 'Pod', metadata: { name: 'test-pod' } }
-        ];
+        const manifests = [{ kind: 'Pod', metadata: { name: 'test-pod' } }];
 
         const result = await engine.validate(manifests);
 
@@ -216,12 +214,14 @@ describe('Policy Engine Unit Tests', () => {
           name: 'success-plugin',
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
-            return [{
-              plugin: 'success-plugin',
-              severity: 'warning',
-              message: 'Test warning'
-            }];
-          }
+            return [
+              {
+                plugin: 'success-plugin',
+                severity: 'warning',
+                message: 'Test warning',
+              },
+            ];
+          },
         };
 
         await engine.use(plugin);
@@ -239,24 +239,28 @@ describe('Policy Engine Unit Tests', () => {
           name: 'plugin-1',
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
-            return [{
-              plugin: 'plugin-1',
-              severity: 'info',
-              message: 'Plugin 1 info'
-            }];
-          }
+            return [
+              {
+                plugin: 'plugin-1',
+                severity: 'info',
+                message: 'Plugin 1 info',
+              },
+            ];
+          },
         };
 
         const plugin2: PolicyPlugin = {
           name: 'plugin-2',
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
-            return [{
-              plugin: 'plugin-2',
-              severity: 'error',
-              message: 'Plugin 2 error'
-            }];
-          }
+            return [
+              {
+                plugin: 'plugin-2',
+                severity: 'error',
+                message: 'Plugin 2 error',
+              },
+            ];
+          },
         };
 
         await engine.use(plugin1);
@@ -276,7 +280,7 @@ describe('Policy Engine Unit Tests', () => {
           async validate(manifests): Promise<PolicyViolation[]> {
             expect(manifests).toHaveLength(0);
             return [];
-          }
+          },
         };
 
         await engine.use(plugin);
@@ -295,7 +299,7 @@ describe('Policy Engine Unit Tests', () => {
           async validate(manifests, context): Promise<PolicyViolation[]> {
             receivedContext = context;
             return [];
-          }
+          },
         };
 
         await engine.use(plugin);
@@ -316,12 +320,12 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             throw new Error('Plugin execution failed');
-          }
+          },
         };
 
         const gracefulEngine = new PolicyEngine({ gracefulDegradation: true });
         await gracefulEngine.use(failingPlugin);
-        
+
         const result = await gracefulEngine.validate([{ kind: 'Pod' }]);
 
         expect(result.valid).toBe(false);
@@ -336,12 +340,12 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             throw new Error('Plugin execution failed');
-          }
+          },
         };
 
         const strictEngine = new PolicyEngine({ gracefulDegradation: false });
         await strictEngine.use(failingPlugin);
-        
+
         await expect(strictEngine.validate([{ kind: 'Pod' }])).rejects.toThrow();
       });
 
@@ -350,24 +354,25 @@ describe('Policy Engine Unit Tests', () => {
           name: 'slow-plugin',
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
             return [];
-          }
+          },
         };
 
-        const timeoutEngine = new PolicyEngine({ 
-          timeout: 100, 
-          gracefulDegradation: true 
+        const timeoutEngine = new PolicyEngine({
+          timeout: 100,
+          gracefulDegradation: true,
         });
         await timeoutEngine.use(slowPlugin);
-        
+
         const result = await timeoutEngine.validate([{ kind: 'Service' }]);
 
         expect(result.valid).toBe(false);
         // Should have error violation from timeout
-        const hasTimeoutError = result.violations.some(v => 
-          v.plugin === 'slow-plugin' && 
-          (v.message.includes('timed out') || v.message.includes('failed'))
+        const hasTimeoutError = result.violations.some(
+          (v) =>
+            v.plugin === 'slow-plugin' &&
+            (v.message.includes('timed out') || v.message.includes('failed')),
         );
         expect(hasTimeoutError).toBe(true);
       });
@@ -377,30 +382,34 @@ describe('Policy Engine Unit Tests', () => {
           name: 'error-plugin',
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
-            return [{
-              plugin: 'error-plugin',
-              severity: 'error',
-              message: 'First error'
-            }];
-          }
+            return [
+              {
+                plugin: 'error-plugin',
+                severity: 'error',
+                message: 'First error',
+              },
+            ];
+          },
         };
 
         const secondPlugin: PolicyPlugin = {
           name: 'second-plugin',
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
-            return [{
-              plugin: 'second-plugin',
-              severity: 'error',
-              message: 'Second error'
-            }];
-          }
+            return [
+              {
+                plugin: 'second-plugin',
+                severity: 'error',
+                message: 'Second error',
+              },
+            ];
+          },
         };
 
         const failFastEngine = new PolicyEngine({ failFast: true });
         await failFastEngine.use(errorPlugin);
         await failFastEngine.use(secondPlugin);
-        
+
         const result = await failFastEngine.validate([{ kind: 'Deployment' }]);
 
         expect(result.valid).toBe(false);
@@ -413,30 +422,34 @@ describe('Policy Engine Unit Tests', () => {
           name: 'error-plugin',
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
-            return [{
-              plugin: 'error-plugin',
-              severity: 'error',
-              message: 'First error'
-            }];
-          }
+            return [
+              {
+                plugin: 'error-plugin',
+                severity: 'error',
+                message: 'First error',
+              },
+            ];
+          },
         };
 
         const secondPlugin: PolicyPlugin = {
           name: 'second-plugin',
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
-            return [{
-              plugin: 'second-plugin',
-              severity: 'error',
-              message: 'Second error'
-            }];
-          }
+            return [
+              {
+                plugin: 'second-plugin',
+                severity: 'error',
+                message: 'Second error',
+              },
+            ];
+          },
         };
 
         const continueEngine = new PolicyEngine({ failFast: false });
         await continueEngine.use(errorPlugin);
         await continueEngine.use(secondPlugin);
-        
+
         const result = await continueEngine.validate([{ kind: 'Deployment' }]);
 
         expect(result.valid).toBe(false);
@@ -448,22 +461,24 @@ describe('Policy Engine Unit Tests', () => {
       it('should format results using default formatter', () => {
         const result: PolicyResult = {
           valid: false,
-          violations: [{
-            plugin: 'test-plugin',
-            severity: 'error',
-            message: 'Test error'
-          }],
+          violations: [
+            {
+              plugin: 'test-plugin',
+              severity: 'error',
+              message: 'Test error',
+            },
+          ],
           warnings: [],
           metadata: {
             executionTime: 100,
             pluginCount: 1,
-            manifestCount: 1
+            manifestCount: 1,
           },
           summary: {
             violationsBySeverity: { error: 1, warning: 0, info: 0 },
             violationsByPlugin: { 'test-plugin': 1 },
-            topViolationTypes: []
-          }
+            topViolationTypes: [],
+          },
         };
 
         const formatted = engine.formatResult(result);
@@ -474,11 +489,11 @@ describe('Policy Engine Unit Tests', () => {
 
       it('should use custom formatter when provided', () => {
         const customFormatter = {
-          format: vi.fn().mockReturnValue('Custom formatted result')
+          format: vi.fn().mockReturnValue('Custom formatted result'),
         };
 
         const customEngine = new PolicyEngine({ formatter: customFormatter });
-        
+
         const result: PolicyResult = {
           valid: true,
           violations: [],
@@ -486,13 +501,13 @@ describe('Policy Engine Unit Tests', () => {
           metadata: {
             executionTime: 50,
             pluginCount: 0,
-            manifestCount: 1
+            manifestCount: 1,
           },
           summary: {
             violationsBySeverity: { error: 0, warning: 0, info: 0 },
             violationsByPlugin: {},
-            topViolationTypes: []
-          }
+            topViolationTypes: [],
+          },
         };
 
         const formatted = customEngine.formatResult(result);
@@ -511,10 +526,10 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             startTimes[name] = Date.now();
-            await new Promise(resolve => setTimeout(resolve, delay));
+            await new Promise((resolve) => setTimeout(resolve, delay));
             executionOrder.push(name);
             return [];
-          }
+          },
         });
 
         const plugin1 = createPlugin('plugin-1', 100);
@@ -532,10 +547,10 @@ describe('Policy Engine Unit Tests', () => {
 
         expect(result.valid).toBe(true);
         expect(result.metadata.pluginCount).toBe(3);
-        
+
         // Parallel execution should be faster than sequential
         expect(totalTime).toBeLessThan(200); // Less than sum of delays
-        
+
         // Plugin 2 should finish first (shortest delay)
         expect(executionOrder[0]).toBe('plugin-2');
       });
@@ -545,27 +560,29 @@ describe('Policy Engine Unit Tests', () => {
           name: 'success-plugin',
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
-            await new Promise(resolve => setTimeout(resolve, 50));
-            return [{
-              plugin: 'success-plugin',
-              severity: 'info',
-              message: 'Success'
-            }];
-          }
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            return [
+              {
+                plugin: 'success-plugin',
+                severity: 'info',
+                message: 'Success',
+              },
+            ];
+          },
         };
 
         const failingPlugin: PolicyPlugin = {
           name: 'failing-plugin',
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
-            await new Promise(resolve => setTimeout(resolve, 25));
+            await new Promise((resolve) => setTimeout(resolve, 25));
             throw new Error('Parallel execution failed');
-          }
+          },
         };
 
-        const parallelEngine = new PolicyEngine({ 
-          parallel: true, 
-          gracefulDegradation: true 
+        const parallelEngine = new PolicyEngine({
+          parallel: true,
+          gracefulDegradation: true,
         });
         await parallelEngine.use(successPlugin);
         await parallelEngine.use(failingPlugin);
@@ -595,7 +612,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         expect(() => registry.register(plugin)).not.toThrow();
@@ -606,7 +623,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         } as PolicyPlugin;
 
         expect(() => registry.register(plugin)).toThrow();
@@ -617,7 +634,7 @@ describe('Policy Engine Unit Tests', () => {
           name: 'test-plugin',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         } as PolicyPlugin;
 
         expect(() => registry.register(plugin)).toThrow();
@@ -626,7 +643,7 @@ describe('Policy Engine Unit Tests', () => {
       it('should reject plugin without validate method', () => {
         const plugin = {
           name: 'test-plugin',
-          version: '1.0.0'
+          version: '1.0.0',
         } as PolicyPlugin;
 
         expect(() => registry.register(plugin)).toThrow();
@@ -638,7 +655,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         const plugin2: PolicyPlugin = {
@@ -646,7 +663,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '2.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         registry.register(plugin1);
@@ -659,7 +676,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         const config = { enabled: true, threshold: 10 };
@@ -677,7 +694,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         registry.register(plugin);
@@ -696,7 +713,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         const plugin2: PolicyPlugin = {
@@ -704,7 +721,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         registry.register(plugin1);
@@ -724,7 +741,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         registry.register(plugin);
@@ -737,7 +754,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         registry.register(plugin);
@@ -793,7 +810,7 @@ describe('Policy Engine Unit Tests', () => {
         const error = new ValidationTimeoutError('slow-plugin', 5000);
         expect(error.context).toEqual({
           pluginName: 'slow-plugin',
-          timeout: 5000
+          timeout: 5000,
         });
       });
     });
@@ -809,7 +826,9 @@ describe('Policy Engine Unit Tests', () => {
 
     describe('PluginConfigurationError', () => {
       it('should create configuration error', () => {
-        const error = new PluginConfigurationError('Config invalid', 'test-plugin', { field: 'enabled' });
+        const error = new PluginConfigurationError('Config invalid', 'test-plugin', {
+          field: 'enabled',
+        });
         expect(error.message).toBe('Config invalid');
         expect(error.pluginName).toBe('test-plugin');
         expect(error.configPath).toEqual({ field: 'enabled' });
@@ -819,7 +838,10 @@ describe('Policy Engine Unit Tests', () => {
 
     describe('ValidationOrchestrationError', () => {
       it('should create orchestration error', () => {
-        const error = new ValidationOrchestrationError('Orchestration failed', ['plugin1', 'plugin2']);
+        const error = new ValidationOrchestrationError('Orchestration failed', [
+          'plugin1',
+          'plugin2',
+        ]);
         expect(error.message).toBe('Orchestration failed');
         expect(error.failedPlugins).toEqual(['plugin1', 'plugin2']);
         expect(error.name).toBe('ValidationOrchestrationError');
@@ -829,7 +851,12 @@ describe('Policy Engine Unit Tests', () => {
     describe('PluginRetryExhaustedError', () => {
       it('should create retry exhausted error', () => {
         const originalError = new Error('Original failure');
-        const error = new PluginRetryExhaustedError('Retries exhausted', 'test-plugin', 3, originalError);
+        const error = new PluginRetryExhaustedError(
+          'Retries exhausted',
+          'test-plugin',
+          3,
+          originalError,
+        );
         expect(error.message).toBe('Retries exhausted');
         expect(error.pluginName).toBe('test-plugin');
         expect(error.attempts).toBe(3);
@@ -841,7 +868,11 @@ describe('Policy Engine Unit Tests', () => {
     describe('GracefulDegradationError', () => {
       it('should create graceful degradation error', () => {
         const originalError = new Error('Original failure');
-        const error = new GracefulDegradationError('Degraded gracefully', ['test-plugin'], [originalError]);
+        const error = new GracefulDegradationError(
+          'Degraded gracefully',
+          ['test-plugin'],
+          [originalError],
+        );
         expect(error.message).toBe('Degraded gracefully');
         expect(error.degradedPlugins).toEqual(['test-plugin']);
         expect(error.originalErrors).toEqual([originalError]);
@@ -860,8 +891,8 @@ describe('Policy Engine Unit Tests', () => {
           message: 'Container running as root',
           resourcePath: 'spec.containers[0]',
           field: 'securityContext.runAsRoot',
-          suggestion: 'Set runAsRoot to false'
-        }
+          suggestion: 'Set runAsRoot to false',
+        },
       ],
       warnings: [
         {
@@ -869,19 +900,19 @@ describe('Policy Engine Unit Tests', () => {
           severity: 'warning',
           message: 'Missing resource limits',
           resourcePath: 'spec.containers[0]',
-          field: 'resources.limits'
-        }
+          field: 'resources.limits',
+        },
       ],
       metadata: {
         executionTime: 150,
         pluginCount: 2,
-        manifestCount: 3
+        manifestCount: 3,
       },
       summary: {
         violationsBySeverity: { error: 1, warning: 1, info: 0 },
         violationsByPlugin: { 'security-plugin': 1, 'best-practices-plugin': 1 },
-        topViolationTypes: ['security', 'resources']
-      }
+        topViolationTypes: ['security', 'resources'],
+      },
     };
 
     describe('DefaultResultFormatter', () => {
@@ -907,13 +938,13 @@ describe('Policy Engine Unit Tests', () => {
           metadata: {
             executionTime: 50,
             pluginCount: 1,
-            manifestCount: 2
+            manifestCount: 2,
           },
           summary: {
             violationsBySeverity: { error: 0, warning: 0, info: 0 },
             violationsByPlugin: {},
-            topViolationTypes: []
-          }
+            topViolationTypes: [],
+          },
         };
 
         const formatter = new DefaultResultFormatter();
@@ -965,13 +996,13 @@ describe('Policy Engine Unit Tests', () => {
           metadata: {
             executionTime: 50,
             pluginCount: 1,
-            manifestCount: 2
+            manifestCount: 2,
           },
           summary: {
             violationsBySeverity: { error: 0, warning: 0, info: 0 },
             violationsByPlugin: {},
-            topViolationTypes: []
-          }
+            topViolationTypes: [],
+          },
         };
 
         const formatter = new CompactResultFormatter();
@@ -1003,13 +1034,13 @@ describe('Policy Engine Unit Tests', () => {
           metadata: {
             executionTime: 50,
             pluginCount: 1,
-            manifestCount: 2
+            manifestCount: 2,
           },
           summary: {
             violationsBySeverity: { error: 0, warning: 0, info: 0 },
             violationsByPlugin: {},
-            topViolationTypes: []
-          }
+            topViolationTypes: [],
+          },
         };
 
         const formatter = new GitHubActionsResultFormatter();
@@ -1060,7 +1091,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         const result = await loader.loadPluginConfiguration(plugin, 'development');
@@ -1076,7 +1107,7 @@ describe('Policy Engine Unit Tests', () => {
           version: '1.0.0',
           async validate(): Promise<PolicyViolation[]> {
             return [];
-          }
+          },
         };
 
         const inlineConfig = { enabled: true, threshold: 10 };
@@ -1099,18 +1130,18 @@ describe('Policy Engine Unit Tests', () => {
             defaultConfig: {
               enabled: false,
               threshold: 5,
-              mode: 'strict'
-            }
-          }
+              mode: 'strict',
+            },
+          },
         };
 
         const inlineConfig = { enabled: true, threshold: 10 };
         const result = await loader.loadPluginConfiguration(plugin, 'development', inlineConfig);
 
         expect(result.config).toEqual({
-          enabled: true,    // From inline (overrides default)
-          threshold: 10,    // From inline (overrides default)
-          mode: 'strict'    // From default (not overridden)
+          enabled: true, // From inline (overrides default)
+          threshold: 10, // From inline (overrides default)
+          mode: 'strict', // From default (not overridden)
         });
         expect(result.entries).toHaveLength(2);
       });
@@ -1126,10 +1157,10 @@ describe('Policy Engine Unit Tests', () => {
             type: 'object',
             properties: {
               enabled: { type: 'boolean' },
-              threshold: { type: 'number' }
+              threshold: { type: 'number' },
             },
-            required: ['enabled']
-          }
+            required: ['enabled'],
+          },
         };
 
         const validConfig = { enabled: true, threshold: 10 };
@@ -1150,10 +1181,10 @@ describe('Policy Engine Unit Tests', () => {
           configSchema: {
             type: 'object',
             properties: {
-              enabled: { type: 'boolean' }
+              enabled: { type: 'boolean' },
             },
-            required: ['enabled']
-          }
+            required: ['enabled'],
+          },
         };
 
         const invalidConfig = { enabled: 'not-a-boolean' };
@@ -1179,7 +1210,7 @@ describe('Policy Engine Unit Tests', () => {
         const violation: PolicyViolation = {
           plugin: 'test-plugin',
           severity: 'error',
-          message: 'Test violation'
+          message: 'Test violation',
         };
 
         const context = generator.generateContext(violation);
@@ -1195,14 +1226,14 @@ describe('Policy Engine Unit Tests', () => {
         const violation: PolicyViolation = {
           plugin: 'test-plugin',
           severity: 'error',
-          message: 'Test violation'
+          message: 'Test violation',
         };
 
         const validationContext: ValidationContext = {
           chart: { name: 'test-chart', version: '1.0.0' },
           config: { enabled: true },
           environment: 'production',
-          logger: {} as any
+          logger: {} as Record<string, unknown>,
         };
 
         const context = generator.generateContext(violation, validationContext);
@@ -1216,7 +1247,7 @@ describe('Policy Engine Unit Tests', () => {
         const violation: PolicyViolation = {
           plugin: 'security-plugin',
           severity: 'error',
-          message: 'Security violation'
+          message: 'Security violation',
         };
 
         const allViolations = [
@@ -1224,13 +1255,13 @@ describe('Policy Engine Unit Tests', () => {
           {
             plugin: 'security-plugin',
             severity: 'warning',
-            message: 'Another security issue'
+            message: 'Another security issue',
           },
           {
             plugin: 'other-plugin',
             severity: 'error',
-            message: 'Different issue'
-          }
+            message: 'Different issue',
+          },
         ];
 
         const context = generator.generateContext(violation, undefined, allViolations);
@@ -1243,7 +1274,7 @@ describe('Policy Engine Unit Tests', () => {
         const violation: PolicyViolation = {
           plugin: 'test-plugin',
           severity: 'error',
-          message: 'Test violation'
+          message: 'Test violation',
         };
 
         const context = generator.generateContext(violation, undefined, undefined, 150);
@@ -1260,7 +1291,7 @@ describe('Policy Engine Unit Tests', () => {
           message: 'Test violation',
           resourcePath: 'spec.containers[0]',
           field: 'image',
-          suggestion: 'Use a specific image tag'
+          suggestion: 'Use a specific image tag',
         };
 
         const report = generator.generateErrorReport(violation);
@@ -1276,14 +1307,14 @@ describe('Policy Engine Unit Tests', () => {
         const violation: PolicyViolation = {
           plugin: 'test-plugin',
           severity: 'error',
-          message: 'Test violation'
+          message: 'Test violation',
         };
 
         const validationContext: ValidationContext = {
           chart: { name: 'test-chart', version: '1.0.0' },
           config: {},
           environment: 'production',
-          logger: {} as any
+          logger: {} as Record<string, unknown>,
         };
 
         const report = generator.generateErrorReport(violation, validationContext);

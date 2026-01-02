@@ -1,9 +1,9 @@
 /**
  * Result Formatters
- * 
+ *
  * This module provides formatters for policy validation results, including
  * default formatters and support for custom formatting.
- * 
+ *
  * @since 3.0.0
  */
 
@@ -21,17 +21,17 @@ export class DefaultResultFormatter implements ResultFormatter {
    */
   format(result: PolicyResult): string {
     const lines: string[] = [];
-    
+
     // Header
     lines.push('='.repeat(60));
     lines.push('Policy Validation Results');
     lines.push('='.repeat(60));
-    
+
     // Overall status
     const status = result.valid ? '✅ PASSED' : '❌ FAILED';
     lines.push(`Status: ${status}`);
     lines.push('');
-    
+
     // Summary statistics
     if (result.summary) {
       lines.push('Summary:');
@@ -40,47 +40,47 @@ export class DefaultResultFormatter implements ResultFormatter {
       lines.push(`  Info:     ${result.summary.violationsBySeverity.info}`);
       lines.push('');
     }
-    
+
     // Execution metadata
     lines.push('Execution Details:');
     lines.push(`  Plugins:   ${result.metadata.pluginCount}`);
     lines.push(`  Manifests: ${result.metadata.manifestCount}`);
     lines.push(`  Duration:  ${result.metadata.executionTime}ms`);
     lines.push('');
-    
+
     // Violations
     if (result.violations.length > 0) {
       lines.push('Violations:');
       lines.push('-'.repeat(40));
-      
+
       const sortedViolations = sortViolationsBySeverity(result.violations);
       for (const violation of sortedViolations) {
         lines.push(this.formatViolation(violation));
         lines.push('');
       }
     }
-    
+
     // Warnings
     if (result.warnings.length > 0) {
       lines.push('Warnings:');
       lines.push('-'.repeat(40));
-      
+
       const sortedWarnings = sortViolationsBySeverity(result.warnings);
       for (const warning of sortedWarnings) {
         lines.push(this.formatViolation(warning));
         lines.push('');
       }
     }
-    
+
     // No issues message
     if (result.violations.length === 0 && result.warnings.length === 0) {
       lines.push('✨ No policy violations found!');
       lines.push('');
     }
-    
+
     return lines.join('\n');
   }
-  
+
   /**
    * Formats a single violation for display
    * @param violation - Violation to format
@@ -89,28 +89,28 @@ export class DefaultResultFormatter implements ResultFormatter {
    */
   private formatViolation(violation: PolicyViolation | PolicyWarning): string {
     const lines: string[] = [];
-    
+
     // Severity icon and plugin
     const severityIcon = this.getSeverityIcon(violation.severity);
     lines.push(`${severityIcon} [${violation.plugin}] ${violation.message}`);
-    
+
     // Resource path and field
     if (violation.resourcePath) {
       lines.push(`   Resource: ${violation.resourcePath}`);
     }
-    
+
     if (violation.field) {
       lines.push(`   Field: ${violation.field}`);
     }
-    
+
     // Suggestion
     if (violation.suggestion) {
       lines.push(`   💡 Suggestion: ${violation.suggestion}`);
     }
-    
+
     return lines.join('\n');
   }
-  
+
   /**
    * Gets the appropriate icon for a severity level
    * @param severity - Severity level
@@ -136,7 +136,7 @@ export class DefaultResultFormatter implements ResultFormatter {
  */
 export class JsonResultFormatter implements ResultFormatter {
   constructor(private indent: number = 2) {}
-  
+
   /**
    * Formats validation results as JSON
    * @param result - Validation result to format
@@ -158,18 +158,19 @@ export class CompactResultFormatter implements ResultFormatter {
    */
   format(result: PolicyResult): string {
     const status = result.valid ? 'PASS' : 'FAIL';
-    const errorCount = result.violations.filter(v => v.severity === 'error').length;
-    const warningCount = [...result.violations, ...result.warnings]
-      .filter(v => v.severity === 'warning' || v.severity === 'info').length;
-    
+    const errorCount = result.violations.filter((v) => v.severity === 'error').length;
+    const warningCount = [...result.violations, ...result.warnings].filter(
+      (v) => v.severity === 'warning' || v.severity === 'info',
+    ).length;
+
     let output = `Policy validation: ${status}`;
-    
+
     if (errorCount > 0 || warningCount > 0) {
       output += ` (${errorCount} errors, ${warningCount} warnings)`;
     }
-    
+
     output += ` - ${result.metadata.executionTime}ms`;
-    
+
     // Add first few violations for context
     if (!result.valid && result.violations.length > 0) {
       output += '\n';
@@ -177,12 +178,12 @@ export class CompactResultFormatter implements ResultFormatter {
       for (const violation of firstViolations) {
         output += `\n  • [${violation.plugin}] ${violation.message}`;
       }
-      
+
       if (result.violations.length > 3) {
         output += `\n  ... and ${result.violations.length - 3} more`;
       }
     }
-    
+
     return output;
   }
 }
@@ -198,28 +199,28 @@ export class GitHubActionsResultFormatter implements ResultFormatter {
    */
   format(result: PolicyResult): string {
     const lines: string[] = [];
-    
+
     // Output summary
     const status = result.valid ? 'success' : 'failure';
     lines.push(`::notice title=Policy Validation::Status: ${status}`);
-    
+
     // Output violations as errors/warnings
     for (const violation of result.violations) {
       const level = violation.severity === 'error' ? 'error' : 'warning';
       const file = violation.resourcePath || 'unknown';
       const message = `[${violation.plugin}] ${violation.message}`;
-      
+
       lines.push(`::${level} file=${file}::${message}`);
     }
-    
+
     for (const warning of result.warnings) {
       const level = warning.severity === 'info' ? 'notice' : 'warning';
       const file = warning.resourcePath || 'unknown';
       const message = `[${warning.plugin}] ${warning.message}`;
-      
+
       lines.push(`::${level} file=${file}::${message}`);
     }
-    
+
     return lines.join('\n');
   }
 }
@@ -234,58 +235,68 @@ export class SarifResultFormatter implements ResultFormatter {
    * @returns SARIF JSON string
    */
   format(result: PolicyResult): string {
-    const runs = [{
-      tool: {
-        driver: {
-          name: 'Timonel Policy Engine',
-          version: '3.0.0',
-          informationUri: 'https://github.com/your-org/timonel'
-        }
+    const runs = [
+      {
+        tool: {
+          driver: {
+            name: 'Timonel Policy Engine',
+            version: '3.0.0',
+            informationUri: 'https://github.com/your-org/timonel',
+          },
+        },
+        results: this.convertViolationsToSarifResults([...result.violations, ...result.warnings]),
       },
-      results: this.convertViolationsToSarifResults([...result.violations, ...result.warnings])
-    }];
-    
+    ];
+
     const sarif = {
       version: '2.1.0',
       $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
-      runs
+      runs,
     };
-    
+
     return JSON.stringify(sarif, null, 2);
   }
-  
+
   /**
    * Converts violations to SARIF results format
    * @param violations - Violations to convert
    * @returns SARIF results array
    * @private
    */
-  private convertViolationsToSarifResults(violations: (PolicyViolation | PolicyWarning)[]): any[] {
-    return violations.map((violation, index) => ({
+  private convertViolationsToSarifResults(
+    violations: (PolicyViolation | PolicyWarning)[],
+  ): Array<Record<string, unknown>> {
+    return violations.map((violation) => ({
       ruleId: `${violation.plugin}/${this.generateRuleId(violation.message)}`,
       level: this.mapSeverityToSarifLevel(violation.severity),
       message: {
-        text: violation.message
+        text: violation.message,
       },
-      locations: violation.resourcePath ? [{
-        physicalLocation: {
-          artifactLocation: {
-            uri: violation.resourcePath
-          },
-          region: violation.field ? {
-            startLine: 1,
-            startColumn: 1
-          } : undefined
-        }
-      }] : [],
+      locations: violation.resourcePath
+        ? [
+            {
+              physicalLocation: {
+                artifactLocation: {
+                  uri: violation.resourcePath,
+                },
+                region: violation.field
+                  ? {
+                      startLine: 1,
+                      startColumn: 1,
+                    }
+                  : undefined,
+              },
+            },
+          ]
+        : [],
       properties: {
         plugin: violation.plugin,
         suggestion: violation.suggestion,
-        context: violation.context
-      }
+        context: violation.context,
+      },
     }));
   }
-  
+
   /**
    * Generates a rule ID from a violation message
    * @param message - Violation message
@@ -299,7 +310,7 @@ export class SarifResultFormatter implements ResultFormatter {
       .replace(/\s+/g, '-')
       .substring(0, 50);
   }
-  
+
   /**
    * Maps violation severity to SARIF level
    * @param severity - Violation severity
@@ -326,12 +337,12 @@ export class SarifResultFormatter implements ResultFormatter {
  * @param options - Formatter options
  * @returns Result formatter instance
  */
-export function createFormatter(name: string, options?: any): ResultFormatter {
+export function createFormatter(name: string, options?: Record<string, unknown>): ResultFormatter {
   switch (name.toLowerCase()) {
     case 'default':
       return new DefaultResultFormatter();
     case 'json':
-      return new JsonResultFormatter(options?.indent);
+      return new JsonResultFormatter(options?.indent as number);
     case 'compact':
       return new CompactResultFormatter();
     case 'github':

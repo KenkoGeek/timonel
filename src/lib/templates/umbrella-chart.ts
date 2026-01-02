@@ -65,7 +65,7 @@ function readYamlFile(filePath: string): Record<string, unknown> {
   return content && typeof content === 'object' ? (content as Record<string, unknown>) : {};
 }
 
-export function synth(outDir: string, options?: SynthOptions) {
+export async function synth(outDir: string, options?: SynthOptions) {
   const mode = resolveMode(options);
   const app = new App({
     outdir: outDir,
@@ -100,7 +100,7 @@ export function synth(outDir: string, options?: SynthOptions) {
     'namespace',
   );
 
-  umbrella.write(outDir);
+  await umbrella.write(outDir);
 
   const chartPath = join(outDir, 'Chart.yaml');
   const valuesPath = join(outDir, 'values.yaml');
@@ -116,11 +116,11 @@ export function synth(outDir: string, options?: SynthOptions) {
 
     const dependencies: Array<{ name: string; version: string; repository: string }> = [];
 
-    SUBCHARTS.forEach((subchart) => {
+    for (const subchart of SUBCHARTS) {
       const instance = subchart.factory();
       const targetDir = join(chartsDir, subchart.name);
       rmSync(targetDir, { recursive: true, force: true });
-      instance.write(targetDir);
+      await instance.write(targetDir);
       const meta = instance.getMeta();
       const version = meta.version ?? '0.1.0';
       dependencies.push({
@@ -132,7 +132,7 @@ export function synth(outDir: string, options?: SynthOptions) {
       if (Object.keys(subchartValues).length > 0) {
         valuesDoc[subchart.name] = subchartValues;
       }
-    });
+    }
 
     chartDoc.dependencies = dependencies;
   } else {
@@ -142,11 +142,11 @@ export function synth(outDir: string, options?: SynthOptions) {
     }
     delete chartDoc.dependencies;
 
-    SUBCHARTS.forEach((subchart) => {
+    for (const subchart of SUBCHARTS) {
       const instance = subchart.factory();
       const tempDir = join(outDir, '.timonel-inline-' + subchart.name);
       rmSync(tempDir, { recursive: true, force: true });
-      instance.write(tempDir);
+      await instance.write(tempDir);
 
       const subTemplatesDir = join(tempDir, 'templates');
       if (existsSync(subTemplatesDir)) {
@@ -163,7 +163,7 @@ export function synth(outDir: string, options?: SynthOptions) {
       }
 
       rmSync(tempDir, { recursive: true, force: true });
-    });
+    }
   }
 
   writeFileSync(chartPath, stringify(chartDoc));
