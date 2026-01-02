@@ -751,7 +751,7 @@ The Policy Engine includes comprehensive performance monitoring:
 
 ```typescript
 // Monitor policy engine performance
-const result = await policyEngine.validate(manifests);
+const result = await policyEngine.validate(manifests, { name: 'example-chart', version: '1.0.0' });
 
 console.log('Validation Performance:', {
   executionTime: result.metadata.executionTime,

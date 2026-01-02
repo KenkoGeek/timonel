@@ -9,6 +9,7 @@
  */
 
 import { createLogger, type TimonelLogger } from '../utils/logger.js';
+import type { ChartMetadata } from '../rutter.js';
 
 import type {
   PolicyEngine as IPolicyEngine,
@@ -175,9 +176,10 @@ export class PolicyEngine implements IPolicyEngine {
   /**
    * Validates Kubernetes manifests against registered policies
    * @param manifests - Array of Kubernetes manifest objects
+   * @param chartMetadata - Chart metadata for validation context
    * @returns Promise resolving to validation results
    */
-  async validate(manifests: unknown[]): Promise<PolicyResult> {
+  async validate(manifests: unknown[], chartMetadata: ChartMetadata): Promise<PolicyResult> {
     const startTime = Date.now();
     const plugins = this.registry.getAllPlugins();
 
@@ -240,9 +242,15 @@ export class PolicyEngine implements IPolicyEngine {
 
     try {
       if (this.options.parallel) {
-        await this.executeParallelOptimized(plugins, manifests, violations, warnings);
+        await this.executeParallelOptimized(
+          plugins,
+          manifests,
+          violations,
+          warnings,
+          chartMetadata,
+        );
       } else {
-        await this.executeSequential(plugins, manifests, violations, warnings);
+        await this.executeSequential(plugins, manifests, violations, warnings, chartMetadata);
       }
     } catch (error) {
       const executionTime = Date.now() - startTime;
@@ -403,10 +411,11 @@ export class PolicyEngine implements IPolicyEngine {
     manifests: unknown[],
     violations: PolicyViolation[],
     warnings: PolicyWarning[],
+    chartMetadata: ChartMetadata,
   ): Promise<void> {
     for (const plugin of plugins) {
       try {
-        const pluginViolations = await this.executePlugin(plugin, manifests);
+        const pluginViolations = await this.executePlugin(plugin, manifests, chartMetadata);
 
         // Separate violations by severity
         for (const violation of pluginViolations) {
@@ -453,9 +462,10 @@ export class PolicyEngine implements IPolicyEngine {
     manifests: unknown[],
     violations: PolicyViolation[],
     warnings: PolicyWarning[],
+    chartMetadata: ChartMetadata,
   ): Promise<void> {
     const validationContext: ValidationContext = {
-      chart: { name: 'unknown', version: '1.0.0' }, // Default chart metadata
+      chart: chartMetadata, // Use actual chart metadata instead of hardcoded values
       environment: this.options.environment || 'development',
       logger: this.logger,
     };
@@ -523,10 +533,11 @@ export class PolicyEngine implements IPolicyEngine {
     manifests: unknown[],
     violations: PolicyViolation[],
     warnings: PolicyWarning[],
+    chartMetadata: ChartMetadata,
   ): Promise<void> {
     const pluginPromises = plugins.map(async (plugin) => {
       try {
-        const pluginViolations = await this.executePlugin(plugin, manifests);
+        const pluginViolations = await this.executePlugin(plugin, manifests, chartMetadata);
         return { plugin, violations: pluginViolations, error: null };
       } catch (error) {
         return { plugin, violations: [], error };
@@ -567,13 +578,14 @@ export class PolicyEngine implements IPolicyEngine {
   private async executePlugin(
     plugin: PolicyPlugin,
     manifests: unknown[],
+    chartMetadata: ChartMetadata,
   ): Promise<PolicyViolation[]> {
     const retryConfig = { ...DEFAULT_RETRY_CONFIG, ...this.options.retryConfig };
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt++) {
       try {
-        return await this.executePluginAttempt(plugin, manifests, attempt);
+        return await this.executePluginAttempt(plugin, manifests, attempt, chartMetadata);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
@@ -631,6 +643,7 @@ export class PolicyEngine implements IPolicyEngine {
     plugin: PolicyPlugin,
     manifests: unknown[],
     attempt: number,
+    chartMetadata: ChartMetadata,
   ): Promise<PolicyViolation[]> {
     const timeout = this.options.timeout || DEFAULT_OPTIONS.timeout;
 
@@ -642,7 +655,7 @@ export class PolicyEngine implements IPolicyEngine {
     });
 
     const validationContext: ValidationContext = {
-      chart: { name: 'unknown', version: '1.0.0' }, // Default chart metadata
+      chart: chartMetadata, // Use actual chart metadata instead of hardcoded values
       config: this.registry.getPluginConfig(plugin.name) as Record<string, unknown>,
       environment: this.options.environment || 'development',
       logger: this.logger,

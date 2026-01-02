@@ -293,9 +293,10 @@ export interface PolicyEngine {
   /**
    * Validates Kubernetes manifests against registered policies
    * @param manifests - Array of Kubernetes manifest objects
+   * @param chartMetadata - Chart metadata for validation context
    * @returns Promise resolving to validation results
    */
-  validate(manifests: unknown[]): Promise<PolicyResult>;
+  validate(manifests: unknown[], chartMetadata: ChartMetadata): Promise<PolicyResult>;
 
   /**
    * Configures engine-wide settings

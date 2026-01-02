@@ -70,6 +70,9 @@ function generateRandomPlugins(count: number): PolicyPlugin[] {
 describe('Policy Engine Property Tests', () => {
   let engine: PolicyEngine;
 
+  // Mock ChartMetadata for all tests
+  const mockChartMetadata = { name: 'test-chart', version: '1.0.0' };
+
   beforeEach(() => {
     engine = new PolicyEngine();
   });
@@ -527,7 +530,7 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        const result = await testEngine.validate([{ kind: 'Service' }]);
+        const result = await testEngine.validate([{ kind: 'Service' }], mockChartMetadata);
 
         // Property: Should have violations and warnings
         expect(result.violations.length + result.warnings.length).toBe(severities.length);
@@ -558,7 +561,7 @@ describe('Policy Engine Property Tests', () => {
         }));
 
         // Property: Empty plugin list should return successful validation
-        const result = await testEngine.validate(manifests);
+        const result = await testEngine.validate(manifests, mockChartMetadata);
 
         expect(result.valid).toBe(true);
         expect(result.violations).toHaveLength(0);
@@ -595,7 +598,7 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        await testEngine.validate([{ kind: 'Deployment' }]);
+        await testEngine.validate([{ kind: 'Deployment' }], mockChartMetadata);
 
         // Property: Plugins should execute in registration order
         expect(executionOrder).toHaveLength(pluginCount);
@@ -652,7 +655,7 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        const result = await testEngine.validate([{ kind: 'StatefulSet' }]);
+        const result = await testEngine.validate([{ kind: 'StatefulSet' }], mockChartMetadata);
 
         // Property: Should have violations from both successful plugins and the failed plugin
         expect(result.violations.length + result.warnings.length).toBe(3);
@@ -721,7 +724,7 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        const result = await testEngine.validate([{ kind: 'Job' }]);
+        const result = await testEngine.validate([{ kind: 'Job' }], mockChartMetadata);
 
         // Property: Should stop after first error when failFast is enabled
         expect(result.violations).toHaveLength(1);
@@ -899,7 +902,7 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        const result = await testEngine.validate([{ kind: 'Namespace' }]);
+        const result = await testEngine.validate([{ kind: 'Namespace' }], mockChartMetadata);
 
         // Property: Summary should accurately count violations by severity
         const expectedErrors = pluginConfigs.reduce((sum, config) => sum + config.errors, 0);
@@ -928,7 +931,7 @@ describe('Policy Engine Property Tests', () => {
         const testEngine = new PolicyEngine();
 
         // Test with no plugins
-        let result = await testEngine.validate([{ kind: 'Pod' }]);
+        let result = await testEngine.validate([{ kind: 'Pod' }], mockChartMetadata);
 
         // Property: Empty result should have valid structure
         expect(result.valid).toBe(true);
@@ -950,7 +953,7 @@ describe('Policy Engine Property Tests', () => {
         };
 
         await testEngine.use(emptyPlugin);
-        result = await testEngine.validate([{ kind: 'Service' }]);
+        result = await testEngine.validate([{ kind: 'Service' }], mockChartMetadata);
 
         // Property: Result with no violations should still be valid
         expect(result.valid).toBe(true);
@@ -1003,7 +1006,7 @@ describe('Policy Engine Property Tests', () => {
         await testEngine.use(plugin);
 
         // Execute validation
-        const result = await testEngine.validate([{ kind: 'Deployment' }]);
+        const result = await testEngine.validate([{ kind: 'Deployment' }], mockChartMetadata);
 
         // Property: Complex context should be preserved exactly
         expect(result.violations).toHaveLength(1);
@@ -1057,7 +1060,7 @@ describe('Policy Engine Property Tests', () => {
 
         // Execute validation
         const startTime = Date.now();
-        const result = await testEngine.validate(manifests);
+        const result = await testEngine.validate(manifests, mockChartMetadata);
         const endTime = Date.now();
 
         // Property: Metadata should reflect actual execution
@@ -1646,7 +1649,7 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        await testEngine.validate([{ kind: 'Service' }]);
+        await testEngine.validate([{ kind: 'Service' }], mockChartMetadata);
 
         // Property: All plugins should have executed in registration order
         expect(executionOrder).toHaveLength(pluginCount);
@@ -1722,7 +1725,10 @@ describe('Policy Engine Property Tests', () => {
           await shortTimeoutEngine.use(plugin);
         }
 
-        const result = await shortTimeoutEngine.validate([{ kind: 'ConfigMap' }]);
+        const result = await shortTimeoutEngine.validate(
+          [{ kind: 'ConfigMap' }],
+          mockChartMetadata,
+        );
 
         // Property: Each error type should have appropriate context and suggestions
         const errorViolations = result.violations.filter(
@@ -1816,12 +1822,12 @@ describe('Policy Engine Property Tests', () => {
         await strictEngine.use(successPlugin);
 
         // Property: Graceful engine should continue execution
-        const gracefulResult = await gracefulEngine.validate([{ kind: 'Pod' }]);
+        const gracefulResult = await gracefulEngine.validate([{ kind: 'Pod' }], mockChartMetadata);
         expect(gracefulResult.warnings).toHaveLength(1); // Success plugin warning
         expect(gracefulResult.warnings[0].plugin).toBe(`success-plugin-${iteration}`);
 
         // Property: Strict engine should throw on plugin failure
-        await expect(strictEngine.validate([{ kind: 'Pod' }])).rejects.toThrow();
+        await expect(strictEngine.validate([{ kind: 'Pod' }], mockChartMetadata)).rejects.toThrow();
       }
     });
 
@@ -1870,7 +1876,7 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        const result = await testEngine.validate([{ kind: 'Deployment' }]);
+        const result = await testEngine.validate([{ kind: 'Deployment' }], mockChartMetadata);
 
         // Property: All plugins should have executed despite one failure
         expect(globalState.counter).toBe(5);
@@ -2183,7 +2189,7 @@ describe('Policy Engine Property Tests', () => {
         // Property: Valid configuration should be accepted
         await expect(testEngine.use(schemaPlugin)).resolves.toBeDefined();
 
-        const result = await testEngine.validate([{ kind: 'Pod' }]);
+        const result = await testEngine.validate([{ kind: 'Pod' }], mockChartMetadata);
         expect(result.warnings).toHaveLength(1);
         expect(result.warnings[0].context?.validatedConfig).toEqual(validConfig);
       }
@@ -2330,7 +2336,7 @@ describe('Policy Engine Property Tests', () => {
         await testEngine.use(mergePlugin);
 
         // Execute validation
-        const result = await testEngine.validate([{ kind: 'Service' }]);
+        const result = await testEngine.validate([{ kind: 'Service' }], mockChartMetadata);
 
         // Property: Configuration should be properly merged with inline taking priority
         expect(receivedConfig).toBeDefined();
@@ -2408,7 +2414,7 @@ describe('Policy Engine Property Tests', () => {
 
         // Execute validation and measure time
         const startTime = Date.now();
-        const result = await testEngine.validate([{ kind: 'Service' }]);
+        const result = await testEngine.validate([{ kind: 'Service' }], mockChartMetadata);
         const totalTime = Date.now() - startTime;
 
         // Property: Total execution time should not significantly exceed timeout * plugin count
@@ -2479,7 +2485,7 @@ describe('Policy Engine Property Tests', () => {
 
         // Execute validation
         const startTime = Date.now();
-        const result = await testEngine.validate([{ kind: 'Pod' }]);
+        const result = await testEngine.validate([{ kind: 'Pod' }], mockChartMetadata);
         const executionTime = Date.now() - startTime;
 
         // Property: Plugin should be attempted the configured number of times
@@ -2523,7 +2529,9 @@ describe('Policy Engine Property Tests', () => {
         await testEngine.use(timeoutPlugin);
 
         // Property: Should throw timeout-related error when graceful degradation is disabled
-        await expect(testEngine.validate([{ kind: 'ConfigMap' }])).rejects.toThrow();
+        await expect(
+          testEngine.validate([{ kind: 'ConfigMap' }], mockChartMetadata),
+        ).rejects.toThrow();
 
         // Test with graceful degradation enabled to see error context
         const gracefulEngine = new PolicyEngine({
@@ -2540,7 +2548,7 @@ describe('Policy Engine Property Tests', () => {
         });
         gracefulEngine.use(timeoutPlugin);
 
-        const result = await gracefulEngine.validate([{ kind: 'ConfigMap' }]);
+        const result = await gracefulEngine.validate([{ kind: 'ConfigMap' }], mockChartMetadata);
 
         // Property: Should complete successfully with graceful degradation
         expect(result).toBeDefined();
@@ -2605,7 +2613,7 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        const result = await testEngine.validate([{ kind: 'Deployment' }]);
+        const result = await testEngine.validate([{ kind: 'Deployment' }], mockChartMetadata);
 
         // Property: Fast plugins should complete successfully
         const successViolations = result.warnings.filter((v) => v.message.includes('completed'));
@@ -2677,7 +2685,7 @@ describe('Policy Engine Property Tests', () => {
 
         // Execute validation and measure time
         const startTime = Date.now();
-        const result = await testEngine.validate([{ kind: 'Service' }]);
+        const result = await testEngine.validate([{ kind: 'Service' }], mockChartMetadata);
         const totalTime = Date.now() - startTime;
 
         // Property: Parallel execution should not take much longer than the timeout
@@ -2775,7 +2783,7 @@ describe('Policy Engine Property Tests', () => {
         const runCount = 5;
 
         for (let run = 0; run < runCount; run++) {
-          const result = await testEngine.validate(manifests);
+          const result = await testEngine.validate(manifests, mockChartMetadata);
           results.push(result);
         }
 
@@ -2904,7 +2912,7 @@ describe('Policy Engine Property Tests', () => {
             await testEngine.use(plugins[pluginIndex]);
           }
 
-          const result = await testEngine.validate(manifests);
+          const result = await testEngine.validate(manifests, mockChartMetadata);
           results.push(result);
         }
 
@@ -3044,7 +3052,7 @@ describe('Policy Engine Property Tests', () => {
         const runCount = 7;
 
         for (let run = 0; run < runCount; run++) {
-          const result = await testEngine.validate(manifests);
+          const result = await testEngine.validate(manifests, mockChartMetadata);
           results.push(result);
         }
 
@@ -3131,7 +3139,7 @@ describe('Policy Engine Property Tests', () => {
 
           // Run each scenario multiple times
           for (let run = 0; run < runCount; run++) {
-            const result = await testEngine.validate(manifests as unknown[]);
+            const result = await testEngine.validate(manifests as unknown[], mockChartMetadata);
             results.push(result);
           }
 
@@ -3227,7 +3235,7 @@ describe('Policy Engine Property Tests', () => {
             });
 
             await testEngine.use(configPlugin);
-            const result = await testEngine.validate(manifests);
+            const result = await testEngine.validate(manifests, mockChartMetadata);
             results.push(result);
           }
 
@@ -3315,7 +3323,7 @@ describe('Policy Engine Property Tests', () => {
 
         // Execute validation and measure time
         const startTime = Date.now();
-        const result = await testEngine.validate(manifests);
+        const result = await testEngine.validate(manifests, mockChartMetadata);
         const actualExecutionTime = Date.now() - startTime;
 
         // Property: Metadata should contain accurate plugin count
@@ -3339,7 +3347,7 @@ describe('Policy Engine Property Tests', () => {
         expect(result.metadata.executionTime).toBeGreaterThanOrEqual(expectedMinTime - 10);
 
         // Property: Performance metrics should be consistent across multiple runs
-        const secondResult = await testEngine.validate(manifests);
+        const secondResult = await testEngine.validate(manifests, mockChartMetadata);
         expect(secondResult.metadata.pluginCount).toBe(result.metadata.pluginCount);
         expect(secondResult.metadata.manifestCount).toBe(result.metadata.manifestCount);
 
@@ -3366,7 +3374,7 @@ describe('Policy Engine Property Tests', () => {
 
         // Execute validation with no plugins
         const startTime = Date.now();
-        const result = await testEngine.validate(manifests);
+        const result = await testEngine.validate(manifests, mockChartMetadata);
         const actualExecutionTime = Date.now() - startTime;
 
         // Property: Should track metrics even with no plugins
@@ -3431,7 +3439,7 @@ describe('Policy Engine Property Tests', () => {
 
         // Execute validation
         const startTime = Date.now();
-        const result = await testEngine.validate(manifests);
+        const result = await testEngine.validate(manifests, mockChartMetadata);
         const actualExecutionTime = Date.now() - startTime;
 
         // Property: Metrics should be accurate for parallel execution
@@ -3502,7 +3510,7 @@ describe('Policy Engine Property Tests', () => {
         }));
 
         // Execute validation
-        const result = await testEngine.validate(manifests);
+        const result = await testEngine.validate(manifests, mockChartMetadata);
 
         // Property: Basic metrics should always be present regardless of configuration
         expect(result.metadata.pluginCount).toBe(pluginCount);
@@ -3578,7 +3586,7 @@ describe('Policy Engine Property Tests', () => {
 
         // Execute validation (should handle errors gracefully)
         const startTime = Date.now();
-        const result = await testEngine.validate(manifests);
+        const result = await testEngine.validate(manifests, mockChartMetadata);
         const actualExecutionTime = Date.now() - startTime;
 
         // Property: Metrics should be collected even when plugins fail
@@ -3638,7 +3646,7 @@ describe('Policy Engine Property Tests', () => {
         // Run validation multiple times
         const results: Awaited<ReturnType<typeof testEngine.validate>>[] = [];
         for (let run = 0; run < 3; run++) {
-          const result = await testEngine.validate(manifests);
+          const result = await testEngine.validate(manifests, mockChartMetadata);
           results.push(result);
         }
 
@@ -3707,7 +3715,7 @@ describe('Policy Engine Property Tests', () => {
 
         // Execute validation
         const startTime = Date.now();
-        const result = await testEngine.validate(manifests);
+        const result = await testEngine.validate(manifests, mockChartMetadata);
         const actualExecutionTime = Date.now() - startTime;
 
         // Property: Should accurately track large manifest counts

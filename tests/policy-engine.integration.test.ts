@@ -31,6 +31,9 @@ describe('Policy Engine Integration Tests', () => {
     time: ReturnType<typeof vi.fn>;
   };
 
+  // Mock ChartMetadata for all tests
+  const mockChartMetadata: ChartMetadata = { name: 'test-chart', version: '1.0.0' };
+
   beforeEach(() => {
     engine = new PolicyEngine();
     mockLogger = {
@@ -230,7 +233,7 @@ describe('Policy Engine Integration Tests', () => {
       ];
 
       // Execute validation
-      const result = await engine.validate(manifests);
+      const result = await engine.validate(manifests, mockChartMetadata);
 
       // Verify results
       expect(result.valid).toBe(true); // Should be valid (only warnings, no errors)
@@ -319,7 +322,7 @@ describe('Policy Engine Integration Tests', () => {
         },
       ];
 
-      const result = await engine.validate(manifests);
+      const result = await engine.validate(manifests, mockChartMetadata);
 
       // Should be invalid due to errors
       expect(result.valid).toBe(false);
@@ -419,7 +422,7 @@ describe('Policy Engine Integration Tests', () => {
         },
       ];
 
-      const result = await engine.validate(pipelineManifests);
+      const result = await engine.validate(pipelineManifests, mockChartMetadata);
 
       expect(result.valid).toBe(true); // Only warnings and info
       expect(result.violations).toHaveLength(0);
@@ -908,7 +911,7 @@ describe('Policy Engine Integration Tests', () => {
         },
       ];
 
-      const result = await engine.validate(awsManifests);
+      const result = await engine.validate(awsManifests, mockChartMetadata);
 
       expect(result.valid).toBe(true); // Only warnings and info
       expect(result.violations).toHaveLength(0);
@@ -1073,7 +1076,7 @@ describe('Policy Engine Integration Tests', () => {
         },
       ];
 
-      const result = await engine.validate(securityManifests);
+      const result = await engine.validate(securityManifests, mockChartMetadata);
 
       expect(result.valid).toBe(true); // Should pass security checks
       expect(result.violations).toHaveLength(0);
@@ -1240,7 +1243,7 @@ describe('Policy Engine Integration Tests', () => {
         },
       });
 
-      const result = await engine.validate(productionManifests);
+      const result = await engine.validate(productionManifests, mockChartMetadata);
 
       expect(result.valid).toBe(true); // Should pass production checks
       expect(result.violations).toHaveLength(0);
@@ -1282,7 +1285,7 @@ describe('Policy Engine Integration Tests', () => {
       }));
 
       const startTime = Date.now();
-      const result = await engine.validate(largeManifestSet);
+      const result = await engine.validate(largeManifestSet, mockChartMetadata);
       const executionTime = Date.now() - startTime;
 
       // Verify performance
@@ -1342,7 +1345,7 @@ describe('Policy Engine Integration Tests', () => {
         },
       ];
 
-      const result = await timeoutEngine.validate(manifests);
+      const result = await timeoutEngine.validate(manifests, mockChartMetadata);
 
       // Should handle timeout gracefully
       expect(result.valid).toBe(false); // Due to timeout error

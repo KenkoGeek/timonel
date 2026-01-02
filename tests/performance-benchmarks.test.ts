@@ -70,7 +70,7 @@ describe('Performance Benchmarking Tests', () => {
 
       // Benchmark small chart validation
       const startTime = Date.now();
-      const result = await engine.validate(smallManifests);
+      const result = await engine.validate(smallManifests, chartMeta);
       const executionTime = Date.now() - startTime;
 
       expect(result.valid).toBe(true);
@@ -129,7 +129,7 @@ describe('Performance Benchmarking Tests', () => {
 
       // Benchmark medium chart validation
       const startTime = Date.now();
-      const result = await engine.validate(mediumManifests);
+      const result = await engine.validate(mediumManifests, chartMeta);
       const executionTime = Date.now() - startTime;
 
       expect(result.metadata.manifestCount).toBe(75);
@@ -250,7 +250,7 @@ describe('Performance Benchmarking Tests', () => {
 
       // Benchmark large chart validation
       const startTime = Date.now();
-      const result = await engine.validate(largeManifests);
+      const result = await engine.validate(largeManifests, chartMeta);
       const executionTime = Date.now() - startTime;
 
       expect(result.metadata.manifestCount).toBe(225);
@@ -309,7 +309,7 @@ describe('Performance Benchmarking Tests', () => {
         },
       }));
 
-      const result = await engine.validate(veryLargeManifests);
+      const result = await engine.validate(veryLargeManifests, chartMeta);
 
       const finalMemory = process.memoryUsage().heapUsed;
       const memoryIncrease = finalMemory - initialMemory;
@@ -358,7 +358,7 @@ describe('Performance Benchmarking Tests', () => {
 
       // Run multiple validation cycles
       for (let cycle = 0; cycle < 10; cycle++) {
-        const result = await engine.validate(manifests);
+        const result = await engine.validate(manifests, chartMeta);
         expect(result.warnings.length).toBe(1);
         expect(result.warnings[0].message).toBe('Found 100 deployments');
       }
@@ -436,7 +436,7 @@ describe('Performance Benchmarking Tests', () => {
       }));
 
       const sequentialStart = Date.now();
-      const sequentialResult = await sequentialEngine.validate(manifests);
+      const sequentialResult = await sequentialEngine.validate(manifests, chartMeta);
       const sequentialTime = Date.now() - sequentialStart;
 
       // Test parallel execution
@@ -447,7 +447,7 @@ describe('Performance Benchmarking Tests', () => {
       await parallelEngine.use(slowPlugin3);
 
       const parallelStart = Date.now();
-      const parallelResult = await parallelEngine.validate(manifests);
+      const parallelResult = await parallelEngine.validate(manifests, chartMeta);
       const parallelTime = Date.now() - parallelStart;
 
       // Verify results are equivalent
@@ -500,7 +500,7 @@ describe('Performance Benchmarking Tests', () => {
       const manifests = [{ apiVersion: 'v1', kind: 'ConfigMap', metadata: { name: 'test' } }];
 
       const startTime = Date.now();
-      const result = await timeoutEngine.validate(manifests);
+      const result = await timeoutEngine.validate(manifests, chartMeta);
       const executionTime = Date.now() - startTime;
 
       // Should complete quickly due to timeout (allowing for some overhead)
@@ -609,7 +609,7 @@ describe('Performance Benchmarking Tests', () => {
         }));
 
         const startTime = Date.now();
-        const result = await engine.validate(manifests);
+        const result = await engine.validate(manifests, chartMeta);
         const executionTime = Date.now() - startTime;
 
         expect(result.warnings.length).toBe(size);

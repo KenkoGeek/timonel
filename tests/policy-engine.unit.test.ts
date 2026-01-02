@@ -42,6 +42,9 @@ import type {
 describe('Policy Engine Unit Tests', () => {
   let engine: PolicyEngine;
 
+  // Mock ChartMetadata for all tests
+  const mockChartMetadata = { name: 'test-chart', version: '1.0.0' };
+
   beforeEach(() => {
     engine = new PolicyEngine();
     vi.clearAllMocks();
@@ -199,7 +202,7 @@ describe('Policy Engine Unit Tests', () => {
       it('should return successful result with no plugins', async () => {
         const manifests = [{ kind: 'Pod', metadata: { name: 'test-pod' } }];
 
-        const result = await engine.validate(manifests);
+        const result = await engine.validate(manifests, mockChartMetadata);
 
         expect(result.valid).toBe(true);
         expect(result.violations).toHaveLength(0);
@@ -225,7 +228,7 @@ describe('Policy Engine Unit Tests', () => {
         };
 
         await engine.use(plugin);
-        const result = await engine.validate([{ kind: 'Service' }]);
+        const result = await engine.validate([{ kind: 'Service' }], mockChartMetadata);
 
         expect(result.valid).toBe(true); // Warnings don't make result invalid
         expect(result.violations).toHaveLength(0);
@@ -265,7 +268,7 @@ describe('Policy Engine Unit Tests', () => {
 
         await engine.use(plugin1);
         await engine.use(plugin2);
-        const result = await engine.validate([{ kind: 'Deployment' }]);
+        const result = await engine.validate([{ kind: 'Deployment' }], mockChartMetadata);
 
         expect(result.valid).toBe(false); // Errors make result invalid
         expect(result.violations).toHaveLength(1);
@@ -284,7 +287,7 @@ describe('Policy Engine Unit Tests', () => {
         };
 
         await engine.use(plugin);
-        const result = await engine.validate([]);
+        const result = await engine.validate([], mockChartMetadata);
 
         expect(result.valid).toBe(true);
         expect(result.metadata.manifestCount).toBe(0);
@@ -303,7 +306,7 @@ describe('Policy Engine Unit Tests', () => {
         };
 
         await engine.use(plugin);
-        await engine.validate([{ kind: 'ConfigMap' }]);
+        await engine.validate([{ kind: 'ConfigMap' }], mockChartMetadata);
 
         expect(receivedContext).toBeDefined();
         expect(receivedContext!.chart).toBeDefined();
@@ -326,7 +329,7 @@ describe('Policy Engine Unit Tests', () => {
         const gracefulEngine = new PolicyEngine({ gracefulDegradation: true });
         await gracefulEngine.use(failingPlugin);
 
-        const result = await gracefulEngine.validate([{ kind: 'Pod' }]);
+        const result = await gracefulEngine.validate([{ kind: 'Pod' }], mockChartMetadata);
 
         expect(result.valid).toBe(false);
         expect(result.violations).toHaveLength(1);
@@ -346,7 +349,7 @@ describe('Policy Engine Unit Tests', () => {
         const strictEngine = new PolicyEngine({ gracefulDegradation: false });
         await strictEngine.use(failingPlugin);
 
-        await expect(strictEngine.validate([{ kind: 'Pod' }])).rejects.toThrow();
+        await expect(strictEngine.validate([{ kind: 'Pod' }], mockChartMetadata)).rejects.toThrow();
       });
 
       it('should handle timeout errors', async () => {
@@ -365,7 +368,7 @@ describe('Policy Engine Unit Tests', () => {
         });
         await timeoutEngine.use(slowPlugin);
 
-        const result = await timeoutEngine.validate([{ kind: 'Service' }]);
+        const result = await timeoutEngine.validate([{ kind: 'Service' }], mockChartMetadata);
 
         expect(result.valid).toBe(false);
         // Should have error violation from timeout
@@ -410,7 +413,7 @@ describe('Policy Engine Unit Tests', () => {
         await failFastEngine.use(errorPlugin);
         await failFastEngine.use(secondPlugin);
 
-        const result = await failFastEngine.validate([{ kind: 'Deployment' }]);
+        const result = await failFastEngine.validate([{ kind: 'Deployment' }], mockChartMetadata);
 
         expect(result.valid).toBe(false);
         expect(result.violations).toHaveLength(1); // Should stop after first error
@@ -450,7 +453,7 @@ describe('Policy Engine Unit Tests', () => {
         await continueEngine.use(errorPlugin);
         await continueEngine.use(secondPlugin);
 
-        const result = await continueEngine.validate([{ kind: 'Deployment' }]);
+        const result = await continueEngine.validate([{ kind: 'Deployment' }], mockChartMetadata);
 
         expect(result.valid).toBe(false);
         expect(result.violations).toHaveLength(2); // Should execute both plugins
@@ -542,7 +545,7 @@ describe('Policy Engine Unit Tests', () => {
         await parallelEngine.use(plugin3);
 
         const startTime = Date.now();
-        const result = await parallelEngine.validate([{ kind: 'Pod' }]);
+        const result = await parallelEngine.validate([{ kind: 'Pod' }], mockChartMetadata);
         const totalTime = Date.now() - startTime;
 
         expect(result.valid).toBe(true);
@@ -587,7 +590,7 @@ describe('Policy Engine Unit Tests', () => {
         await parallelEngine.use(successPlugin);
         await parallelEngine.use(failingPlugin);
 
-        const result = await parallelEngine.validate([{ kind: 'Service' }]);
+        const result = await parallelEngine.validate([{ kind: 'Service' }], mockChartMetadata);
 
         expect(result.valid).toBe(false);
         expect(result.warnings).toHaveLength(1); // Success plugin

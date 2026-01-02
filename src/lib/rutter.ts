@@ -744,7 +744,7 @@ ${yamlContent.trim()}
       });
 
       try {
-        const validationResult = await this.props.policyEngine.validate(manifestObjs);
+        const validationResult = await this.props.policyEngine.validate(manifestObjs, this.meta);
 
         if (!validationResult.valid) {
           const errorMessage = this.formatPolicyErrors(validationResult);
