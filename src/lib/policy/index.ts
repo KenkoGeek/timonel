@@ -1,10 +1,10 @@
 /**
  * Policy Engine Module
- * 
+ *
  * This module provides a lightweight, extensible policy validation system for Timonel.
  * It enables validation of Kubernetes manifests through external plugins following
  * industry best practices for plugin architecture and extensibility.
- * 
+ *
  * @since 3.0.0
  */
 
@@ -14,6 +14,25 @@ export { PluginRegistry } from './pluginRegistry.js';
 export { ConfigurationLoader } from './configurationLoader.js';
 export { PluginLoader } from './pluginLoader.js';
 
+// Validation cache
+export {
+  ValidationCache,
+  generateManifestHash,
+  generatePluginHash,
+  type CacheEntry,
+  type CacheOptions,
+  type CacheStats,
+} from './validationCache.js';
+
+// Parallel execution
+export {
+  ParallelExecutor,
+  calculateOptimalConcurrency,
+  type ParallelExecutionOptions,
+  type PluginExecutionResult,
+  type ParallelExecutionStats,
+} from './parallelExecutor.js';
+
 // Result aggregation utilities
 export {
   aggregateResults,
@@ -22,7 +41,7 @@ export {
   groupViolationsByPlugin,
   sortViolationsBySeverity,
   createEmptyResult,
-  mergeViolationContexts
+  mergeViolationContexts,
 } from './resultAggregator.js';
 
 // Result formatters
@@ -33,14 +52,11 @@ export {
   GitHubActionsResultFormatter,
   SarifResultFormatter,
   createFormatter,
-  getAvailableFormatters
+  getAvailableFormatters,
 } from './resultFormatter.js';
 
 // Error context generation
-export {
-  ErrorContextGenerator,
-  type ErrorContext
-} from './errorContextGenerator.js';
+export { ErrorContextGenerator, type ErrorContext } from './errorContextGenerator.js';
 
 // Types and interfaces
 export type {
@@ -57,7 +73,7 @@ export type {
   ResultFormatter,
   ResultSummary,
   RetryConfig,
-  ConfigurationLoaderOptions
+  ConfigurationLoaderOptions,
 } from './types.js';
 
 // Error types
@@ -69,5 +85,5 @@ export {
   PluginConfigurationError,
   ValidationOrchestrationError,
   PluginRetryExhaustedError,
-  GracefulDegradationError
+  GracefulDegradationError,
 } from './errors.js';

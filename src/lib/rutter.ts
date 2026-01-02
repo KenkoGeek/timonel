@@ -8,6 +8,11 @@ import { include } from './helm.js';
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
 import { createLogger, type TimonelLogger } from './utils/logger.js';
+
+/**
+ * Constants for error messages
+ */
+const UNKNOWN_ERROR_MESSAGE = 'Unknown error';
 import type {
   AWSALBIngressSpec,
   AWSEBSStorageClassSpec,
@@ -25,7 +30,7 @@ import { isHelmExpression, isHelmConstruct } from './utils/helmControlStructures
 import { dumpHelmAwareYaml, preprocessHelmConstructs } from './utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from './utils/helmHelpers.js';
 import type { HelperDefinition } from './utils/helmHelpers.js';
-import type { PolicyEngine, ValidationContext } from './policy/index.js';
+import type { PolicyEngine, PolicyResult } from './policy/index.js';
 
 /**
  * Rutter class with modular architecture
@@ -402,7 +407,7 @@ export class Rutter {
         manifestObject = parse(yamlOrObject) as Record<string, unknown>;
       } catch (error) {
         throw new Error(
-          `Invalid YAML provided to addManifest(): ${error instanceof Error ? error.message : 'Unknown error'}`,
+          `Invalid YAML provided to addManifest(): ${error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE}`,
         );
       }
     } else if (typeof yamlOrObject === 'object' && yamlOrObject !== null) {
@@ -562,7 +567,7 @@ ${yamlContent.trim()}
       this.assets.push(conditionalAsset);
     } catch (error) {
       throw new Error(
-        `Failed to generate conditional template for manifest '${id}': ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to generate conditional template for manifest '${id}': ${error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE}`,
       );
     }
 
@@ -682,6 +687,7 @@ ${yamlContent.trim()}
    *
    * @since 2.8.0+
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async toSynthArray(): Promise<SynthAsset[]> {
     const timer = this.logger.time('chart_synthesis');
 
@@ -757,14 +763,7 @@ ${yamlContent.trim()}
       });
 
       try {
-        const validationContext = {
-          chart: this.meta,
-          kubernetesVersion: this.props.chartProps?.kubernetesVersion,
-          environment: process.env.NODE_ENV || 'development',
-          logger: this.logger,
-        };
-
-        const validationResult = await this.props.policyEngine.validate(enriched, validationContext);
+        const validationResult = await this.props.policyEngine.validate(enriched);
 
         if (!validationResult.valid) {
           const errorMessage = this.formatPolicyErrors(validationResult);
@@ -781,10 +780,10 @@ ${yamlContent.trim()}
           this.logger.warn('Policy validation warnings', {
             chartName: this.meta.name,
             warningCount: validationResult.warnings.length,
-            warnings: validationResult.warnings.map(w => ({
+            warnings: validationResult.warnings.map((w) => ({
               plugin: w.plugin,
               message: w.message,
-              severity: w.severity
+              severity: w.severity,
             })),
             operation: 'policy_validation_warnings',
           });
@@ -799,7 +798,7 @@ ${yamlContent.trim()}
       } catch (error) {
         this.logger.error('Policy validation error', {
           chartName: this.meta.name,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE,
           operation: 'policy_validation_error',
         });
         throw error;
@@ -854,36 +853,38 @@ ${yamlContent.trim()}
    * @returns Formatted error message
    * @private
    */
-  private formatPolicyErrors(result: any): string {
+  private formatPolicyErrors(result: PolicyResult): string {
     const errorMessages: string[] = [];
-    
+
     if (result.violations && result.violations.length > 0) {
       errorMessages.push(`Found ${result.violations.length} policy violation(s):`);
-      
-      result.violations.forEach((violation: any, index: number) => {
+
+      result.violations.forEach((violation, index: number) => {
         const parts = [`${index + 1}. [${violation.plugin}] ${violation.message}`];
-        
+
         if (violation.resourcePath) {
           parts.push(`Resource: ${violation.resourcePath}`);
         }
-        
+
         if (violation.field) {
           parts.push(`Field: ${violation.field}`);
         }
-        
+
         if (violation.suggestion) {
           parts.push(`Suggestion: ${violation.suggestion}`);
         }
-        
+
         errorMessages.push(`   ${parts.join(' | ')}`);
       });
     }
-    
+
     if (result.summary) {
       const summary = result.summary;
-      errorMessages.push(`Summary: ${summary.violationsBySeverity.error} error(s), ${summary.violationsBySeverity.warning} warning(s), ${summary.violationsBySeverity.info} info(s)`);
+      errorMessages.push(
+        `Summary: ${summary.violationsBySeverity.error} error(s), ${summary.violationsBySeverity.warning} warning(s), ${summary.violationsBySeverity.info} info(s)`,
+      );
     }
-    
+
     return errorMessages.join('\n');
   }
 
