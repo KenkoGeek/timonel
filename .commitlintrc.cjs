@@ -37,6 +37,7 @@ module.exports = {
         'azure',
         'gcp',
         'onprem',
+        'security',
       ],
     ],
     'subject-case': [2, 'never', ['sentence-case', 'start-case', 'pascal-case', 'upper-case']],

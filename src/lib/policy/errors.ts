@@ -163,3 +163,23 @@ export class GracefulDegradationError extends PolicyEngineError {
     }
   }
 }
+/**
+ * Error thrown when input validation fails
+ */
+export class PolicyValidationError extends PolicyEngineError {
+  constructor(
+    message: string,
+    public readonly field?: string,
+    context?: Record<string, unknown>,
+  ) {
+    super(message, 'POLICY_VALIDATION_ERROR', {
+      ...context,
+      field,
+    });
+    this.name = 'PolicyValidationError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, PolicyValidationError);
+    }
+  }
+}

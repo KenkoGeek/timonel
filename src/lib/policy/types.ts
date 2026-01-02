@@ -9,6 +9,7 @@
 
 import type { TimonelLogger } from '../utils/logger.js';
 import type { ChartMetadata } from '../rutter.js';
+import type { ValidationOptions } from '../validation/inputValidator.js';
 
 import type { CacheOptions } from './validationCache.js';
 import type { ParallelExecutionOptions } from './parallelExecutor.js';
@@ -277,6 +278,9 @@ export interface PolicyEngineOptions {
 
   /** Parallel execution configuration options */
   parallelOptions?: ParallelExecutionOptions;
+
+  /** Input validation configuration options */
+  validationOptions?: ValidationOptions;
 }
 
 /**

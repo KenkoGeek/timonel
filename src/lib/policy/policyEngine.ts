@@ -9,6 +9,7 @@
  */
 
 import { createLogger, type TimonelLogger } from '../utils/logger.js';
+import { InputValidator } from '../validation/inputValidator.js';
 import type { ChartMetadata } from '../rutter.js';
 
 import type {
@@ -28,6 +29,7 @@ import {
   ValidationTimeoutError,
   PluginError,
   PluginRetryExhaustedError,
+  PolicyValidationError,
 } from './errors.js';
 import { generateResultSummary } from './resultAggregator.js';
 import { DefaultResultFormatter } from './resultFormatter.js';
@@ -58,6 +60,7 @@ const DEFAULT_OPTIONS: Required<
     | 'environment'
     | 'cacheOptions'
     | 'parallelOptions'
+    | 'validationOptions'
   >
 > = {
   timeout: 5000,
@@ -97,6 +100,7 @@ export class PolicyEngine implements IPolicyEngine {
   private options: PolicyEngineOptions;
   private readonly logger: TimonelLogger;
   private readonly errorContextGenerator: ErrorContextGenerator;
+  private readonly inputValidator: InputValidator;
 
   // Lazy initialization properties
   private _configurationLoader?: ConfigurationLoader;
@@ -108,6 +112,7 @@ export class PolicyEngine implements IPolicyEngine {
     this.options = { ...DEFAULT_OPTIONS, ...options };
     this.logger = createLogger('policy-engine');
     this.errorContextGenerator = new ErrorContextGenerator();
+    this.inputValidator = new InputValidator(options.validationOptions);
 
     this.logger.debug('PolicyEngine initialized with lazy loading', {
       options: this.options,
@@ -175,6 +180,41 @@ export class PolicyEngine implements IPolicyEngine {
    */
   async use(plugin: PolicyPlugin): Promise<PolicyEngine> {
     try {
+      // Input validation for plugin
+      if (!plugin || typeof plugin !== 'object') {
+        throw new PolicyValidationError('Plugin must be a non-null object');
+      }
+
+      if (!plugin.name || typeof plugin.name !== 'string') {
+        throw new PolicyValidationError('Plugin name must be a non-empty string');
+      }
+
+      if (!plugin.version || typeof plugin.version !== 'string') {
+        throw new PolicyValidationError('Plugin version must be a non-empty string');
+      }
+
+      if (typeof plugin.validate !== 'function') {
+        throw new PolicyValidationError('Plugin must have a validate method');
+      }
+
+      // Validate plugin name length and content
+      if (plugin.name.length > 100) {
+        throw new PolicyValidationError('Plugin name exceeds maximum length (100 characters)');
+      }
+
+      // Sanitize plugin name to prevent injection
+      const sanitizedName = plugin.name
+        .replace(/[<>"'&]/g, '') // Remove potentially dangerous characters
+        .trim();
+
+      if (sanitizedName !== plugin.name) {
+        this.logger.warn('Plugin name was sanitized', {
+          original: plugin.name,
+          sanitized: sanitizedName,
+          operation: 'plugin_name_sanitization',
+        });
+      }
+
       // Load configuration using the configuration loader
       const pluginConfiguration = await this.configurationLoader.loadPluginConfiguration(
         plugin,
@@ -222,6 +262,37 @@ export class PolicyEngine implements IPolicyEngine {
    */
   async validate(manifests: unknown[], chartMetadata: ChartMetadata): Promise<PolicyResult> {
     const startTime = Date.now();
+
+    // Input validation - validate manifests array
+    if (!Array.isArray(manifests)) {
+      throw new PolicyValidationError('Manifests must be an array');
+    }
+
+    // Validate array length
+    if (manifests.length > 1000) {
+      // Reasonable limit for manifests
+      throw new PolicyValidationError('Too many manifests provided (maximum: 1000)');
+    }
+
+    // Validate each manifest
+    manifests.forEach((manifest, index) => {
+      if (manifest === null || manifest === undefined) {
+        throw new PolicyValidationError(`Manifest at index ${index} cannot be null or undefined`);
+      }
+
+      // Validate manifest size to prevent memory exhaustion
+      const manifestStr = JSON.stringify(manifest);
+      if (manifestStr.length > 100000) {
+        // 100KB limit per manifest
+        throw new PolicyValidationError(`Manifest at index ${index} exceeds size limit (100KB)`);
+      }
+    });
+
+    // Validate chartMetadata
+    if (!chartMetadata || typeof chartMetadata !== 'object') {
+      throw new PolicyValidationError('Chart metadata must be a non-null object');
+    }
+
     const plugins = this.registry.getAllPlugins();
 
     this.logger.info('Starting policy validation', {
@@ -664,11 +735,17 @@ export class PolicyEngine implements IPolicyEngine {
 
     // All retry attempts exhausted - always throw error
     // Let the calling method decide how to handle it based on gracefulDegradation setting
+    const finalError =
+      lastError ||
+      new Error(
+        `Plugin '${plugin.name}' failed with unknown error after ${retryConfig.maxAttempts} attempts`,
+      );
+
     throw new PluginRetryExhaustedError(
       `Plugin '${plugin.name}' failed after ${retryConfig.maxAttempts} attempts`,
       plugin.name,
       retryConfig.maxAttempts,
-      lastError!,
+      finalError,
     );
   }
 

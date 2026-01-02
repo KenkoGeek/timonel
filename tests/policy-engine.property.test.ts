@@ -479,7 +479,10 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        const result = await testEngine.validate([{ kind: 'Pod', metadata: { name: 'test' } }]);
+        const result = await testEngine.validate(
+          [{ kind: 'Pod', metadata: { name: 'test' } }],
+          mockChartMetadata,
+        );
 
         // Property: All plugins should have executed
         expect(result.violations).toHaveLength(pluginCount);
@@ -789,10 +792,13 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        const result = await testEngine.validate([
-          { kind: 'Pod', metadata: { name: 'test-pod' } },
-          { kind: 'Service', metadata: { name: 'test-service' } },
-        ]);
+        const result = await testEngine.validate(
+          [
+            { kind: 'Pod', metadata: { name: 'test-pod' } },
+            { kind: 'Service', metadata: { name: 'test-service' } },
+          ],
+          mockChartMetadata,
+        );
 
         // Property: Total violations should equal sum of all plugin violations
         const expectedTotalViolations = Object.values(expectedViolationsByPlugin).reduce(
@@ -1569,7 +1575,10 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        const result = await testEngine.validate([{ kind: 'Pod', metadata: { name: 'test-pod' } }]);
+        const result = await testEngine.validate(
+          [{ kind: 'Pod', metadata: { name: 'test-pod' } }],
+          mockChartMetadata,
+        );
 
         // Property: All successful plugins should have executed and produced violations
         const successfulViolations = result.warnings.filter((v) =>
@@ -1979,7 +1988,10 @@ describe('Policy Engine Property Tests', () => {
         await testEngine.use(configPlugin);
 
         // Execute validation
-        const result = await testEngine.validate([{ kind: 'Pod', metadata: { name: 'test-pod' } }]);
+        const result = await testEngine.validate(
+          [{ kind: 'Pod', metadata: { name: 'test-pod' } }],
+          mockChartMetadata,
+        );
 
         // Property: Plugin should receive the exact configuration provided
         expect(receivedConfig).toEqual(pluginConfig);
@@ -2064,9 +2076,10 @@ describe('Policy Engine Property Tests', () => {
         }
 
         // Execute validation
-        const result = await testEngine.validate([
-          { kind: 'Service', metadata: { name: 'test-service' } },
-        ]);
+        const result = await testEngine.validate(
+          [{ kind: 'Service', metadata: { name: 'test-service' } }],
+          mockChartMetadata,
+        );
 
         // Property: Each plugin should receive its specific configuration
         expect(Object.keys(receivedConfigs)).toHaveLength(pluginCount);
@@ -2123,9 +2136,10 @@ describe('Policy Engine Property Tests', () => {
         await testEngine.use(noConfigPlugin);
 
         // Execute validation
-        const result = await testEngine.validate([
-          { kind: 'ConfigMap', metadata: { name: 'test-config' } },
-        ]);
+        const result = await testEngine.validate(
+          [{ kind: 'ConfigMap', metadata: { name: 'test-config' } }],
+          mockChartMetadata,
+        );
 
         // Property: Plugin should receive empty configuration object
         expect(receivedConfig).toEqual({});
@@ -2260,9 +2274,10 @@ describe('Policy Engine Property Tests', () => {
         await testEngine.use(envPlugin);
 
         // Execute validation
-        const result = await testEngine.validate([
-          { kind: 'Deployment', metadata: { name: 'test-deployment' } },
-        ]);
+        const result = await testEngine.validate(
+          [{ kind: 'Deployment', metadata: { name: 'test-deployment' } }],
+          mockChartMetadata,
+        );
 
         // Property: Plugin should receive merged configuration (default + inline)
         const expectedMergedConfig = {
@@ -3124,16 +3139,20 @@ describe('Policy Engine Property Tests', () => {
         await testEngine.use(edgeCasePlugin);
 
         // Test different edge case scenarios
-        const testScenarios = [
+        const validTestScenarios = [
           [], // Empty array
-          [null], // Null manifest
-          [undefined], // Undefined manifest
           [{}], // Empty object
           [{ kind: null }], // Null properties
+        ];
+
+        const invalidTestScenarios = [
+          [null], // Null manifest
+          [undefined], // Undefined manifest
           [{ kind: 'Pod' }, null, { kind: 'Service' }], // Mixed valid and null
         ];
 
-        for (const manifests of testScenarios) {
+        // Test valid scenarios for determinism
+        for (const manifests of validTestScenarios) {
           const results: Awaited<ReturnType<typeof testEngine.validate>>[] = [];
           const runCount = 3;
 
@@ -3161,6 +3180,18 @@ describe('Policy Engine Property Tests', () => {
               expect(actualViolation.message).toBe(expectedViolation.message);
               expect(actualViolation.resourcePath).toBe(expectedViolation.resourcePath);
             });
+          }
+        }
+
+        // Test invalid scenarios should consistently throw validation errors
+        for (const manifests of invalidTestScenarios) {
+          const runCount = 3;
+
+          // Run each scenario multiple times
+          for (let run = 0; run < runCount; run++) {
+            await expect(
+              testEngine.validate(manifests as unknown[], mockChartMetadata),
+            ).rejects.toThrow('cannot be null or undefined');
           }
         }
       }
