@@ -102,6 +102,11 @@ Useful string-based utilities (no ValuesRef equivalent):
   - Command injection prevention (CWE-78/77/88)
   - Log injection protection (CWE-117)
   - Code injection prevention (CWE-94)
+- **🔍 Policy Engine** (NEW):
+  - Extensible validation framework for Kubernetes manifests
+  - Plugin-based architecture for custom policy rules
+  - Zero-impact integration (completely optional)
+  - Support for security, compliance, and best practice policies
 - **NetworkPolicy support** for pod-level network isolation
 - **Helm chart validation** with `validateHelmYaml`
 - **SecurityUtils** for path validation and sanitization
@@ -210,6 +215,66 @@ chart.addManifest(
 
 // Generate the chart
 chart.write('./dist');
+```
+
+### Policy Engine Integration
+
+```typescript
+import { Rutter, PolicyEngine } from 'timonel';
+import { securityPolicies } from '@mycompany/k8s-security-policies';
+
+// Create policy engine with custom plugins
+const policyEngine = new PolicyEngine()
+  .use(securityPolicies)
+  .configure({ 
+    timeout: 5000,
+    parallel: true 
+  });
+
+const chart = new Rutter({
+  meta: {
+    name: 'secure-app',
+    version: '1.0.0',
+  },
+  // Optional policy validation
+  policyEngine,
+});
+
+// Policies validate manifests before chart generation
+chart.write('./dist'); // Fails if policy violations found
+```
+
+### Creating Custom Policy Plugins
+
+```typescript
+import { PolicyPlugin, PolicyViolation } from 'timonel';
+
+export const mySecurityPolicy: PolicyPlugin = {
+  name: 'my-security-policy',
+  version: '1.0.0',
+  description: 'Custom security validation rules',
+  
+  async validate(manifests, context) {
+    const violations: PolicyViolation[] = [];
+    
+    for (const manifest of manifests) {
+      if (manifest.kind === 'Deployment') {
+        // Check for security context
+        if (!manifest.spec?.template?.spec?.securityContext) {
+          violations.push({
+            plugin: this.name,
+            severity: 'error',
+            message: 'Deployment must specify securityContext',
+            resourcePath: `${manifest.kind}/${manifest.metadata?.name}`,
+            suggestion: 'Add spec.template.spec.securityContext to your Deployment'
+          });
+        }
+      }
+    }
+    
+    return violations;
+  }
+};
 ```
 
 ### Umbrella Chart with Multiple Services
@@ -350,12 +415,200 @@ with `v.if()`, `v.range()`, `v.with()`.
 [Type-Safe Helm Helpers Guide](https://github.com/KenkoGeek/timonel/wiki/Helm-Helpers-System) for
 complete documentation, examples, and best practices.
 
+## 🔍 Policy Engine
+
+The Policy Engine provides extensible validation for Kubernetes manifests through a plugin-based architecture. It's completely optional and has zero impact on existing users.
+
+### Key Features
+
+- **🔌 Plugin Architecture**: Extensible through external npm packages
+- **⚡ Zero Impact**: Completely optional with no performance overhead when unused
+- **🛡️ Security Focus**: Built-in support for security and compliance policies
+- **🔄 Async Support**: Handles both synchronous and asynchronous validation plugins
+- **📊 Rich Reporting**: Detailed violation reports with suggestions and context
+- **⏱️ Timeout Protection**: Configurable timeouts prevent hanging validations
+- **🔧 Configurable**: Environment-specific policy configuration support
+
+### Quick Start
+
+```typescript
+import { Rutter, PolicyEngine } from 'timonel';
+
+// Optional: Add policy validation
+const policyEngine = new PolicyEngine()
+  .use(await import('@mycompany/security-policies'))
+  .configure({ timeout: 5000 });
+
+const chart = new Rutter({
+  meta: { name: 'my-app', version: '1.0.0' },
+  policyEngine, // ← Completely optional
+});
+
+chart.write('./dist'); // Validates before writing
+```
+
+### Available Policy Plugins
+
+**Community Plugins:**
+- `@kubernetes/pod-security-standards` - Official Kubernetes PSS validation
+- `@open-policy-agent/timonel-plugin` - OPA Rego policy integration
+- `@falco/security-policies` - Falco runtime security rules
+
+**Enterprise Plugins:**
+- `@company/compliance-policies` - Organization-specific compliance rules
+- `@aws/well-architected-policies` - AWS Well-Architected Framework validation
+- `@security/cis-benchmarks` - CIS Kubernetes Benchmark validation
+
+### Creating Custom Policies
+
+```typescript
+import { PolicyPlugin, PolicyViolation, ValidationContext } from 'timonel';
+
+export const customSecurityPolicy: PolicyPlugin = {
+  name: 'custom-security-policy',
+  version: '1.0.0',
+  description: 'Custom security validation rules',
+  
+  async validate(manifests: unknown[], context: ValidationContext): Promise<PolicyViolation[]> {
+    const violations: PolicyViolation[] = [];
+    
+    for (const manifest of manifests) {
+      if (manifest.kind === 'Deployment') {
+        // Validate security context
+        if (!manifest.spec?.template?.spec?.securityContext) {
+          violations.push({
+            plugin: this.name,
+            severity: 'error',
+            message: 'Deployment must specify securityContext',
+            resourcePath: `${manifest.kind}/${manifest.metadata?.name}`,
+            field: 'spec.template.spec.securityContext',
+            suggestion: 'Add securityContext with runAsNonRoot: true',
+            context: { 
+              kubernetesVersion: context.kubernetesVersion,
+              environment: context.environment 
+            }
+          });
+        }
+        
+        // Validate resource limits
+        const containers = manifest.spec?.template?.spec?.containers || [];
+        for (const container of containers) {
+          if (!container.resources?.limits) {
+            violations.push({
+              plugin: this.name,
+              severity: 'warning',
+              message: `Container '${container.name}' should specify resource limits`,
+              resourcePath: `${manifest.kind}/${manifest.metadata?.name}`,
+              field: `spec.template.spec.containers[${container.name}].resources.limits`,
+              suggestion: 'Add memory and CPU limits to prevent resource exhaustion'
+            });
+          }
+        }
+      }
+    }
+    
+    return violations;
+  }
+};
+```
+
+### Advanced Configuration
+
+```typescript
+const policyEngine = new PolicyEngine()
+  // Load multiple plugins
+  .use(securityPolicies)
+  .use(compliancePolicies)
+  .use(customPolicies)
+  
+  // Configure engine behavior
+  .configure({
+    timeout: 10000,        // 10 second timeout per plugin
+    parallel: true,        // Run plugins in parallel
+    failFast: false,       // Collect all violations
+    
+    // Plugin-specific configuration
+    pluginConfig: {
+      'security-policies': {
+        strictMode: true,
+        allowPrivileged: false
+      },
+      'compliance-policies': {
+        frameworks: ['pci-dss', 'soc2'],
+        environment: 'production'
+      }
+    }
+  });
+```
+
+### Environment-Specific Policies
+
+```typescript
+// Load different policies based on environment
+const createPolicyEngine = (environment: string) => {
+  const engine = new PolicyEngine();
+  
+  // Base security policies for all environments
+  engine.use(baseSecurity);
+  
+  // Environment-specific policies
+  switch (environment) {
+    case 'production':
+      engine.use(strictSecurity);
+      engine.use(compliancePolicies);
+      break;
+    case 'staging':
+      engine.use(moderateSecurity);
+      break;
+    case 'development':
+      // Minimal policies for development
+      break;
+  }
+  
+  return engine;
+};
+```
+
+### Integration with CI/CD
+
+```typescript
+// In your CI/CD pipeline
+import { Rutter, PolicyEngine } from 'timonel';
+
+const validateChart = async (chartPath: string, environment: string) => {
+  const policyEngine = createPolicyEngine(environment);
+  
+  try {
+    const chart = new Rutter({
+      meta: { name: 'my-app', version: process.env.VERSION },
+      policyEngine
+    });
+    
+    await chart.write(chartPath);
+    console.log('✅ Chart validation passed');
+  } catch (error) {
+    if (error instanceof PolicyEngineError) {
+      console.error('❌ Policy violations found:');
+      error.violations.forEach(v => {
+        console.error(`  ${v.severity}: ${v.message}`);
+        if (v.suggestion) {
+          console.error(`    💡 ${v.suggestion}`);
+        }
+      });
+      process.exit(1);
+    }
+    throw error;
+  }
+};
+```
+
 ## 📚 Documentation
 
 - **[API Reference](https://github.com/KenkoGeek/timonel/wiki/API-Reference)** - Complete API
   documentation
 - **[CLI Reference](https://github.com/KenkoGeek/timonel/wiki/CLI-Reference)** - Command-line
   interface guide
+- **[Policy Engine Guide](https://github.com/KenkoGeek/timonel/wiki/Policy-Engine)** - Policy validation and plugin development
 - **[Examples](https://github.com/KenkoGeek/timonel/wiki/Examples)** - Real-world usage examples
 - **[Best Practices](https://github.com/KenkoGeek/timonel/wiki/Best-Practices)** - Recommended
   patterns and practices

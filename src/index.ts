@@ -9,6 +9,9 @@ export * from './lib/rutter.js';
 export * from './lib/security.js';
 export * from './lib/umbrella.js';
 
+// Policy Engine
+export * from './lib/policy/index.js';
+
 // Templates
 export { FlexibleSubchart, createFlexibleSubchart } from './lib/templates/flexible-subchart.js';
 export { UmbrellaChartTemplate as UmbrellaChart } from './lib/templates/umbrella-chart.js';

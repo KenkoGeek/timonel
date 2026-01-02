@@ -25,6 +25,7 @@ import { isHelmExpression, isHelmConstruct } from './utils/helmControlStructures
 import { dumpHelmAwareYaml, preprocessHelmConstructs } from './utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from './utils/helmHelpers.js';
 import type { HelperDefinition } from './utils/helmHelpers.js';
+import type { PolicyEngine, ValidationContext } from './policy/index.js';
 
 /**
  * Rutter class with modular architecture
@@ -681,7 +682,7 @@ ${yamlContent.trim()}
    *
    * @since 2.8.0+
    */
-  private toSynthArray(): SynthAsset[] {
+  private async toSynthArray(): Promise<SynthAsset[]> {
     const timer = this.logger.time('chart_synthesis');
 
     this.logger.debug('Starting chart synthesis', {
@@ -747,6 +748,64 @@ ${yamlContent.trim()}
       return preprocessed;
     });
 
+    // Optional policy validation
+    if (this.props.policyEngine) {
+      this.logger.debug('Starting policy validation', {
+        chartName: this.meta.name,
+        manifestCount: enriched.length,
+        operation: 'policy_validation_start',
+      });
+
+      try {
+        const validationContext = {
+          chart: this.meta,
+          kubernetesVersion: this.props.chartProps?.kubernetesVersion,
+          environment: process.env.NODE_ENV || 'development',
+          logger: this.logger,
+        };
+
+        const validationResult = await this.props.policyEngine.validate(enriched, validationContext);
+
+        if (!validationResult.valid) {
+          const errorMessage = this.formatPolicyErrors(validationResult);
+          this.logger.error('Policy validation failed', {
+            chartName: this.meta.name,
+            violationCount: validationResult.violations.length,
+            operation: 'policy_validation_failed',
+          });
+          throw new Error(`Policy validation failed: ${errorMessage}`);
+        }
+
+        // Log warnings but continue
+        if (validationResult.warnings.length > 0) {
+          this.logger.warn('Policy validation warnings', {
+            chartName: this.meta.name,
+            warningCount: validationResult.warnings.length,
+            warnings: validationResult.warnings.map(w => ({
+              plugin: w.plugin,
+              message: w.message,
+              severity: w.severity
+            })),
+            operation: 'policy_validation_warnings',
+          });
+        }
+
+        this.logger.info('Policy validation completed successfully', {
+          chartName: this.meta.name,
+          pluginCount: validationResult.metadata.pluginCount,
+          executionTime: validationResult.metadata.executionTime,
+          operation: 'policy_validation_success',
+        });
+      } catch (error) {
+        this.logger.error('Policy validation error', {
+          chartName: this.meta.name,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          operation: 'policy_validation_error',
+        });
+        throw error;
+      }
+    }
+
     const synthAssets: SynthAsset[] = [];
 
     if (this.props.singleManifestFile) {
@@ -790,12 +849,51 @@ ${yamlContent.trim()}
   }
 
   /**
+   * Formats policy validation errors into a readable error message
+   * @param result - Policy validation result
+   * @returns Formatted error message
+   * @private
+   */
+  private formatPolicyErrors(result: any): string {
+    const errorMessages: string[] = [];
+    
+    if (result.violations && result.violations.length > 0) {
+      errorMessages.push(`Found ${result.violations.length} policy violation(s):`);
+      
+      result.violations.forEach((violation: any, index: number) => {
+        const parts = [`${index + 1}. [${violation.plugin}] ${violation.message}`];
+        
+        if (violation.resourcePath) {
+          parts.push(`Resource: ${violation.resourcePath}`);
+        }
+        
+        if (violation.field) {
+          parts.push(`Field: ${violation.field}`);
+        }
+        
+        if (violation.suggestion) {
+          parts.push(`Suggestion: ${violation.suggestion}`);
+        }
+        
+        errorMessages.push(`   ${parts.join(' | ')}`);
+      });
+    }
+    
+    if (result.summary) {
+      const summary = result.summary;
+      errorMessages.push(`Summary: ${summary.violationsBySeverity.error} error(s), ${summary.violationsBySeverity.warning} warning(s), ${summary.violationsBySeverity.info} info(s)`);
+    }
+    
+    return errorMessages.join('\n');
+  }
+
+  /**
    * Writes the Helm chart to the specified output directory
    * @param outDir - Output directory path
    *
    * @since 1.0.0
    */
-  write(outDir: string): void {
+  async write(outDir: string): Promise<void> {
     const timer = this.logger.time('chart_write');
 
     this.logger.info('Starting chart write operation', {
@@ -826,7 +924,7 @@ ${helper.template}
       helpersContent = generateHelpersTemplate(this.props.cloudProvider);
     }
 
-    const synthAssets = this.toSynthArray();
+    const synthAssets = await this.toSynthArray();
 
     this.logger.info('Generated assets for chart', {
       chartName: this.meta.name,
@@ -881,6 +979,8 @@ export interface RutterProps {
   manifestPrefix?: string;
   meta: ChartMetadata;
   namespace?: string;
+  /** Optional policy engine for manifest validation */
+  policyEngine?: PolicyEngine;
   scope?: Construct;
   /** Combine all resources into single manifest file */
   singleManifestFile?: boolean;
