@@ -8,9 +8,10 @@
  * @since 3.0.0
  */
 
+import { createLogger, type TimonelLogger } from '../utils/logger.js';
+
 import type { JSONSchema, PolicyPlugin, ConfigurationLoaderOptions } from './types.js';
 import { PluginConfigurationError } from './errors.js';
-import { createLogger, type TimonelLogger } from '../utils/logger.js';
 
 /**
  * Configuration source types

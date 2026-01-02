@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+
 import { PolicyEngine } from '../src/lib/policy/policyEngine.js';
 import { PluginRegistry } from '../src/lib/policy/pluginRegistry.js';
 import { ConfigurationLoader } from '../src/lib/policy/configurationLoader.js';

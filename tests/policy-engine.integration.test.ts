@@ -10,13 +10,13 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { PolicyEngine } from '../src/lib/policy/policyEngine.js';
 import { Rutter } from '../src/lib/rutter.js';
 import type { 
   PolicyPlugin, 
   PolicyViolation, 
   ValidationContext,
-  PolicyResult,
   ChartMetadata
 } from '../src/lib/policy/types.js';
 import { createLogger } from '../src/lib/utils/logger.js';

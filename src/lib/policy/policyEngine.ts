@@ -8,6 +8,8 @@
  * @since 3.0.0
  */
 
+import { createLogger, type TimonelLogger } from '../utils/logger.js';
+
 import type { 
   PolicyEngine as IPolicyEngine,
   PolicyPlugin,
@@ -24,15 +26,12 @@ import {
   PolicyEngineError, 
   ValidationTimeoutError, 
   PluginError,
-  PluginRetryExhaustedError,
-  GracefulDegradationError
+  PluginRetryExhaustedError
 } from './errors.js';
 import { generateResultSummary } from './resultAggregator.js';
 import { DefaultResultFormatter } from './resultFormatter.js';
 import { ErrorContextGenerator } from './errorContextGenerator.js';
 import { ConfigurationLoader } from './configurationLoader.js';
-import { createLogger, type TimonelLogger } from '../utils/logger.js';
-import type { ChartMetadata } from '../rutter.js';
 
 /**
  * Default policy engine configuration

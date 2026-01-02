@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { PolicyEngine } from '../src/lib/policy/policyEngine.js';
 import type { PolicyPlugin, ValidationContext, PolicyViolation } from '../src/lib/policy/types.js';
 

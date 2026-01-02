@@ -608,7 +608,8 @@ const validateChart = async (chartPath: string, environment: string) => {
   documentation
 - **[CLI Reference](https://github.com/KenkoGeek/timonel/wiki/CLI-Reference)** - Command-line
   interface guide
-- **[Policy Engine Guide](https://github.com/KenkoGeek/timonel/wiki/Policy-Engine)** - Policy validation and plugin development
+- **[Policy Engine Guide](https://github.com/KenkoGeek/timonel/wiki/Policy-Engine)** -
+  Policy validation and plugin development
 - **[Examples](https://github.com/KenkoGeek/timonel/wiki/Examples)** - Real-world usage examples
 - **[Best Practices](https://github.com/KenkoGeek/timonel/wiki/Best-Practices)** - Recommended
   patterns and practices
