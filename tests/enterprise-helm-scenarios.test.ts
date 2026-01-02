@@ -11,7 +11,7 @@ import {
   createHelmExpression,
 } from '../src/lib/utils/helmControlStructures';
 
-describe('Enterprise Helm Scenarios from Zeus Chart', () => {
+describe('Enterprise Helm Scenarios from Enterprise Chart', () => {
   it('should handle complex conditional annotations (AWS vs Azure vs GCP)', () => {
     const app = new App();
     const rutter = new Rutter({
@@ -20,8 +20,6 @@ describe('Enterprise Helm Scenarios from Zeus Chart', () => {
       chartProps: { disableResourceNameHashes: true },
     });
 
-    // Simulating the complex ingress annotations from zeus/templates/ingress.yaml
-    // Using helmIf with nested else-if conditions
     rutter.addManifest(
       {
         apiVersion: 'networking.k8s.io/v1',
@@ -33,7 +31,7 @@ describe('Enterprise Helm Scenarios from Zeus Chart', () => {
             `kubernetes.io/ingress.class: alb
 alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
 alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.certificate }}
-alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.load_balancer_name | default "paragon" }}`,
+alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.load_balancer_name | default "my-org" }}`,
             helmIf(
               'eq .Values.global.env.HOST_ENV "AZURE_K8"',
               `kubernetes.io/ingress.class: nginx
@@ -75,8 +73,6 @@ cert-manager.io/cluster-issuer: letsencrypt-prod`,
       chartProps: { disableResourceNameHashes: true },
     });
 
-    // From zeus/templates/deployment.yaml lines 74-100
-    // This is complex enough that we keep it as a raw expression for now
     rutter.addManifest(
       {
         apiVersion: 'apps/v1',
@@ -190,7 +186,6 @@ cert-manager.io/cluster-issuer: letsencrypt-prod`,
       chartProps: { disableResourceNameHashes: true },
     });
 
-    // From zeus/templates/secret.yaml
     rutter.addConditionalManifest(
       {
         apiVersion: 'v1',
@@ -233,10 +228,10 @@ cert-manager.io/cluster-issuer: letsencrypt-prod`,
         kind: 'Service',
         metadata: {
           name: 'test-service',
-          labels: helmInclude('zeus.labels', '.', { pipe: 'nindent 4' }),
+          labels: helmInclude('test-service.labels', '.', { pipe: 'nindent 4' }),
         },
         spec: {
-          selector: helmInclude('zeus.selectorLabels', '.', { pipe: 'nindent 6' }),
+          selector: helmInclude('test-service.selectorLabels', '.', { pipe: 'nindent 6' }),
         },
       },
       'service',
