@@ -9,17 +9,60 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { InputValidator } from '../src/lib/validation/inputValidator';
 import { PolicyValidationError } from '../src/lib/policy/errors';
+import type { PolicyConfig, PolicyRule, PolicyContext, PluginConfig } from '../src/types/index';
 
-describe('InputValidator', () => {
+// Type guard functions for safe type checking
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item): item is string => typeof item === 'string');
+}
+
+function hasProperty<T extends Record<string, unknown>, K extends string>(
+  obj: T,
+  key: K,
+): obj is T & Record<K, unknown> {
+  return key in obj;
+}
+
+function isValidPolicyConfig(value: unknown): value is PolicyConfig {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    Array.isArray(value.rules)
+  );
+}
+
+function isValidPolicyRule(value: unknown): value is PolicyRule {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.type === 'string' &&
+    isRecord(value.condition)
+  );
+}
+
+function isValidPolicyContext(value: unknown): value is PolicyContext {
+  return isRecord(value);
+}
+
+function isValidPluginConfig(value: unknown): value is PluginConfig {
+  return isRecord(value) && typeof value.name === 'string';
+}
+
+describe('InputValidator', (): void => {
   let validator: InputValidator;
 
-  beforeEach(() => {
+  beforeEach((): void => {
     validator = new InputValidator();
   });
 
-  describe('PolicyConfig Validation', () => {
-    it('should validate a valid PolicyConfig', () => {
-      const validConfig = {
+  describe('PolicyConfig Validation', (): void => {
+    it('should validate a valid PolicyConfig', (): void => {
+      const validConfig: PolicyConfig = {
         id: 'test-policy',
         name: 'Test Policy',
         rules: [
@@ -31,107 +74,114 @@ describe('InputValidator', () => {
         ],
       };
 
-      const result = validator.validatePolicyConfig(validConfig);
+      const result: PolicyConfig = validator.validatePolicyConfig(validConfig);
       expect(result.id).toBe('test-policy');
       expect(result.name).toBe('Test Policy');
       expect(result.rules).toHaveLength(1);
     });
 
-    it('should reject null or undefined config', () => {
-      expect(() => validator.validatePolicyConfig(null)).toThrow(PolicyValidationError);
-      expect(() => validator.validatePolicyConfig(undefined)).toThrow(PolicyValidationError);
+    it('should reject null or undefined config', (): void => {
+      expect((): PolicyConfig => validator.validatePolicyConfig(null)).toThrow(
+        PolicyValidationError,
+      );
+      expect((): PolicyConfig => validator.validatePolicyConfig(undefined)).toThrow(
+        PolicyValidationError,
+      );
     });
 
-    it('should reject config without required fields', () => {
-      expect(() => validator.validatePolicyConfig({})).toThrow(
+    it('should reject config without required fields', (): void => {
+      expect((): PolicyConfig => validator.validatePolicyConfig({})).toThrow(
         'PolicyConfig.id must be a non-empty string',
       );
-      expect(() => validator.validatePolicyConfig({ id: 'test' })).toThrow(
+      expect((): PolicyConfig => validator.validatePolicyConfig({ id: 'test' })).toThrow(
         'PolicyConfig.name must be a non-empty string',
       );
-      expect(() => validator.validatePolicyConfig({ id: 'test', name: 'Test' })).toThrow(
-        'PolicyConfig.rules must be an array',
-      );
+      expect(
+        (): PolicyConfig => validator.validatePolicyConfig({ id: 'test', name: 'Test' }),
+      ).toThrow('PolicyConfig.rules must be an array');
     });
 
-    it('should reject config with invalid field types', () => {
-      expect(() => validator.validatePolicyConfig({ id: 123, name: 'Test', rules: [] })).toThrow(
-        PolicyValidationError,
-      );
-      expect(() => validator.validatePolicyConfig({ id: 'test', name: 123, rules: [] })).toThrow(
-        PolicyValidationError,
-      );
-      expect(() =>
-        validator.validatePolicyConfig({ id: 'test', name: 'Test', rules: 'not-array' }),
+    it('should reject config with invalid field types', (): void => {
+      expect(
+        (): PolicyConfig => validator.validatePolicyConfig({ id: 123, name: 'Test', rules: [] }),
+      ).toThrow(PolicyValidationError);
+      expect(
+        (): PolicyConfig => validator.validatePolicyConfig({ id: 'test', name: 123, rules: [] }),
+      ).toThrow(PolicyValidationError);
+      expect(
+        (): PolicyConfig =>
+          validator.validatePolicyConfig({ id: 'test', name: 'Test', rules: 'not-array' }),
       ).toThrow(PolicyValidationError);
     });
 
-    it('should enforce string length limits', () => {
-      const longString = 'a'.repeat(20000);
-      expect(() =>
-        validator.validatePolicyConfig({
-          id: longString,
-          name: 'Test',
-          rules: [],
-        }),
+    it('should enforce string length limits', (): void => {
+      const longString: string = 'a'.repeat(20000);
+      expect(
+        (): PolicyConfig =>
+          validator.validatePolicyConfig({
+            id: longString,
+            name: 'Test',
+            rules: [],
+          }),
       ).toThrow('exceeds maximum length');
     });
 
-    it('should enforce array length limits', () => {
-      const manyRules = Array(2000).fill({
+    it('should enforce array length limits', (): void => {
+      const manyRules: PolicyRule[] = Array(2000).fill({
         id: 'rule',
         type: 'test',
         condition: {},
       });
-      expect(() =>
-        validator.validatePolicyConfig({
-          id: 'test',
-          name: 'Test',
-          rules: manyRules,
-        }),
+      expect(
+        (): PolicyConfig =>
+          validator.validatePolicyConfig({
+            id: 'test',
+            name: 'Test',
+            rules: manyRules,
+          }),
       ).toThrow('exceeds maximum length');
     });
 
-    it('should sanitize strings when enabled', () => {
+    it('should sanitize strings when enabled', (): void => {
       const maliciousConfig = {
         id: 'test<script>alert("xss")</script>',
         name: 'Test javascript:void(0)',
         rules: [],
       };
 
-      const result = validator.validatePolicyConfig(maliciousConfig);
+      const result: PolicyConfig = validator.validatePolicyConfig(maliciousConfig);
       expect(result.id).not.toContain('<script>');
       expect(result.name).not.toContain('javascript:');
     });
   });
 
-  describe('PolicyRule Validation', () => {
-    it('should validate a valid PolicyRule', () => {
-      const validRule = {
+  describe('PolicyRule Validation', (): void => {
+    it('should validate a valid PolicyRule', (): void => {
+      const validRule: PolicyRule = {
         id: 'test-rule',
         type: 'security',
         condition: { field: 'value' },
       };
 
-      const result = validator.validatePolicyRule(validRule);
+      const result: PolicyRule = validator.validatePolicyRule(validRule);
       expect(result.id).toBe('test-rule');
       expect(result.type).toBe('security');
       expect(result.condition).toEqual({ field: 'value' });
     });
 
-    it('should reject rule without required fields', () => {
-      expect(() => validator.validatePolicyRule({})).toThrow(
+    it('should reject rule without required fields', (): void => {
+      expect((): PolicyRule => validator.validatePolicyRule({})).toThrow(
         'PolicyRule.id must be a non-empty string',
       );
-      expect(() => validator.validatePolicyRule({ id: 'test' })).toThrow(
+      expect((): PolicyRule => validator.validatePolicyRule({ id: 'test' })).toThrow(
         'PolicyRule.type must be a non-empty string',
       );
-      expect(() => validator.validatePolicyRule({ id: 'test', type: 'security' })).toThrow(
-        'PolicyRule.condition must be an object',
-      );
+      expect(
+        (): PolicyRule => validator.validatePolicyRule({ id: 'test', type: 'security' }),
+      ).toThrow('PolicyRule.condition must be an object');
     });
 
-    it('should enforce object depth limits', () => {
+    it('should enforce object depth limits', (): void => {
       const deepCondition = {
         level1: {
           level2: {
@@ -158,114 +208,132 @@ describe('InputValidator', () => {
         },
       };
 
-      expect(() =>
-        validator.validatePolicyRule({
-          id: 'test',
-          type: 'security',
-          condition: deepCondition,
-        }),
+      expect(
+        (): PolicyRule =>
+          validator.validatePolicyRule({
+            id: 'test',
+            type: 'security',
+            condition: deepCondition,
+          }),
       ).toThrow('exceeds maximum object depth');
     });
   });
 
-  describe('PolicyContext Validation', () => {
-    it('should validate a valid PolicyContext', () => {
-      const validContext = {
+  describe('PolicyContext Validation', (): void => {
+    it('should validate a valid PolicyContext', (): void => {
+      const validContext: PolicyContext = {
         environment: 'production',
         metadata: { version: '1.0.0' },
       };
 
-      const result = validator.validatePolicyContext(validContext);
+      const result: PolicyContext = validator.validatePolicyContext(validContext);
       expect(result.environment).toBe('production');
       expect(result.metadata).toEqual({ version: '1.0.0' });
     });
 
-    it('should reject null or non-object context', () => {
-      expect(() => validator.validatePolicyContext(null)).toThrow(PolicyValidationError);
-      expect(() => validator.validatePolicyContext('string')).toThrow(PolicyValidationError);
+    it('should reject null or non-object context', (): void => {
+      expect((): PolicyContext => validator.validatePolicyContext(null)).toThrow(
+        PolicyValidationError,
+      );
+      expect((): PolicyContext => validator.validatePolicyContext('string')).toThrow(
+        PolicyValidationError,
+      );
     });
 
-    it('should sanitize context strings', () => {
+    it('should sanitize context strings', (): void => {
       const maliciousContext = {
         environment: 'prod<script>alert("xss")</script>',
         data: { key: 'value javascript:void(0)' },
       };
 
-      const result = validator.validatePolicyContext(maliciousContext);
+      const result: PolicyContext = validator.validatePolicyContext(maliciousContext);
       expect(result.environment).not.toContain('<script>');
-      expect((result.data as Record<string, unknown>).key).not.toContain('javascript:');
+
+      // Type-safe access to nested data with proper validation
+      if (
+        isRecord(result.data) &&
+        hasProperty(result.data, 'key') &&
+        typeof result.data.key === 'string'
+      ) {
+        expect(result.data.key).not.toContain('javascript:');
+      }
     });
   });
 
-  describe('PluginConfig Validation', () => {
-    it('should validate a valid PluginConfig', () => {
-      const validConfig = {
+  describe('PluginConfig Validation', (): void => {
+    it('should validate a valid PluginConfig', (): void => {
+      const validConfig: PluginConfig = {
         name: 'test-plugin',
         version: '1.0.0',
         config: { setting: 'value' },
       };
 
-      const result = validator.validatePluginConfig(validConfig);
+      const result: PluginConfig = validator.validatePluginConfig(validConfig);
       expect(result.name).toBe('test-plugin');
       expect(result.version).toBe('1.0.0');
       expect(result.config).toEqual({ setting: 'value' });
     });
 
-    it('should reject config without required name', () => {
-      expect(() => validator.validatePluginConfig({})).toThrow(
+    it('should reject config without required name', (): void => {
+      expect((): PluginConfig => validator.validatePluginConfig({})).toThrow(
         'PluginConfig.name must be a non-empty string',
       );
-      expect(() => validator.validatePluginConfig({ name: 123 })).toThrow(
+      expect((): PluginConfig => validator.validatePluginConfig({ name: 123 })).toThrow(
         'PluginConfig.name must be a non-empty string',
       );
     });
   });
 
-  describe('Custom Validation Options', () => {
-    it('should respect custom string length limits', () => {
-      const customValidator = new InputValidator({ maxStringLength: 10 });
+  describe('Custom Validation Options', (): void => {
+    it('should respect custom string length limits', (): void => {
+      const customValidator: InputValidator = new InputValidator({ maxStringLength: 10 });
 
-      expect(() =>
-        customValidator.validatePolicyConfig({
-          id: 'this-is-too-long',
-          name: 'Test',
-          rules: [],
-        }),
+      expect(
+        (): PolicyConfig =>
+          customValidator.validatePolicyConfig({
+            id: 'this-is-too-long',
+            name: 'Test',
+            rules: [],
+          }),
       ).toThrow('exceeds maximum length of 10 characters');
     });
 
-    it('should respect custom array length limits', () => {
-      const customValidator = new InputValidator({ maxArrayLength: 2 });
+    it('should respect custom array length limits', (): void => {
+      const customValidator: InputValidator = new InputValidator({ maxArrayLength: 2 });
 
-      expect(() =>
-        customValidator.validatePolicyConfig({
-          id: 'test',
-          name: 'Test',
-          rules: [
-            { id: '1', type: 'a', condition: {} },
-            { id: '2', type: 'b', condition: {} },
-            { id: '3', type: 'c', condition: {} },
-          ],
-        }),
+      const testRules: PolicyRule[] = [
+        { id: '1', type: 'a', condition: {} },
+        { id: '2', type: 'b', condition: {} },
+        { id: '3', type: 'c', condition: {} },
+      ];
+
+      expect(
+        (): PolicyConfig =>
+          customValidator.validatePolicyConfig({
+            id: 'test',
+            name: 'Test',
+            rules: testRules,
+          }),
       ).toThrow('exceeds maximum length of 2 items');
     });
 
-    it('should respect custom object depth limits', () => {
-      const customValidator = new InputValidator({ maxObjectDepth: 2 });
+    it('should respect custom object depth limits', (): void => {
+      const customValidator: InputValidator = new InputValidator({ maxObjectDepth: 2 });
 
-      expect(() =>
-        customValidator.validatePolicyRule({
-          id: 'test',
-          type: 'security',
-          condition: { level1: { level2: { level3: { level4: 'too deep' } } } },
-        }),
+      expect(
+        (): PolicyRule =>
+          customValidator.validatePolicyRule({
+            id: 'test',
+            type: 'security',
+            condition: { level1: { level2: { level3: { level4: 'too deep' } } } },
+          }),
       ).toThrow('exceeds maximum object depth of 2');
     });
 
-    it('should allow disabling string sanitization', () => {
-      const customValidator = new InputValidator({ sanitizeStrings: false });
+    it('should allow disabling string sanitization', (): void => {
+      const customValidator: InputValidator = new InputValidator({ sanitizeStrings: false });
 
-      const result = customValidator.validatePolicyConfig({
+      const result: PolicyConfig = customValidator.validatePolicyConfig({
         id: 'test<script>',
         name: 'Test',
         rules: [],
@@ -275,82 +343,95 @@ describe('InputValidator', () => {
     });
   });
 
-  describe('Security Tests', () => {
-    it('should remove script tags', () => {
+  describe('Security Tests', (): void => {
+    it('should remove script tags', (): void => {
       const maliciousInput = {
         id: 'test<script>alert("xss")</script>',
         name: 'Test',
         rules: [],
       };
 
-      const result = validator.validatePolicyConfig(maliciousInput);
+      const result: PolicyConfig = validator.validatePolicyConfig(maliciousInput);
       expect(result.id).not.toContain('<script>');
       expect(result.id).not.toContain('alert');
     });
 
-    it('should remove javascript protocols', () => {
+    it('should remove javascript protocols', (): void => {
       const maliciousInput = {
         id: 'javascript:alert("xss")',
         name: 'Test',
         rules: [],
       };
 
-      const result = validator.validatePolicyConfig(maliciousInput);
+      const result: PolicyConfig = validator.validatePolicyConfig(maliciousInput);
       expect(result.id).not.toContain('javascript:');
     });
 
-    it('should remove event handlers', () => {
+    it('should remove event handlers', (): void => {
       const maliciousInput = {
         id: 'test onclick="alert(1)"',
         name: 'Test',
         rules: [],
       };
 
-      const result = validator.validatePolicyConfig(maliciousInput);
+      const result: PolicyConfig = validator.validatePolicyConfig(maliciousInput);
       expect(result.id).not.toContain('onclick=');
     });
 
-    it('should remove null bytes and control characters', () => {
+    it('should remove null bytes and control characters', (): void => {
       const maliciousInput = {
         id: 'test\x00\x01\x02',
         name: 'Test',
         rules: [],
       };
 
-      const result = validator.validatePolicyConfig(maliciousInput);
+      const result: PolicyConfig = validator.validatePolicyConfig(maliciousInput);
       expect(result.id).toBe('test');
     });
   });
 
-  describe('Edge Cases', () => {
-    it('should handle empty arrays', () => {
-      const config = {
+  describe('Edge Cases', (): void => {
+    it('should handle empty arrays', (): void => {
+      const config: PolicyConfig = {
         id: 'test',
         name: 'Test',
         rules: [],
       };
 
-      const result = validator.validatePolicyConfig(config);
+      const result: PolicyConfig = validator.validatePolicyConfig(config);
       expect(result.rules).toHaveLength(0);
     });
 
-    it('should handle nested arrays in objects', () => {
+    it('should handle nested arrays in objects', (): void => {
       const context = {
         data: {
           items: ['item1', 'item2<script>alert(1)</script>'],
         },
       };
 
-      const result = validator.validatePolicyContext(context);
-      expect((result.data as Record<string, unknown>).items[1]).not.toContain('<script>');
+      const result: PolicyContext = validator.validatePolicyContext(context);
+
+      // Type-safe access to nested array data with proper validation
+      if (
+        isRecord(result.data) &&
+        hasProperty(result.data, 'items') &&
+        isStringArray(result.data.items)
+      ) {
+        const items: string[] = result.data.items;
+        if (items.length > 1) {
+          expect(items[1]).not.toContain('<script>');
+        }
+      }
     });
 
-    it('should handle circular references gracefully', () => {
+    it('should handle circular references gracefully', (): void => {
       const circular: Record<string, unknown> = { name: 'test' };
       circular.self = circular;
 
       // This should not cause infinite recursion
-      expect(() => validator.validatePolicyContext(circular)).not.toThrow('Maximum call stack');
+      expect((): PolicyContext => validator.validatePolicyContext(circular)).not.toThrow(
+        'Maximum call stack',
+      );
     });
   });
 });
