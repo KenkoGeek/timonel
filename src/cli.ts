@@ -914,7 +914,9 @@ console.log('Umbrella chart written to ' + output);
     }
   } finally {
     // Cleanup wrapper file
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
     if (fs.existsSync(wrapperFile)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
       fs.unlinkSync(wrapperFile);
     }
   }
