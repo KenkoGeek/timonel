@@ -97,34 +97,75 @@ export class PolicyEngine implements IPolicyEngine {
   private options: PolicyEngineOptions;
   private readonly logger: TimonelLogger;
   private readonly errorContextGenerator: ErrorContextGenerator;
-  private readonly configurationLoader: ConfigurationLoader;
-  private readonly cache: ValidationCache;
-  private readonly parallelExecutor: ParallelExecutor;
+
+  // Lazy initialization properties
+  private _configurationLoader?: ConfigurationLoader;
+  private _cache?: ValidationCache;
+  private _parallelExecutor?: ParallelExecutor;
 
   constructor(options: PolicyEngineOptions = {}) {
     this.registry = new PluginRegistry();
     this.options = { ...DEFAULT_OPTIONS, ...options };
     this.logger = createLogger('policy-engine');
     this.errorContextGenerator = new ErrorContextGenerator();
-    this.configurationLoader = new ConfigurationLoader(options.configurationLoader);
-    this.cache = new ValidationCache(options.cacheOptions);
 
-    // Initialize parallel executor with optimized concurrency
-    const parallelOptions: ParallelExecutionOptions = {
-      maxConcurrency: options.parallelOptions?.maxConcurrency || calculateOptimalConcurrency(10), // Default estimate
-      pluginTimeout: options.timeout || DEFAULT_OPTIONS.timeout,
-      failFast: options.failFast || DEFAULT_OPTIONS.failFast,
-      ...options.parallelOptions,
-    };
-    this.parallelExecutor = new ParallelExecutor(parallelOptions);
-
-    this.logger.debug('PolicyEngine initialized', {
+    this.logger.debug('PolicyEngine initialized with lazy loading', {
       options: this.options,
       cacheEnabled: !!options.cacheOptions,
       parallelEnabled: !!options.parallel,
-      maxConcurrency: parallelOptions.maxConcurrency,
       operation: 'policy_engine_init',
     });
+  }
+
+  /**
+   * Lazy getter for configuration loader
+   * @private
+   */
+  private get configurationLoader(): ConfigurationLoader {
+    if (!this._configurationLoader) {
+      this._configurationLoader = new ConfigurationLoader(this.options.configurationLoader);
+      this.logger.debug('ConfigurationLoader initialized lazily', {
+        operation: 'lazy_init_config_loader',
+      });
+    }
+    return this._configurationLoader;
+  }
+
+  /**
+   * Lazy getter for validation cache
+   * @private
+   */
+  private get cache(): ValidationCache {
+    if (!this._cache) {
+      this._cache = new ValidationCache(this.options.cacheOptions);
+      this.logger.debug('ValidationCache initialized lazily', {
+        cacheEnabled: !!this.options.cacheOptions,
+        operation: 'lazy_init_cache',
+      });
+    }
+    return this._cache;
+  }
+
+  /**
+   * Lazy getter for parallel executor
+   * @private
+   */
+  private get parallelExecutor(): ParallelExecutor {
+    if (!this._parallelExecutor) {
+      const parallelOptions: ParallelExecutionOptions = {
+        maxConcurrency:
+          this.options.parallelOptions?.maxConcurrency || calculateOptimalConcurrency(10), // Default estimate
+        pluginTimeout: this.options.timeout || DEFAULT_OPTIONS.timeout,
+        failFast: this.options.failFast || DEFAULT_OPTIONS.failFast,
+        ...this.options.parallelOptions,
+      };
+      this._parallelExecutor = new ParallelExecutor(parallelOptions);
+      this.logger.debug('ParallelExecutor initialized lazily', {
+        maxConcurrency: parallelOptions.maxConcurrency,
+        operation: 'lazy_init_parallel_executor',
+      });
+    }
+    return this._parallelExecutor;
   }
 
   /**
