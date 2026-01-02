@@ -367,26 +367,118 @@ describe('InputValidator', (): void => {
       expect(result.id).not.toContain('javascript:');
     });
 
-    it('should remove event handlers', (): void => {
-      const maliciousInput = {
-        id: 'test onclick="alert(1)"',
-        name: 'Test',
-        rules: [],
-      };
+    // NEW COMPREHENSIVE SECURITY TESTS FOR PR-249 FIXES
+    describe('PR-249 Security Vulnerability Fixes', (): void => {
+      it('should remove dangerous URL schemes including data: and vbscript:', (): void => {
+        const maliciousInputs = [
+          { id: 'data:text/html,<script>alert(1)</script>', name: 'Test', rules: [] },
+          { id: 'vbscript:alert(1)', name: 'Test', rules: [] },
+          { id: 'VBSCRIPT:alert(1)', name: 'Test', rules: [] },
+          { id: 'DATA:text/html,<script>alert(1)</script>', name: 'Test', rules: [] },
+        ];
 
-      const result: PolicyConfig = validator.validatePolicyConfig(maliciousInput);
-      expect(result.id).not.toContain('onclick=');
-    });
+        maliciousInputs.forEach((input) => {
+          const result: PolicyConfig = validator.validatePolicyConfig(input);
+          expect(result.id).not.toContain('data:');
+          expect(result.id).not.toContain('vbscript:');
+          expect(result.id).not.toContain('DATA:');
+          expect(result.id).not.toContain('VBSCRIPT:');
+        });
+      });
 
-    it('should remove null bytes and control characters', (): void => {
-      const maliciousInput = {
-        id: 'test\x00\x01\x02',
-        name: 'Test',
-        rules: [],
-      };
+      it('should remove event handlers comprehensively', (): void => {
+        const maliciousInputs = [
+          { id: 'onclick="alert(1)"', name: 'Test', rules: [] },
+          { id: 'onload="alert(1)"', name: 'Test', rules: [] },
+          { id: 'onerror="alert(1)"', name: 'Test', rules: [] },
+          { id: 'onmouseover="alert(1)"', name: 'Test', rules: [] },
+          { id: 'ONCLICK="alert(1)"', name: 'Test', rules: [] },
+        ];
 
-      const result: PolicyConfig = validator.validatePolicyConfig(maliciousInput);
-      expect(result.id).toBe('test');
+        maliciousInputs.forEach((input) => {
+          const result: PolicyConfig = validator.validatePolicyConfig(input);
+          expect(result.id).not.toMatch(/on\w+\s*=/i);
+        });
+      });
+
+      it('should remove script tags with spaces and variations', (): void => {
+        const maliciousInputs = [
+          { id: '<script>alert(1)</script>', name: 'Test', rules: [] },
+          { id: '<script >alert(1)</script >', name: 'Test', rules: [] },
+          { id: '<SCRIPT>alert(1)</SCRIPT>', name: 'Test', rules: [] },
+          { id: '< script>alert(1)</ script>', name: 'Test', rules: [] },
+          { id: '<script type="text/javascript">alert(1)</script>', name: 'Test', rules: [] },
+        ];
+
+        maliciousInputs.forEach((input) => {
+          const result: PolicyConfig = validator.validatePolicyConfig(input);
+          expect(result.id).not.toMatch(/<\s*script[^>]*>/i);
+          expect(result.id).not.toMatch(/<\s*\/\s*script\s*>/i);
+          expect(result.id).not.toContain('alert(1)');
+        });
+      });
+
+      it('should prevent bypass attempts with multi-pass sanitization', (): void => {
+        const bypassAttempts = [
+          { id: '<scr<script>ipt>alert(1)</script>', name: 'Test', rules: [] },
+          { id: 'jajavascript:vascript:alert(1)', name: 'Test', rules: [] },
+          { id: 'on<click>="alert(1)"', name: 'Test', rules: [] },
+          { id: 'da<data:>ta:text/html,<script>alert(1)</script>', name: 'Test', rules: [] },
+        ];
+
+        bypassAttempts.forEach((input) => {
+          const result: PolicyConfig = validator.validatePolicyConfig(input);
+          expect(result.id).not.toContain('script');
+          expect(result.id).not.toContain('javascript:');
+          expect(result.id).not.toContain('data:');
+          expect(result.id).not.toMatch(/on\w+\s*=/i);
+          expect(result.id).not.toContain('alert(1)');
+        });
+      });
+
+      it('should handle complex nested injection attempts', (): void => {
+        const complexInput = {
+          id: 'test',
+          name: 'Complex<script>alert("nested")</script>Test',
+          rules: [
+            {
+              id: 'rule<script>alert(1)</script>',
+              type: 'security',
+              condition: {
+                field: 'onclick="alert(2)"',
+                value: 'data:text/html,<script>alert(3)</script>',
+                nested: {
+                  deep: 'vbscript:alert(4)',
+                },
+              },
+            },
+          ],
+        };
+
+        const result: PolicyConfig = validator.validatePolicyConfig(complexInput);
+
+        // Check all levels are sanitized
+        expect(result.name).not.toContain('<script>');
+        expect(result.rules[0]?.id).not.toContain('<script>');
+
+        if (isValidPolicyRule(result.rules[0])) {
+          const condition = result.rules[0].condition;
+          if (hasProperty(condition, 'field') && typeof condition.field === 'string') {
+            expect(condition.field).not.toMatch(/on\w+\s*=/i);
+          }
+          if (hasProperty(condition, 'value') && typeof condition.value === 'string') {
+            expect(condition.value).not.toContain('data:');
+          }
+          if (
+            hasProperty(condition, 'nested') &&
+            isRecord(condition.nested) &&
+            hasProperty(condition.nested, 'deep') &&
+            typeof condition.nested.deep === 'string'
+          ) {
+            expect(condition.nested.deep).not.toContain('vbscript:');
+          }
+        }
+      });
     });
   });
 

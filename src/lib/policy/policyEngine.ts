@@ -632,55 +632,6 @@ export class PolicyEngine implements IPolicyEngine {
   }
 
   /**
-   * Executes plugins in parallel (legacy implementation)
-   * @param plugins - Array of plugins to execute
-   * @param manifests - Manifests to validate
-   * @param violations - Array to collect violations
-   * @param warnings - Array to collect warnings
-   * @private
-   */
-  // eslint-disable-next-line sonarjs/cognitive-complexity
-  private async executeParallel(
-    plugins: PolicyPlugin[],
-    manifests: unknown[],
-    violations: PolicyViolation[],
-    warnings: PolicyWarning[],
-    chartMetadata: ChartMetadata,
-  ): Promise<void> {
-    const pluginPromises = plugins.map(async (plugin) => {
-      try {
-        const pluginViolations = await this.executePlugin(plugin, manifests, chartMetadata);
-        return { plugin, violations: pluginViolations, error: null };
-      } catch (error) {
-        return { plugin, violations: [], error };
-      }
-    });
-
-    const results = await Promise.all(pluginPromises);
-
-    for (const result of results) {
-      if (result.error) {
-        if (this.options.gracefulDegradation) {
-          // With graceful degradation, convert error to violation
-          this.handlePluginError(result.plugin, result.error, violations);
-        } else {
-          // Without graceful degradation, throw the first error encountered
-          throw result.error;
-        }
-      } else {
-        // Separate violations by severity
-        for (const violation of result.violations) {
-          if (violation.severity === 'error') {
-            violations.push(violation);
-          } else {
-            warnings.push(violation as PolicyWarning);
-          }
-        }
-      }
-    }
-  }
-
-  /**
    * Executes a single plugin with timeout and retry handling
    * @param plugin - Plugin to execute
    * @param manifests - Manifests to validate

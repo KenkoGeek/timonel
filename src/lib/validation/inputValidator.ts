@@ -261,18 +261,37 @@ export class InputValidator {
     }
 
     // Remove null bytes, control characters, and potential script injection
-    return value
+    let sanitized = value
       .replace(/\0/g, '') // Remove null bytes
       .split('')
       .filter((char) => {
         const code = char.charCodeAt(0);
         return code > 31 && code !== 127; // Keep printable characters only
       })
-      .join('')
-      .replace(/<script[^>]*>.*?<\/script>/gi, '') // Remove script tags
-      .replace(/javascript:/gi, '') // Remove javascript: protocol
-      .replace(/on\w+\s*=/gi, '') // Remove event handlers
-      .trim();
+      .join('');
+
+    // Multi-pass sanitization to prevent bypass attempts
+    let previousLength = 0;
+    while (sanitized.length !== previousLength) {
+      previousLength = sanitized.length;
+
+      // Remove script tags (all variations including with spaces)
+      sanitized = sanitized.replace(/<\s*script[^>]*>.*?<\s*\/\s*script\s*>/gis, '');
+
+      // Remove dangerous URL schemes including data: and vbscript:
+      sanitized = sanitized.replace(/(?:javascript|data|vbscript):/gi, '');
+
+      // Remove event handlers (comprehensive pattern)
+      sanitized = sanitized.replace(/\bon\w+\s*=/gi, '');
+
+      // Remove common script content patterns
+      sanitized = sanitized.replace(/alert\s*\([^)]*\)/gi, '');
+      sanitized = sanitized.replace(/eval\s*\([^)]*\)/gi, '');
+      sanitized = sanitized.replace(/document\s*\./gi, '');
+      sanitized = sanitized.replace(/window\s*\./gi, '');
+    }
+
+    return sanitized.trim();
   }
 
   /**

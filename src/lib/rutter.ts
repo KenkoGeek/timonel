@@ -84,12 +84,13 @@ export class Rutter {
     // This allows tests that use rutter['toSynthArray']() to work without await
     const originalToSynthArray = this.toSynthArray.bind(this);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this as any)['toSynthArray'] = () => {
+    (this as any)['toSynthArray'] = (..._args: any[]) => {
       // If no policy engine is configured, use the synchronous version
       if (!this.props.policyEngine) {
         return this.toSynthArraySync();
       }
       // Otherwise, return the async version (tests should use await)
+      // Note: Current toSynthArray() doesn't accept arguments, but proxy accepts them for future compatibility
       return originalToSynthArray();
     };
   }
