@@ -121,16 +121,17 @@ export class UmbrellaRutter {
    * - NOTES.txt template
    *
    * @param outDir - Output directory path for the umbrella chart
+   * @returns Promise that resolves when the chart is written
    * @throws {Error} If output directory path is invalid
    *
    * @example
    * ```typescript
-   * umbrella.write('./dist/my-umbrella-chart');
+   * await umbrella.write('./dist/my-umbrella-chart');
    * ```
    *
    * @since 2.8.0+
    */
-  write(outDir: string): void {
+  async write(outDir: string): Promise<void> {
     // Validate output directory path
     const validatedOutDir = SecurityUtils.validatePath(outDir, process.cwd(), {
       allowAbsolute: true,
@@ -159,7 +160,7 @@ export class UmbrellaRutter {
         process.cwd(),
         { allowAbsolute: true },
       );
-      subchart.rutter.write(subchartDir);
+      await subchart.rutter.write(subchartDir);
     }
 
     // Generate parent Chart.yaml with dependencies
