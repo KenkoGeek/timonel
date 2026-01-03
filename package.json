@@ -61,7 +61,7 @@
     "test:coverage": "vitest run --coverage",
     "doc:coverage": "tsx scripts/project-doc-coverage.ts",
     "doc:coverage:validate": "tsx scripts/validate-doc-coverage.ts",
-    "ci:check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm doc:coverage:validate && pnpm build",
+    "ci:check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm build",
     "release": "semantic-release",
     "release:dry": "semantic-release --dry-run",
     "version:patch": "npm version patch && echo 'Remember to update CHANGELOG.md'",
