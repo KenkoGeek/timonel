@@ -1,3 +1,9 @@
+# [3.1.0-beta.1](https://github.com/KenkoGeek/timonel/compare/v3.0.0...v3.1.0-beta.1) (2026-01-03)
+
+### Features
+
+- **core:** policy engine plugin and documentation improvement ([#250](https://github.com/KenkoGeek/timonel/issues/250)) ([400478e](https://github.com/KenkoGeek/timonel/commit/400478e32a30f6f00864832347deb176cb81c94b))
+
 # [3.0.0](https://github.com/KenkoGeek/timonel/compare/v2.13.0...v3.0.0) (2025-12-07)
 
 - feat!: rename ChartFactory to Rutter (maritime pilot concept) ([b0a7a33](https://github.com/KenkoGeek/timonel/commit/b0a7a3361e761a5b20ff2c203d55bdfab35323af))
