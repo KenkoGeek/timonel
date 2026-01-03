@@ -552,7 +552,7 @@ describe('Policy Engine Integration Tests', () => {
 
       // Verify that policy validation was called (through logger calls)
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Starting policy validation',
+        'Starting policy validation before enrichment',
         expect.objectContaining({
           chartName: 'test-app',
           operation: 'policy_validation_start',
@@ -560,7 +560,7 @@ describe('Policy Engine Integration Tests', () => {
       );
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'Policy validation completed successfully',
+        'Policy validation completed successfully before enrichment',
         expect.objectContaining({
           chartName: 'test-app',
           operation: 'policy_validation_success',
@@ -682,7 +682,7 @@ describe('Policy Engine Integration Tests', () => {
       );
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'Policy validation completed successfully',
+        'Policy validation completed successfully before enrichment',
         expect.objectContaining({
           chartName: 'warning-app',
           operation: 'policy_validation_success',
@@ -1232,8 +1232,8 @@ describe('Policy Engine Integration Tests', () => {
 
       // Mock the validate method to pass context
       const originalValidate = engine.validate.bind(engine);
-      engine.validate = async (manifests: unknown[]) => {
-        return originalValidate.call(engine, manifests);
+      engine.validate = async (manifests: unknown[], chartMetadata: ChartMetadata) => {
+        return originalValidate.call(engine, manifests, chartMetadata);
       };
 
       // Configure engine for production context
