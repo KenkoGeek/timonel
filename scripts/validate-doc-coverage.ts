@@ -172,7 +172,9 @@ async function validateDocumentationCoverage(config: CoverageConfig): Promise<vo
       console.log(`   1. Add JSDoc comments to functions, classes, and interfaces`);
       console.log(`   2. Include @param, @returns, and @throws tags where appropriate`);
       console.log(`   3. Add @example blocks for complex APIs`);
-      console.log(`   4. Run 'npm run doc:coverage' to see detailed coverage report`);
+      console.log(
+        `   4. Run '${colors.yellow}pnpm run doc:coverage${colors.reset}' for detailed coverage analysis`,
+      );
       console.log('');
 
       process.exit(1);
@@ -187,6 +189,10 @@ async function validateDocumentationCoverage(config: CoverageConfig): Promise<vo
     );
     console.log(
       `${colors.green}   ${metrics.filesBelow80} files below 80% is within limit of ${config.maxFilesBelow80}${colors.reset}`,
+    );
+    console.log('');
+    console.log(
+      `${colors.cyan}💡 For detailed coverage analysis, run: ${colors.yellow}pnpm run doc:coverage${colors.reset}`,
     );
     console.log('');
   } catch (error) {
