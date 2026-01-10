@@ -735,7 +735,7 @@ The Policy Engine supports a rich ecosystem of plugins for various use cases:
   "types": "dist/index.d.ts",
   "keywords": ["timonel", "policy", "security", "kubernetes"],
   "peerDependencies": {
-    "timonel": "^3.0.0"
+    "timonel": "^3.1.0"
   }
 }
 
@@ -787,13 +787,13 @@ policyEngine.invalidateCache({ all: true });
   Policy engine configuration options
 - **[Policy Examples](https://github.com/KenkoGeek/timonel/wiki/Policy-Examples)** - Example plugins
   and usage patterns
-- **[Examples](https://github.com/KenkoGeek/timonel/wiki/Examples)** - Real-world usage examples (Outdated)
+- **[Examples](https://github.com/KenkoGeek/timonel/wiki/Examples)** - Real-world usage examples
 - **[Best Practices](https://github.com/KenkoGeek/timonel/wiki/Best-Practices)** - Recommended
   patterns and practices
 - **[Contributing](https://github.com/KenkoGeek/timonel/wiki/Contributing)** - Development setup
   and guidelines
 - **[Timonel Examples Repository](https://github.com/KenkoGeek/timonel-examples)** - Curated
-  collection of ready-to-run Timonel sample projects
+  collection of ready-to-run Timonel sample projects (Outdated)
 
 ## 🔧 Troubleshooting
 
@@ -814,7 +814,7 @@ If you get `Error: Cannot find module 'cdk8s'` when running `tl umbrella synth`:
     "cdk8s": "^2.70.28",
     "cdk8s-plus-33": "^2.4.6",
     "constructs": "^10.4.3",
-    "timonel": "^3.0.0-beta.1"
+    "timonel": "^3.1.0"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
