@@ -787,7 +787,7 @@ policyEngine.invalidateCache({ all: true });
   Policy engine configuration options
 - **[Policy Examples](https://github.com/KenkoGeek/timonel/wiki/Policy-Examples)** - Example plugins
   and usage patterns
-- **[Examples](https://github.com/KenkoGeek/timonel/wiki/Examples)** - Real-world usage examples
+- **[Examples](https://github.com/KenkoGeek/timonel/wiki/Examples)** - Real-world usage examples (Outdated)
 - **[Best Practices](https://github.com/KenkoGeek/timonel/wiki/Best-Practices)** - Recommended
   patterns and practices
 - **[Contributing](https://github.com/KenkoGeek/timonel/wiki/Contributing)** - Development setup

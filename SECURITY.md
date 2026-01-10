@@ -38,8 +38,8 @@ We provide security updates for the following versions:
 
 | Version      | Supported      | Security Updates | End of Life |
 | ------------ | -------------- | ---------------- | ----------- |
-| 3.0.0-beta.1 | ✅ Current     | Full support     | TBD         |
-| 2.14.x       | ✅ Supported   | Full support     | TBD         |
+| 3.1.0        | ✅ Current     | Full support     | TBD         |
+| 2.14.x       | ✅ Supported   | Full support     | 2026-02-01  |
 | 2.8.0-2.13.x | ✅ Supported   | Full support     | 2025-06-30  |
 | 2.0-2.7.x    | ⚠️ Limited     | Critical only    | 2025-03-31  |
 | 1.x.x        | ❌ End of life | None             | 2024-06-30  |
