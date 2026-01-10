@@ -1,3 +1,9 @@
+# [3.1.0](https://github.com/KenkoGeek/timonel/compare/v3.0.0...v3.1.0) (2026-01-10)
+
+### Features
+
+- **core:** release policy engine, security improvement and deps updated ([abe608a](https://github.com/KenkoGeek/timonel/commit/abe608a525510b8a97844ef3c734a2b96c0bb8c0)), closes [#245](https://github.com/KenkoGeek/timonel/issues/245)
+
 # [3.1.0-beta.1](https://github.com/KenkoGeek/timonel/compare/v3.0.0...v3.1.0-beta.1) (2026-01-03)
 
 ### Features
