@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { App, Chart } from 'cdk8s';
 
 import { Rutter } from '../src/lib/rutter';
-import { helmIf, helmRange, helmWith } from '../src/lib/utils/helmControlStructures';
+import { createHelmExpression } from '../src/lib/utils/helmControlStructures';
 import { dumpHelmAwareYaml } from '../src/lib/utils/helmYamlSerializer';
 
-describe('Complex Helm Scenarios', () => {
+describe('Complex Helm Scenarios', (): void => {
   // Helper to generate YAML for a single manifest
   function generateYaml(manifest: unknown): string {
     const mockApp = new App();
@@ -23,17 +23,26 @@ describe('Complex Helm Scenarios', () => {
 
     const apiObj = rutter.addManifest(manifest as Record<string, unknown>, 'test-manifest');
 
+    // Suppress unused variable warning - apiObj is intentionally unused in this helper
+    void apiObj;
+
     // Use the serializer directly to verify the core logic.
     return dumpHelmAwareYaml(manifest);
   }
 
-  it('should correctly serialize multiline if-block in map field', () => {
+  it('should correctly serialize multiline if-block in map field', (): void => {
+    // Migrated from legacy helmIf to createHelmExpression (type-safe)
     const manifest = {
       apiVersion: 'v1',
       kind: 'ConfigMap',
       metadata: {
         name: 'test-config',
-        annotations: helmIf('.Values.enabled', `enabled: "true"\nstatus: "active"`),
+        annotations: createHelmExpression(`
+          {{- if .Values.enabled -}}
+          enabled: "true"
+          status: "active"
+          {{- end -}}
+        `),
       },
     };
 
@@ -46,17 +55,21 @@ describe('Complex Helm Scenarios', () => {
     expect(yaml).toContain('{{- end -}}');
   });
 
-  it('should correctly serialize nested range loops', () => {
+  it('should correctly serialize nested range loops', (): void => {
+    // Migrated from legacy helmRange to createHelmExpression (type-safe)
     const manifest = {
       apiVersion: 'v1',
       kind: 'ConfigMap',
       metadata: { name: 'nested-range' },
       data: {
-        config: helmRange(
-          '$key, $val',
-          '.Values.items',
-          `{{ $key }}:\n  {{- range $val.subitems }}\n  - {{ . }}\n  {{- end }}`,
-        ),
+        config: createHelmExpression(`
+          {{- range $key, $val := .Values.items -}}
+          {{ $key }}:
+            {{- range $val.subitems }}
+            - {{ . }}
+            {{- end }}
+          {{- end -}}
+        `),
       },
     };
 
@@ -68,13 +81,19 @@ describe('Complex Helm Scenarios', () => {
     expect(yaml).toContain('{{- end -}}');
   });
 
-  it('should correctly serialize with-block changing scope', () => {
+  it('should correctly serialize with-block changing scope', (): void => {
+    // Migrated from legacy helmWith to createHelmExpression (type-safe)
     const manifest = {
       apiVersion: 'v1',
       kind: 'ConfigMap',
       metadata: { name: 'with-block' },
       data: {
-        settings: helmWith('.Values.settings', `debug: {{ .debug }}\nlogLevel: {{ .logLevel }}`),
+        settings: createHelmExpression(`
+          {{- with .Values.settings -}}
+          debug: {{ .debug }}
+          logLevel: {{ .logLevel }}
+          {{- end -}}
+        `),
       },
     };
 
@@ -87,17 +106,21 @@ describe('Complex Helm Scenarios', () => {
     expect(yaml).toContain('{{- end -}}');
   });
 
-  it('should correctly serialize complex logic with operators', () => {
+  it('should correctly serialize complex logic with operators', (): void => {
+    // Migrated from legacy helmIf to createHelmExpression (type-safe)
     const manifest = {
       apiVersion: 'v1',
       kind: 'ConfigMap',
       metadata: { name: 'complex-logic' },
       data: {
-        feature: helmIf(
-          'and .Values.enabled (not .Values.disabled) (or .Values.featureA .Values.featureB)',
-          `enabled: true\npriority: high`,
-          `enabled: false`,
-        ),
+        feature: createHelmExpression(`
+          {{- if and .Values.enabled (not .Values.disabled) (or .Values.featureA .Values.featureB) -}}
+          enabled: true
+          priority: high
+          {{- else -}}
+          enabled: false
+          {{- end -}}
+        `),
       },
     };
 
@@ -112,7 +135,8 @@ describe('Complex Helm Scenarios', () => {
     expect(yaml).toContain('{{- end -}}');
   });
 
-  it('should correctly serialize mixed content', () => {
+  it('should correctly serialize mixed content', (): void => {
+    // Migrated from legacy helmIf to createHelmExpression (type-safe)
     const manifest = {
       apiVersion: 'v1',
       kind: 'ConfigMap',
@@ -120,7 +144,11 @@ describe('Complex Helm Scenarios', () => {
         name: 'mixed-content',
         annotations: {
           'static-key': 'static-value',
-          'dynamic-block': helmIf('.Values.dynamic', `dynamic: true`),
+          'dynamic-block': createHelmExpression(`
+            {{- if .Values.dynamic -}}
+            dynamic: true
+            {{- end -}}
+          `),
         },
       },
     };

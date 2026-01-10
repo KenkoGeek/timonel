@@ -11,3 +11,6 @@ pnpm run security:check || exit 1
 
 echo "Running markdownlint (fix) for Markdown..."
 pnpm exec markdownlint --fix "**/*.md" || npx --no-install markdownlint --fix "**/*.md" || exit 1
+
+echo "Validating documentation coverage..."
+pnpm run doc:coverage:validate || exit 1

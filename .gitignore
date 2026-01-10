@@ -4,12 +4,14 @@ dist/
 npm-debug.log*
 pnpm-debug.log*
 .pnpm-store/
+.pnpm/
 *.tgz
 .npmrc
 .env
 .env.*
 .vscode/
 .amazonq/
+.kiro/
 .idea/
 .node_repl_history
 .nyc_output/

@@ -130,6 +130,9 @@ jobs:
       - name: Markdown lint
         run: pnpm md:lint
 
+      - name: Documentation coverage validation
+        run: pnpm doc:coverage:validate
+
       - name: Dependency check
         id: deps
         run: pnpm deps:check

@@ -336,8 +336,10 @@ export default function createChart() {
 
 // Auto-execute when run directly
 if (import.meta.url === new URL(import.meta.url).href) {
-  const chart = createChart();
-  chart.write('dist');
+  (async () => {
+    const chart = createChart();
+    await chart.write('dist');
+  })();
 }
 `;
 }

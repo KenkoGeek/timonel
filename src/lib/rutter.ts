@@ -25,6 +25,12 @@ import { isHelmExpression, isHelmConstruct } from './utils/helmControlStructures
 import { dumpHelmAwareYaml, preprocessHelmConstructs } from './utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from './utils/helmHelpers.js';
 import type { HelperDefinition } from './utils/helmHelpers.js';
+import type { PolicyEngine, PolicyResult } from './policy/index.js';
+
+/**
+ * Constants for error messages
+ */
+const UNKNOWN_ERROR_MESSAGE = 'Unknown error';
 
 /**
  * Rutter class with modular architecture
@@ -73,6 +79,19 @@ export class Rutter {
     // Initialize resource providers
     this.awsResources = new AWSResources(this.chart);
     this.karpenterResources = new KarpenterResources(this.chart);
+
+    // Create a proxy for backward compatibility with synchronous toSynthArray calls
+    // This allows tests that use rutter['toSynthArray']() to work without await
+    const originalToSynthArray = this.toSynthArray.bind(this);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (this as any)['toSynthArray'] = (..._args: any[]) => {
+      // If no policy engine is configured, use the synchronous version
+      if (!this.props.policyEngine) {
+        return this.toSynthArraySync();
+      }
+      // Otherwise, return the async version (toSynthArray doesn't accept arguments)
+      return originalToSynthArray();
+    };
   }
 
   // AWS Resources
@@ -401,7 +420,7 @@ export class Rutter {
         manifestObject = parse(yamlOrObject) as Record<string, unknown>;
       } catch (error) {
         throw new Error(
-          `Invalid YAML provided to addManifest(): ${error instanceof Error ? error.message : 'Unknown error'}`,
+          `Invalid YAML provided to addManifest(): ${error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE}`,
         );
       }
     } else if (typeof yamlOrObject === 'object' && yamlOrObject !== null) {
@@ -561,7 +580,7 @@ ${yamlContent.trim()}
       this.assets.push(conditionalAsset);
     } catch (error) {
       throw new Error(
-        `Failed to generate conditional template for manifest '${id}': ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to generate conditional template for manifest '${id}': ${error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE}`,
       );
     }
 
@@ -681,7 +700,8 @@ ${yamlContent.trim()}
    *
    * @since 2.8.0+
    */
-  private toSynthArray(): SynthAsset[] {
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  public async toSynthArray(): Promise<SynthAsset[]> {
     const timer = this.logger.time('chart_synthesis');
 
     this.logger.debug('Starting chart synthesis', {
@@ -714,6 +734,58 @@ ${yamlContent.trim()}
       apiObjectCount: apiObjectIds.length,
       operation: 'manifest_processing',
     });
+
+    // Optional policy validation BEFORE enrichment to allow policies to control label injection
+    if (this.props.policyEngine) {
+      this.logger.debug('Starting policy validation before enrichment', {
+        chartName: this.meta.name,
+        manifestCount: manifestObjs.length,
+        operation: 'policy_validation_start',
+      });
+
+      try {
+        const validationResult = await this.props.policyEngine.validate(manifestObjs, this.meta);
+
+        if (!validationResult.valid) {
+          const errorMessage = this.formatPolicyErrors(validationResult);
+          this.logger.error('Policy validation failed', {
+            chartName: this.meta.name,
+            violationCount: validationResult.violations.length,
+            operation: 'policy_validation_failed',
+          });
+          throw new Error(`Policy validation failed: ${errorMessage}`);
+        }
+
+        // Log warnings but continue
+        if (validationResult.warnings.length > 0) {
+          this.logger.warn('Policy validation warnings', {
+            chartName: this.meta.name,
+            warningCount: validationResult.warnings.length,
+            warnings: validationResult.warnings.map((w) => ({
+              plugin: w.plugin,
+              message: w.message,
+              severity: w.severity,
+            })),
+            operation: 'policy_validation_warnings',
+          });
+        }
+
+        this.logger.info('Policy validation completed successfully before enrichment', {
+          chartName: this.meta.name,
+          pluginCount: validationResult.metadata.pluginCount,
+          executionTime: validationResult.metadata.executionTime,
+          operation: 'policy_validation_success',
+        });
+      } catch (error) {
+        this.logger.error('Policy validation error', {
+          chartName: this.meta.name,
+          error: error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE,
+          operation: 'policy_validation_error',
+        });
+        throw error;
+      }
+    }
+
     // Enforce common labels best-practice on all rendered objects
     // IMPORTANT: Also pre-process HelmConstructs AFTER Testing.synth serializes the objects
     // This ensures that field-level conditionals are detected and transformed
@@ -757,7 +829,7 @@ ${yamlContent.trim()}
         .join('\n---\n');
 
       const manifestId = this.props.manifestPrefix ?? 'manifests';
-      synthAssets.push({ id: manifestId, yaml: combinedYaml });
+      synthAssets.push({ id: manifestId, yaml: combinedYaml, target: 'templates' });
     } else {
       // Create separate files for each resource (default behavior)
       enriched.forEach((obj, index) => {
@@ -768,14 +840,18 @@ ${yamlContent.trim()}
         const yaml = dumpHelmAwareYaml(obj).trim();
         if (yaml) {
           // Use descriptive name from ApiObject ID if available, otherwise fallback to generic name
-          synthAssets.push({ id: manifestId, yaml });
+          synthAssets.push({ id: manifestId, yaml, target: 'templates' });
         }
       });
     }
 
     // Add any additional assets (CRDs, etc.)
     this.assets.forEach((asset) => {
-      synthAssets.push({ id: asset.id, yaml: asset.yaml });
+      synthAssets.push({
+        id: asset.id,
+        yaml: asset.yaml,
+        target: (asset.target as 'templates' | 'crds') || 'templates',
+      });
     });
 
     this.logger.info('Chart synthesis completed', {
@@ -790,12 +866,177 @@ ${yamlContent.trim()}
   }
 
   /**
+   * Synchronous version of toSynthArray for backward compatibility
+   * @returns Array of synthesized assets
+   * @deprecated Use toSynthArray() instead for proper async handling
+   * @since 2.8.0+
+   */
+  public toSynthArraySync(): SynthAsset[] {
+    // For backward compatibility, we need to handle the case where no policy engine is used
+    // In this case, we can run synchronously
+    if (this.props.policyEngine) {
+      throw new Error(
+        'toSynthArraySync() cannot be used with policy engine. Use toSynthArray() instead.',
+      );
+    }
+
+    const timer = this.logger.time('chart_synthesis_sync');
+
+    this.logger.debug('Starting synchronous chart synthesis', {
+      chartName: this.meta.name,
+      operation: 'synthesis_start_sync',
+    });
+
+    // Get ApiObject IDs before synthesis, excluding placeholders
+    const apiObjectIds: string[] = [];
+    for (const child of this.chart.node.children) {
+      if (child instanceof ApiObject && !child.node.id.endsWith('-placeholder')) {
+        apiObjectIds.push(child.node.id);
+      }
+    }
+
+    // Use cdk8s Testing.synth to obtain manifest objects, but filter out placeholders
+    const allManifestObjs = Testing.synth(this.chart) as unknown[];
+    const manifestObjs = allManifestObjs.filter((obj) => {
+      if (obj && typeof obj === 'object') {
+        const o = obj as { metadata?: { annotations?: Record<string, string> } };
+        const annotations = o.metadata?.annotations || {};
+        return annotations['timonel.sh/placeholder'] !== 'true';
+      }
+      return true;
+    });
+
+    this.logger.info('Processing manifest objects synchronously', {
+      chartName: this.meta.name,
+      manifestCount: manifestObjs.length,
+      apiObjectCount: apiObjectIds.length,
+      operation: 'manifest_processing_sync',
+    });
+
+    // Enforce common labels best-practice on all rendered objects
+    const enriched = manifestObjs.map((obj: unknown) => {
+      // First, pre-process HelmConstructs to detect field-level conditionals
+      const preprocessed = preprocessHelmConstructs(obj);
+
+      if (preprocessed && typeof preprocessed === 'object') {
+        const o = preprocessed as { metadata?: { labels?: Record<string, unknown> } };
+        o.metadata = o.metadata ?? {};
+        o.metadata.labels = o.metadata.labels ?? {};
+        const labels = o.metadata.labels as Record<string, unknown>;
+        const defaults: Record<string, string> = {
+          'helm.sh/chart': `{{ .Chart.Name }}-{{ .Chart.Version }}`,
+          'app.kubernetes.io/name': include(Rutter.HELPER_NAME),
+          'app.kubernetes.io/instance': '{{ .Release.Name }}',
+          'app.kubernetes.io/version': '{{ .Chart.Version }}',
+          'app.kubernetes.io/managed-by': '{{ .Release.Service }}',
+          'app.kubernetes.io/part-of': '{{ .Chart.Name }}',
+        };
+
+        // Apply defaults only if not already set
+        for (const [key, value] of Object.entries(defaults)) {
+          if (!(key in labels)) {
+            // eslint-disable-next-line security/detect-object-injection -- Safe: controlled label assignment
+            labels[key] = value;
+          }
+        }
+      }
+      return preprocessed;
+    });
+
+    const synthAssets: SynthAsset[] = [];
+
+    if (this.props.singleManifestFile) {
+      // Combine all resources into single manifest
+      const combinedYaml = enriched
+        .map((obj) => dumpHelmAwareYaml(obj).trim())
+        .filter(Boolean)
+        .join('\n---\n');
+
+      const manifestId = this.props.manifestPrefix ?? 'manifests';
+      synthAssets.push({ id: manifestId, yaml: combinedYaml, target: 'templates' });
+    } else {
+      // Create separate files for each resource (default behavior)
+      enriched.forEach((obj, index) => {
+        // eslint-disable-next-line security/detect-object-injection
+        const apiObjectId = apiObjectIds[index];
+        const manifestId = apiObjectId || `manifest-${index + 1}`;
+
+        const yaml = dumpHelmAwareYaml(obj).trim();
+        if (yaml) {
+          // Use descriptive name from ApiObject ID if available, otherwise fallback to generic name
+          synthAssets.push({ id: manifestId, yaml, target: 'templates' });
+        }
+      });
+    }
+
+    // Add any additional assets (CRDs, etc.)
+    this.assets.forEach((asset) => {
+      synthAssets.push({
+        id: asset.id,
+        yaml: asset.yaml,
+        target: (asset.target as 'templates' | 'crds') || 'templates',
+      });
+    });
+
+    this.logger.info('Synchronous chart synthesis completed', {
+      chartName: this.meta.name,
+      totalAssets: synthAssets.length,
+      additionalAssets: this.assets.length,
+      operation: 'synthesis_complete_sync',
+    });
+
+    timer(); // Complete timing measurement
+    return synthAssets;
+  }
+
+  /**
+   * Formats policy validation errors into a readable error message
+   * @param result - Policy validation result
+   * @returns Formatted error message
+   * @private
+   */
+  private formatPolicyErrors(result: PolicyResult): string {
+    const errorMessages: string[] = [];
+
+    if (result.violations && result.violations.length > 0) {
+      errorMessages.push(`Found ${result.violations.length} policy violation(s):`);
+
+      result.violations.forEach((violation, index: number) => {
+        const parts = [`${index + 1}. [${violation.plugin}] ${violation.message}`];
+
+        if (violation.resourcePath) {
+          parts.push(`Resource: ${violation.resourcePath}`);
+        }
+
+        if (violation.field) {
+          parts.push(`Field: ${violation.field}`);
+        }
+
+        if (violation.suggestion) {
+          parts.push(`Suggestion: ${violation.suggestion}`);
+        }
+
+        errorMessages.push(`   ${parts.join(' | ')}`);
+      });
+    }
+
+    if (result.summary) {
+      const summary = result.summary;
+      errorMessages.push(
+        `Summary: ${summary.violationsBySeverity.error} error(s), ${summary.violationsBySeverity.warning} warning(s), ${summary.violationsBySeverity.info} info(s)`,
+      );
+    }
+
+    return errorMessages.join('\n');
+  }
+
+  /**
    * Writes the Helm chart to the specified output directory
    * @param outDir - Output directory path
    *
    * @since 1.0.0
    */
-  write(outDir: string): void {
+  async write(outDir: string): Promise<void> {
     const timer = this.logger.time('chart_write');
 
     this.logger.info('Starting chart write operation', {
@@ -826,7 +1067,7 @@ ${helper.template}
       helpersContent = generateHelpersTemplate(this.props.cloudProvider);
     }
 
-    const synthAssets = this.toSynthArray();
+    const synthAssets = await this.toSynthArray();
 
     this.logger.info('Generated assets for chart', {
       chartName: this.meta.name,
@@ -881,6 +1122,8 @@ export interface RutterProps {
   manifestPrefix?: string;
   meta: ChartMetadata;
   namespace?: string;
+  /** Optional policy engine for manifest validation */
+  policyEngine?: PolicyEngine;
   scope?: Construct;
   /** Combine all resources into single manifest file */
   singleManifestFile?: boolean;

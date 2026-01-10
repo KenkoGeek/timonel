@@ -17,7 +17,7 @@ describe('addManifest with HelmExpression', () => {
     rmSync(workDir, { recursive: true, force: true });
   });
 
-  it('accepts HelmExpression as metadata.name and preserves template content', () => {
+  it('accepts HelmExpression as metadata.name and preserves template content', async () => {
     const rutter = new Rutter({
       meta: {
         name: 'helm-expression',
@@ -39,7 +39,7 @@ describe('addManifest with HelmExpression', () => {
     ).not.toThrow();
 
     const outputDir = join(workDir, 'chart');
-    rutter.write(outputDir);
+    await rutter.write(outputDir);
 
     const yaml = readFileSync(join(outputDir, 'templates', 'serviceaccount.yaml'), 'utf8');
     // helmInclude uses {{- by default now
