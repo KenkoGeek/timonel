@@ -183,7 +183,7 @@ jobs:
           pnpm pack --pack-destination artifact
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: npm-artifacts
           path: |
