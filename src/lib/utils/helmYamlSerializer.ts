@@ -498,26 +498,24 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
         if (!isInline && (ifData.else === undefined || !('else' in ifData))) {
           // Serialize the then value to get its string representation
           const preprocessedThen = preprocessHelmConstructs(ifData.then);
-          let thenValueStr = '';
-          let isMultilineObject = false;
+          const serializedThen = (() => {
+            if (isHelmExpression(preprocessedThen)) {
+              const valueStr = preprocessedThen.value.trim();
+              return { thenValueStr: valueStr, isMultilineObject: valueStr.includes('\n') };
+            }
 
-          if (isHelmExpression(preprocessedThen)) {
-            thenValueStr = preprocessedThen.value.trim();
-            isMultilineObject = thenValueStr.includes('\n');
-          } else if (typeof preprocessedThen === 'string') {
-            thenValueStr = preprocessedThen.trim();
-            isMultilineObject = thenValueStr.includes('\n');
-          } else if (Array.isArray(preprocessedThen)) {
-            // For arrays, serialize to YAML
+            if (typeof preprocessedThen === 'string') {
+              const valueStr = preprocessedThen.trim();
+              return { thenValueStr: valueStr, isMultilineObject: valueStr.includes('\n') };
+            }
+
             const tempDoc = new Document(preprocessedThen);
-            thenValueStr = tempDoc.toString({ lineWidth: 0 }).trim();
-            isMultilineObject = true;
-          } else {
-            // For objects, serialize them to YAML string
-            const tempDoc = new Document(preprocessedThen);
-            thenValueStr = tempDoc.toString({ lineWidth: 0 }).trim();
-            isMultilineObject = thenValueStr.includes('\n');
-          }
+            const valueStr = tempDoc.toString({ lineWidth: 0 }).trim();
+            return {
+              thenValueStr: valueStr,
+              isMultilineObject: Array.isArray(preprocessedThen) || valueStr.includes('\n'),
+            };
+          })();
 
           // Create the conditional template
           // Format: "{{- if condition }}\nfieldKey: value\n{{- end }}"
@@ -528,16 +526,16 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
 
           // Format the value based on whether it's multiline or not
           let formattedContent: string;
-          if (isMultilineObject) {
+          if (serializedThen.isMultilineObject) {
             // For multiline values (arrays, objects), put on new line with proper indentation
-            const indentedValue = thenValueStr
+            const indentedValue = serializedThen.thenValueStr
               .split('\n')
               .map((line: string) => '    ' + line)
               .join('\n');
             formattedContent = `${key}:\n${indentedValue}`;
           } else {
             // For simple values, put inline
-            formattedContent = `${key}: ${thenValueStr}`;
+            formattedContent = `${key}: ${serializedThen.thenValueStr}`;
           }
 
           const conditionalTemplate = `${openTag}if ${ifData.condition}${closeTag}\n  ${formattedContent}\n${openTag}end${closeTag}`;
@@ -590,15 +588,11 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
         const fieldData = value.data as { fieldKey: string; condition: string; then: unknown };
         // Serialize the then value
         const preprocessedThen = preprocessHelmConstructs(fieldData.then);
-        let thenValueStr = '';
-        if (isHelmExpression(preprocessedThen)) {
-          thenValueStr = preprocessedThen.value;
-        } else if (typeof preprocessedThen === 'string') {
-          thenValueStr = preprocessedThen;
-        } else {
-          const tempDoc = new Document(preprocessedThen);
-          thenValueStr = tempDoc.toString({ lineWidth: 0 }).trim();
-        }
+        const thenValueStr = isHelmExpression(preprocessedThen)
+          ? preprocessedThen.value
+          : typeof preprocessedThen === 'string'
+            ? preprocessedThen
+            : new Document(preprocessedThen).toString({ lineWidth: 0 }).trim();
 
         // Create the conditional template
         const conditionalTemplate = `{{- if ${fieldData.condition} }}\n  ${fieldData.fieldKey}: ${thenValueStr}\n{{- end }}`;
