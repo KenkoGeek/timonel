@@ -1,3 +1,9 @@
+## [3.1.1](https://github.com/KenkoGeek/timonel/compare/v3.1.0...v3.1.1) (2026-03-15)
+
+### Bug Fixes
+
+- **deps:** update dev and library deps ([8c1baa1](https://github.com/KenkoGeek/timonel/commit/8c1baa19c400c79d201af58f7d447a1938fa3f46))
+
 # [3.1.0](https://github.com/KenkoGeek/timonel/compare/v3.0.0...v3.1.0) (2026-01-10)
 
 ### Features
