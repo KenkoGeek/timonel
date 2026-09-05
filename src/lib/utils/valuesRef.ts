@@ -11,16 +11,22 @@ const HELM_VALUE_SYMBOL = Symbol('HelmValue');
 
 type HelmScalar = string | number | boolean;
 type ArrayElement<T> = T extends readonly (infer U)[] ? U : never;
+type StringKeyOf<T> = Extract<keyof T, string>;
+type RuntimeReservedValueKey = 'toJSON' | 'toString' | 'valueOf';
+type HelmValueReservedKey = Extract<keyof HelmValue<unknown>, string> | RuntimeReservedValueKey;
 
 /**
  * A Helm value reference with mapped properties that mirror the supplied
- * TypeScript value shape.
+ * TypeScript value shape. Keys reserved by the ValuesRef API remain accessible
+ * through the typed `at()` accessor.
  */
 export type HelmValueRef<T> = HelmValue<T> &
   (T extends readonly unknown[]
     ? object
     : T extends object
-      ? { readonly [K in keyof T]-?: HelmValueRef<T[K]> }
+      ? {
+          readonly [K in Exclude<StringKeyOf<T>, HelmValueReservedKey>]-?: HelmValueRef<T[K]>;
+        }
       : object);
 
 /** Represents a reference to a Helm value that can be used in templates. */
@@ -28,6 +34,12 @@ export interface HelmValue<T = unknown> {
   [HELM_VALUE_SYMBOL]: true;
   __path: string;
   __type?: T;
+
+  /**
+   * Accesses a values key without colliding with ValuesRef methods.
+   * Use this for keys such as `default`, `range`, or `with`.
+   */
+  at<K extends StringKeyOf<T>>(key: K): HelmValueRef<T[K]>;
 
   eq(value: HelmValueRef<unknown> | HelmScalar): HelmCondition;
   ne(value: HelmValueRef<unknown> | HelmScalar): HelmCondition;
@@ -211,6 +223,9 @@ export function createHelmValueProxy<T>(path: string): HelmValueRef<T> {
       if (typeof prop !== 'string') return undefined;
 
       switch (prop) {
+        case 'at':
+          return <K extends StringKeyOf<T>>(key: K) =>
+            createHelmValueProxy<T[K]>(appendPropertyPath(path, key));
         case 'eq':
           return (value: HelmValueRef<unknown> | HelmScalar) =>
             createCondition(`eq ${path} ${serializeValue(value)}`);
@@ -339,8 +354,24 @@ export function createHelmValueProxy<T>(path: string): HelmValueRef<T> {
   return new Proxy(baseObject, handler) as unknown as HelmValueRef<T>;
 }
 
+type HelmHelperKey = Extract<keyof HelmHelpers, string>;
+
+/**
+ * Root ValuesRef shape. Root Helm helper names are reserved and can be reached
+ * as values through `at()`, for example `v.at('release')`.
+ */
+export type ValuesRef<T extends object> = HelmValue<T> &
+  HelmHelpers &
+  (T extends readonly unknown[]
+    ? object
+    : {
+        readonly [
+          K in Exclude<StringKeyOf<T>, HelmValueReservedKey | HelmHelperKey>
+        ]-?: HelmValueRef<T[K]>;
+      });
+
 /** Creates a type-safe reference tree rooted at `.Values`. */
-export function valuesRef<T extends object>(): HelmValueRef<T> & HelmHelpers {
+export function valuesRef<T extends object>(): ValuesRef<T> {
   const values = createHelmValueProxy<T>('.Values');
 
   const helpers: HelmHelpers = {
@@ -391,7 +422,7 @@ export function valuesRef<T extends object>(): HelmValueRef<T> & HelmHelpers {
       }
       return Reflect.get(target, prop);
     },
-  }) as HelmValueRef<T> & HelmHelpers;
+  }) as unknown as ValuesRef<T>;
 }
 
 /** Check if a value is a Helm value proxy. */

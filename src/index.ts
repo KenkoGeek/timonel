@@ -123,6 +123,7 @@ export {
   serializeHelmCondition,
   type HelmValue,
   type HelmValueRef,
+  type ValuesRef,
   type HelmCondition,
   type HelmFieldConditional,
   type HelmRange,

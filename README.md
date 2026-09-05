@@ -359,6 +359,24 @@ const dbConfig = v.database.with((db) => ({
 }));
 ```
 
+ValuesRef reserves method names such as `default`, `range`, and `with`, plus root Helm helpers such
+as `release`, `chart`, and `capabilities`. If your values schema uses one of those names, use the
+typed `at()` accessor instead of an ambiguous property access:
+
+```typescript
+interface ReservedValues {
+  release: { name: string };
+  settings: { default: string };
+}
+
+const reserved = valuesRef<ReservedValues>();
+const releaseName = reserved.at('release').name; // {{ .Values.release.name }}
+const defaultSetting = reserved.settings.at('default'); // {{ .Values.settings.default }}
+```
+
+`at()` accepts only keys present in the current TypeScript values type, so it remains compile-time
+safe and does not introduce an arbitrary string-based Helm path API.
+
 #### Template Composition Helpers
 
 Use these helpers for template definitions and inclusions:

@@ -11,6 +11,20 @@ interface Values {
     host: string;
     port: number;
   };
+  default: string;
+  release: {
+    name: string;
+  };
+  chart: {
+    title: string;
+  };
+  settings: {
+    default: string;
+    range: string[];
+    with: {
+      enabled: boolean;
+    };
+  };
 }
 
 describe('ValuesRef runtime contract', () => {
@@ -20,6 +34,20 @@ describe('ValuesRef runtime contract', () => {
     expect(v.database.host.__path).toBe('.Values.database.host');
     expect(v.items.__path).toBe('.Values.items');
     expect(v.enabled.not().__condition).toBe('not .Values.enabled');
+  });
+
+  it('provides typed access to values whose keys collide with methods or root helpers', () => {
+    const v = valuesRef<Values>();
+
+    expect(v.release.name.__path).toBe('.Release.Name');
+    expect(v.at('release').name.__path).toBe('.Values.release.name');
+    expect(v.at('chart').at('title').__path).toBe('.Values.chart.title');
+    expect(v.at('default').__path).toBe('.Values.default');
+    expect(v.settings.at('default').__path).toBe('.Values.settings.default');
+    expect(v.settings.at('range').__path).toBe('.Values.settings.range');
+    expect(v.settings.at('with').enabled.__path).toBe('.Values.settings.with.enabled');
+
+    expect(v.default('fallback').__path).toBe('.Values | default "fallback"');
   });
 
   it('returns a HelmRange marker and preserves typed callback paths', () => {

@@ -15,6 +15,14 @@ interface Values {
     host: string;
     port: number;
   };
+  default: string;
+  release: {
+    name: string;
+  };
+  settings: {
+    default: string;
+    range: string[];
+  };
 }
 
 const v = valuesRef<Values>();
@@ -31,12 +39,29 @@ const withBlock = v.database.with((database) => ({
   host: database.host,
   port: database.port,
 }));
+const reservedRootValue: HelmValueRef<{ name: string }> = v.at('release');
+const reservedDefaultValue: HelmValueRef<string> = v.settings.at('default');
+const reservedRangeValue: HelmValueRef<string[]> = v.settings.at('range');
 
 void replicas;
 void imageTag;
 void disabled;
 void range;
 void withBlock;
+void reservedRootValue;
+void reservedDefaultValue;
+void reservedRangeValue;
+
+// @ts-expect-error Root helper names are reserved; use at('release') for .Values.release.
+const invalidRootRelease: HelmValueRef<{ name: string }> = v.release;
+void invalidRootRelease;
+
+// @ts-expect-error ValuesRef method names are reserved; use at('default') for the value key.
+const invalidNestedDefault: HelmValueRef<string> = v.settings.default;
+void invalidNestedDefault;
+
+// @ts-expect-error at() only accepts keys declared by the current values type.
+void v.settings.at('missing');
 
 // @ts-expect-error ValuesRef must reject properties that do not exist on Values.
 void v.missing;
