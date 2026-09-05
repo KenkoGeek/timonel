@@ -14,7 +14,8 @@ import {
   isHelmFieldConditional,
   isHelmRange,
   isHelmWith,
-  type HelmValue,
+  createHelmValueProxy,
+  type HelmValueRef,
   type HelmCondition,
   type HelmFieldConditional,
   type HelmRange,
@@ -37,7 +38,7 @@ function simpleHelmYaml(obj: unknown): string {
   // First, recursively convert HelmValue and HelmExpression to plain strings
   function convertToPlain(value: unknown): unknown {
     if (isHelmValue(value)) {
-      return `{{ ${(value as HelmValue).__path} }}`;
+      return `{{ ${(value as HelmValueRef<unknown>).__path} }}`;
     }
     if (isHelmExpression(value)) {
       return value.value;
@@ -382,7 +383,7 @@ function serializeHelmContent(content: unknown): string {
 export function preprocessHelmConstructs(obj: unknown): unknown {
   // Handle HelmValue (from valuesRef)
   if (isHelmValue(obj)) {
-    const value = obj as HelmValue;
+    const value = obj as HelmValueRef<unknown>;
     return createHelmExpression(`{{ ${value.__path} }}`);
   }
 
@@ -395,16 +396,16 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
   // Handle HelmRange (from valuesRef v.range())
   if (isHelmRange(obj)) {
     const range = obj as HelmRange<unknown>;
-    const sourcePath = (range.source as HelmValue).__path;
-    // Create placeholder values for callback
-    const itemProxy = { __path: '$item' } as unknown as HelmValue;
-    const indexProxy = { __path: '$index' } as unknown as HelmValue<number>;
+    const sourcePath = range.source.__path;
+    const itemProxy = createHelmValueProxy<unknown>('$item');
+    const indexProxy = createHelmValueProxy<number>('$index');
     const content = range.callback(itemProxy, indexProxy);
-    const processedContent = preprocessHelmConstructs(content);
-    // Serialize the content
-    const contentDoc = new Document(processedContent);
-    const contentStr = contentDoc.toString({ lineWidth: 0 }).trim();
-    return createHelmExpression(`{{- range ${sourcePath} }}\n${contentStr}\n{{- end }}`);
+    const rangeItems = Array.isArray(content) ? content : [content];
+    const processedContent = preprocessHelmConstructs(rangeItems);
+    const contentStr = dumpHelmAwareYaml(processedContent).trim();
+    return createHelmExpression(
+      `{{ range $index, $item := ${sourcePath} }}\n${contentStr}\n{{ end }}`,
+    );
   }
 
   // Handle HelmWith (from valuesRef v.with())
@@ -455,7 +456,7 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
       // Check if value is HelmWith - treat as field-level construct
       if (isHelmWith(value)) {
         const withBlock = value as HelmWith<unknown>;
-        const source = withBlock.source as HelmValue;
+        const source = withBlock.source as HelmValueRef<unknown>;
         const sourcePath = source?.__path;
 
         if (!sourcePath) {
@@ -463,7 +464,7 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
         }
 
         // Create placeholder for callback context
-        const ctxProxy = { __path: '.' } as unknown as HelmValue;
+        const ctxProxy = createHelmValueProxy<unknown>('.');
         const content = withBlock.callback(ctxProxy);
 
         // Extract content string
@@ -472,12 +473,15 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
           contentStr = content.value;
         } else {
           const processedContent = preprocessHelmConstructs(content);
-          const contentDoc = new Document(processedContent);
-          contentStr = contentDoc.toString({ lineWidth: 0 }).trim();
+          contentStr = dumpHelmAwareYaml(processedContent).trim();
         }
 
         // Generate field-level with template
-        const template = `{{- with ${sourcePath} }}\n${key}:\n  ${contentStr}\n{{- end }}`;
+        const indentedContent = contentStr
+          .split('\n')
+          .map((line) => `  ${line}`)
+          .join('\n');
+        const template = `{{ with ${sourcePath} }}\n${key}:\n${indentedContent}\n{{ end }}`;
 
         // Use special marker for field-level with
         const marker = `__FIELD_WITH__:${key}:${template}`;
@@ -671,8 +675,9 @@ export function dumpHelmAwareYaml(obj: unknown, options: { lineWidth?: number } 
 
           // Special handling for with/range blocks - they should NOT be block literals
           // because they need to be at the same level as the field key
+          const trimmedValue = value.trim();
           const isWithOrRange =
-            value.trim().startsWith('{{- with ') || value.trim().startsWith('{{- range ');
+            /^\{\{-?\s*with\s/.test(trimmedValue) || /^\{\{-?\s*range\s/.test(trimmedValue);
 
           if (isMultilineTemplate && !isWithOrRange) {
             scalar.type = 'BLOCK_LITERAL'; // Force block style (|)
@@ -1023,13 +1028,19 @@ export function postProcessFieldConditionals(yaml: string): string {
     const template = markerMatch[1];
     const markerEnd = markerIndex + markerMatch[0].length;
 
-    // Process template: remove block indent, add base indent
+    // Remove only the YAML block scalar's common indentation while preserving
+    // indentation intentionally produced inside the with block.
     const lines = template.split('\n');
+    const nestedIndents = lines
+      .slice(1)
+      .filter((line) => line.trim().length > 0)
+      .map((line) => line.length - line.trimStart().length);
+    const commonIndent = nestedIndents.length > 0 ? Math.min(...nestedIndents) : 0;
     const processed = lines
-      .map((line) => {
+      .map((line, index) => {
         if (!line.trim()) return '';
-        const trimmed = line.trimStart();
-        return baseIndent + trimmed;
+        const normalized = index === 0 ? line.trimStart() : line.slice(commonIndent);
+        return baseIndent + normalized;
       })
       .join('\n');
 

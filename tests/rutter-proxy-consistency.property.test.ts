@@ -60,7 +60,7 @@ describe('Rutter Proxy Method Consistency Property Tests', (): void => {
      * return asynchronous results that require await.
      * **Validates: Requirements 1.1, 1.2, 1.3**
      */
-    it('should return synchronous results when no policy engine is configured', async (): Promise<void> => {
+    it('should always return a Promise when no policy engine is configured', async (): Promise<void> => {
       for (let iteration = 0; iteration < PROPERTY_TEST_ITERATIONS; iteration++) {
         // Generate random chart metadata
         const chartMeta = generateRandomChartMetadata(iteration / PROPERTY_TEST_ITERATIONS);
@@ -86,14 +86,10 @@ describe('Rutter Proxy Method Consistency Property Tests', (): void => {
           `test-config-${iteration}`,
         );
 
-        // Property: When no policy engine is configured, toSynthArray should return synchronous results
-        // Access the proxy method directly to test backward compatibility
-        const result = (rutter as unknown as { toSynthArray: () => unknown })['toSynthArray']();
-
-        // Verify the result is synchronous (not a Promise)
-        expect(result).not.toBeInstanceOf(Promise);
-        expect(Array.isArray(result)).toBe(true);
-        const resultArray = result as unknown[];
+        // The public contract is Promise<SynthAsset[]> regardless of policy configuration.
+        const result = rutter.toSynthArray();
+        expect(result).toBeInstanceOf(Promise);
+        const resultArray = await result;
         expect(resultArray.length).toBeGreaterThan(0);
 
         // Verify the result contains valid SynthAsset objects
@@ -192,20 +188,13 @@ describe('Rutter Proxy Method Consistency Property Tests', (): void => {
           );
         }
 
-        // Property: Synchronous calls should work identically to async toSynthArray() when no policy engine
-        const proxyResult = await (rutter as unknown as { toSynthArray: () => unknown })[
-          'toSynthArray'
-        ]();
+        // The explicitly synchronous compatibility API must match the async public API.
+        const syncResult = rutter.toSynthArraySync();
         const asyncResult = await rutter.toSynthArray();
 
-        // Both results should be identical
-        expect(proxyResult).toEqual(asyncResult);
-
-        // Verify both contain the expected number of assets
-        const proxyArray = proxyResult as unknown[];
-        const asyncArray = asyncResult as unknown[];
-        expect(proxyArray.length).toBe(manifestCount);
-        expect(asyncArray.length).toBe(manifestCount);
+        expect(syncResult).toEqual(asyncResult);
+        expect(syncResult.length).toBe(manifestCount);
+        expect(asyncResult.length).toBe(manifestCount);
       }
     });
 
@@ -262,7 +251,7 @@ describe('Rutter Proxy Method Consistency Property Tests', (): void => {
         // Property: Type safety should be consistent regardless of configuration
         const result = (rutter as unknown as { toSynthArray: () => unknown })['toSynthArray']();
 
-        await validateResultTypeConsistency(result, !!policyEngine);
+        await validateResultTypeConsistency(result);
       }
     });
   });
@@ -327,20 +316,9 @@ function addRandomManifests(rutter: Rutter, seed: number, iteration: number): vo
 /**
  * Helper function to validate result type consistency
  */
-async function validateResultTypeConsistency(
-  result: unknown,
-  usePolicyEngine: boolean,
-): Promise<void> {
-  if (usePolicyEngine) {
-    // Should return Promise when policy engine is configured
-    expect(result).toBeInstanceOf(Promise);
-    const resolvedResult = await result;
-    expect(Array.isArray(resolvedResult)).toBe(true);
-    expect((resolvedResult as unknown[]).length).toBeGreaterThan(0);
-  } else {
-    // Should return synchronous array when no policy engine
-    expect(result).not.toBeInstanceOf(Promise);
-    expect(Array.isArray(result)).toBe(true);
-    expect((result as unknown[]).length).toBeGreaterThan(0);
-  }
+async function validateResultTypeConsistency(result: unknown): Promise<void> {
+  expect(result).toBeInstanceOf(Promise);
+  const resolvedResult = await result;
+  expect(Array.isArray(resolvedResult)).toBe(true);
+  expect((resolvedResult as unknown[]).length).toBeGreaterThan(0);
 }

@@ -20,7 +20,7 @@ directory.
 ### Core Capabilities
 
 - **🔒 Type-safe API** with strict TypeScript and cdk8s constructs
-- **🔧 Flexible resource creation** with built-in methods and `addManifest()` for custom resources
+- **🔧 Native cdk8s composition** through `getChart()`, with object manifests only as a fallback
 - **🌍 Multi-environment support** with automatic values files generation
 - **☂️ Umbrella Charts** for managing multiple subcharts as a single unit
 - **⚡ Minimal CLI** (`tl`) for scaffolding, synthesis, validation, and deployment
@@ -124,24 +124,39 @@ Useful string-based utilities (no ValuesRef equivalent):
 ### Installation
 
 ```bash
-# Install Timonel globally
-npm install -g timonel
-
-# Or use with pnpm
-pnpm add -g timonel
+pnpm add timonel cdk8s cdk8s-plus-33 constructs
 ```
 
-### Basic Usage
+### Typed library usage
+
+```typescript
+import * as kplus from 'cdk8s-plus-33';
+import { Rutter } from 'timonel';
+
+const chart = new Rutter({
+  meta: { name: 'my-app', version: '1.0.0' },
+});
+
+new kplus.ConfigMap(chart.getChart(), 'app-config', {
+  metadata: { name: 'app-config' },
+  data: { mode: 'production' },
+});
+
+await chart.write('./dist/my-app');
+```
+
+Use cdk8s/cdk8s-plus constructs as the default resource API. `addManifest(object, id)` remains a
+fallback for custom resources without an upstream typed construct. The raw YAML overload of
+`addManifest()` and `addTemplateManifest()` are deprecated and will be removed in the next major
+release.
+
+### CLI
+
+The CLI is an optional convenience layer over the library:
 
 ```bash
-# Create your first chart
 tl init my-app
-
-# Generate Helm chart
 tl synth my-app my-app-dist
-
-# Use with Helm
-helm install my-app my-app-dist
 ```
 
 ### Umbrella Charts
@@ -162,60 +177,46 @@ tl umbrella synth
 
 ### Simple Web Application
 
+Prefer native cdk8s-plus resources and attach them to Timonel's chart:
+
 ```typescript
-import { Rutter, helmInclude, createHelmExpression as helm } from 'timonel';
+import * as kplus from 'cdk8s-plus-33';
+import { Rutter } from 'timonel';
 
 const chart = new Rutter({
   meta: {
     name: 'web-app',
     version: '1.0.0',
-    description: 'Simple web application',
-  },
-  defaultValues: {
-    replicas: 3,
-    image: {
-      repository: 'nginx',
-      tag: 'latest',
-    },
+    description: 'Typed web application chart',
   },
 });
 
-// Add Deployment with type-safe helpers
-chart.addManifest(
-  {
-    apiVersion: 'apps/v1',
-    kind: 'Deployment',
-    metadata: {
-      name: helmInclude('chart.fullname', '.'),
-      labels: helmInclude('chart.labels', '.', { pipe: 'nindent 4' }),
-    },
-    spec: {
-      replicas: helm('{{ .Values.replicas }}'),
-      selector: {
-        matchLabels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 6' }),
-      },
-      template: {
-        metadata: {
-          labels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 8' }),
-        },
-        spec: {
-          containers: [
-            {
-              name: 'web',
-              image: helm('{{ .Values.image.repository }}:{{ .Values.image.tag }}'),
-              ports: [{ containerPort: 80, name: 'http' }],
-            },
-          ],
-        },
+const deployment = new kplus.Deployment(chart.getChart(), 'Web', {
+  metadata: { name: 'web-app' },
+  containers: [
+    {
+      name: 'web',
+      image: 'nginx:1.27',
+      portNumber: 80,
+      resources: {
+        cpu: { request: kplus.Cpu.millis(100) },
       },
     },
-  },
-  'deployment',
-);
+  ],
+});
 
-// Generate the chart
-chart.write('./dist');
+new kplus.HorizontalPodAutoscaler(chart.getChart(), 'WebHpa', {
+  target: deployment,
+  minReplicas: 1,
+  maxReplicas: 5,
+});
+
+await chart.write('./dist/web-app');
 ```
+
+This path retains the cdk8s-plus TypeScript types for both the Deployment and HPA. For a custom
+resource that has no suitable upstream construct, `addManifest(object, id)` remains available as a
+fallback. Raw YAML input is deprecated.
 
 ### Policy Engine Integration
 
