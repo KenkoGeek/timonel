@@ -419,9 +419,12 @@ export class Rutter {
       try {
         manifestObject = parse(yamlOrObject) as Record<string, unknown>;
       } catch (error) {
-        throw new Error(
+        const cause = error instanceof Error ? error : new Error(UNKNOWN_ERROR_MESSAGE);
+        const wrappedError = new Error(
           `Invalid YAML provided to addManifest(): ${error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE}`,
         );
+        (wrappedError as Error & { cause?: unknown }).cause = cause;
+        throw wrappedError;
       }
     } else if (typeof yamlOrObject === 'object' && yamlOrObject !== null) {
       // Use object directly
@@ -579,9 +582,12 @@ ${yamlContent.trim()}
 
       this.assets.push(conditionalAsset);
     } catch (error) {
-      throw new Error(
+      const cause = error instanceof Error ? error : new Error(UNKNOWN_ERROR_MESSAGE);
+      const wrappedError = new Error(
         `Failed to generate conditional template for manifest '${id}': ${error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE}`,
       );
+      (wrappedError as Error & { cause?: unknown }).cause = cause;
+      throw wrappedError;
     }
 
     // Create a placeholder CDK8S ApiObject for consistency, but mark it as conditional
