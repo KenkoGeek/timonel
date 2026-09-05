@@ -850,13 +850,13 @@ MIT
 [security-url]: SECURITY.md
 [pnpm-badge]: https://img.shields.io/badge/pm-pnpm-ffd95a?logo=pnpm&logoColor=fff&labelColor=24292e
 [pnpm-url]: https://pnpm.io/
-[node-badge]: https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=fff
+[node-badge]: https://img.shields.io/badge/node-22.22.2%20%7C%2024.15%20%7C%2026-339933?logo=node.js&logoColor=fff
 [node-url]: https://nodejs.org/
-[ts-badge]: https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=fff
+[ts-badge]: https://img.shields.io/badge/TypeScript-6.x-3178C6?logo=typescript&logoColor=fff
 [ts-url]: https://www.typescriptlang.org/
 [maintained-badge]: https://img.shields.io/badge/maintained%20by-KenkoGeek-6C78AF?style=flat
 [maintained-url]: https://github.com/kenkogeek/
-[ci-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/test.yaml/badge.svg?branch=main
-[ci-url]: https://github.com/KenkoGeek/timonel/actions/workflows/test.yaml
+[ci-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/ci.yml/badge.svg?branch=main
+[ci-url]: https://github.com/KenkoGeek/timonel/actions/workflows/ci.yml
 [codeql-badge]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yml/badge.svg
 [codeql-url]: https://github.com/KenkoGeek/timonel/actions/workflows/codeql.yml
