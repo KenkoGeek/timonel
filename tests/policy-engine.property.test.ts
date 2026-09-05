@@ -761,9 +761,7 @@ describe('Policy Engine Property Tests', () => {
 
           for (let j = 0; j < violationCount; j++) {
             const severity = ['error', 'warning', 'info'][Math.floor(Math.random() * 3)] as
-              | 'error'
-              | 'warning'
-              | 'info';
+              'error' | 'warning' | 'info';
             pluginViolations.push({
               plugin: pluginName,
               severity,

@@ -204,13 +204,7 @@ export interface KarpenterEC2NodeClassSpec {
   name: string;
   /** AMI family */
   amiFamily?:
-    | 'AL2'
-    | 'AL2023'
-    | 'Bottlerocket'
-    | 'Ubuntu'
-    | 'Windows2019'
-    | 'Windows2022'
-    | 'Custom';
+    'AL2' | 'AL2023' | 'Bottlerocket' | 'Ubuntu' | 'Windows2019' | 'Windows2022' | 'Custom';
   /** AMI selector */
   amiSelectorTerms?: Array<{
     tags?: Record<string, string>;

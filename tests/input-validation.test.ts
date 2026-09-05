@@ -72,33 +72,31 @@ describe('InputValidator', (): void => {
       expect((): PolicyConfig => validator.validatePolicyConfig({ id: 'test' })).toThrow(
         'PolicyConfig.name must be a non-empty string',
       );
-      expect(
-        (): PolicyConfig => validator.validatePolicyConfig({ id: 'test', name: 'Test' }),
+      expect((): PolicyConfig =>
+        validator.validatePolicyConfig({ id: 'test', name: 'Test' }),
       ).toThrow('PolicyConfig.rules must be an array');
     });
 
     it('should reject config with invalid field types', (): void => {
-      expect(
-        (): PolicyConfig => validator.validatePolicyConfig({ id: 123, name: 'Test', rules: [] }),
+      expect((): PolicyConfig =>
+        validator.validatePolicyConfig({ id: 123, name: 'Test', rules: [] }),
       ).toThrow(PolicyValidationError);
-      expect(
-        (): PolicyConfig => validator.validatePolicyConfig({ id: 'test', name: 123, rules: [] }),
+      expect((): PolicyConfig =>
+        validator.validatePolicyConfig({ id: 'test', name: 123, rules: [] }),
       ).toThrow(PolicyValidationError);
-      expect(
-        (): PolicyConfig =>
-          validator.validatePolicyConfig({ id: 'test', name: 'Test', rules: 'not-array' }),
+      expect((): PolicyConfig =>
+        validator.validatePolicyConfig({ id: 'test', name: 'Test', rules: 'not-array' }),
       ).toThrow(PolicyValidationError);
     });
 
     it('should enforce string length limits', (): void => {
       const longString: string = 'a'.repeat(20000);
-      expect(
-        (): PolicyConfig =>
-          validator.validatePolicyConfig({
-            id: longString,
-            name: 'Test',
-            rules: [],
-          }),
+      expect((): PolicyConfig =>
+        validator.validatePolicyConfig({
+          id: longString,
+          name: 'Test',
+          rules: [],
+        }),
       ).toThrow('exceeds maximum length');
     });
 
@@ -108,13 +106,12 @@ describe('InputValidator', (): void => {
         type: 'test',
         condition: {},
       });
-      expect(
-        (): PolicyConfig =>
-          validator.validatePolicyConfig({
-            id: 'test',
-            name: 'Test',
-            rules: manyRules,
-          }),
+      expect((): PolicyConfig =>
+        validator.validatePolicyConfig({
+          id: 'test',
+          name: 'Test',
+          rules: manyRules,
+        }),
       ).toThrow('exceeds maximum length');
     });
 
@@ -152,8 +149,8 @@ describe('InputValidator', (): void => {
       expect((): PolicyRule => validator.validatePolicyRule({ id: 'test' })).toThrow(
         'PolicyRule.type must be a non-empty string',
       );
-      expect(
-        (): PolicyRule => validator.validatePolicyRule({ id: 'test', type: 'security' }),
+      expect((): PolicyRule =>
+        validator.validatePolicyRule({ id: 'test', type: 'security' }),
       ).toThrow('PolicyRule.condition must be an object');
     });
 
@@ -184,13 +181,12 @@ describe('InputValidator', (): void => {
         },
       };
 
-      expect(
-        (): PolicyRule =>
-          validator.validatePolicyRule({
-            id: 'test',
-            type: 'security',
-            condition: deepCondition,
-          }),
+      expect((): PolicyRule =>
+        validator.validatePolicyRule({
+          id: 'test',
+          type: 'security',
+          condition: deepCondition,
+        }),
       ).toThrow('exceeds maximum object depth');
     });
   });
@@ -264,13 +260,12 @@ describe('InputValidator', (): void => {
     it('should respect custom string length limits', (): void => {
       const customValidator: InputValidator = new InputValidator({ maxStringLength: 10 });
 
-      expect(
-        (): PolicyConfig =>
-          customValidator.validatePolicyConfig({
-            id: 'this-is-too-long',
-            name: 'Test',
-            rules: [],
-          }),
+      expect((): PolicyConfig =>
+        customValidator.validatePolicyConfig({
+          id: 'this-is-too-long',
+          name: 'Test',
+          rules: [],
+        }),
       ).toThrow('exceeds maximum length of 10 characters');
     });
 
@@ -283,26 +278,24 @@ describe('InputValidator', (): void => {
         { id: '3', type: 'c', condition: {} },
       ];
 
-      expect(
-        (): PolicyConfig =>
-          customValidator.validatePolicyConfig({
-            id: 'test',
-            name: 'Test',
-            rules: testRules,
-          }),
+      expect((): PolicyConfig =>
+        customValidator.validatePolicyConfig({
+          id: 'test',
+          name: 'Test',
+          rules: testRules,
+        }),
       ).toThrow('exceeds maximum length of 2 items');
     });
 
     it('should respect custom object depth limits', (): void => {
       const customValidator: InputValidator = new InputValidator({ maxObjectDepth: 2 });
 
-      expect(
-        (): PolicyRule =>
-          customValidator.validatePolicyRule({
-            id: 'test',
-            type: 'security',
-            condition: { level1: { level2: { level3: { level4: 'too deep' } } } },
-          }),
+      expect((): PolicyRule =>
+        customValidator.validatePolicyRule({
+          id: 'test',
+          type: 'security',
+          condition: { level1: { level2: { level3: { level4: 'too deep' } } } },
+        }),
       ).toThrow('exceeds maximum object depth of 2');
     });
 

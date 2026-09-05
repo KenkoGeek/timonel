@@ -1117,13 +1117,7 @@ export function stringify(
  * @since 2.11.0
  */
 type HelmExpressionType =
-  | 'block'
-  | 'nested'
-  | 'comment'
-  | 'action-trimmed'
-  | 'raw'
-  | 'include-context'
-  | 'generic';
+  'block' | 'nested' | 'comment' | 'action-trimmed' | 'raw' | 'include-context' | 'generic';
 
 /**
  * Pattern descriptor with compiled RegExp and its type
