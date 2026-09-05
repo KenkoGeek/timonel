@@ -7,18 +7,9 @@ on:
     types:
       - completed
   workflow_dispatch:
-    inputs:
-      channel:
-        description: npm release channel
-        required: true
-        default: canary
-        type: choice
-        options:
-          - canary
-          - stable
 
 concurrency:
-  group: release-${{ github.event.workflow_run.head_sha || github.sha }}-${{ inputs.channel || 'canary' }}
+  group: release-${{ github.event.workflow_run.head_sha || github.sha }}-${{ github.event_name }}
   cancel-in-progress: false
 
 permissions:
@@ -28,13 +19,10 @@ jobs:
   canary:
     name: Publish npm Canary
     if: >-
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main') ||
-      (github.event_name == 'workflow_dispatch' &&
-       inputs.channel == 'canary' &&
-       github.ref == 'refs/heads/main')
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -48,7 +36,7 @@ jobs:
       - name: Checkout tested commit
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -72,7 +60,7 @@ jobs:
       - name: Prepare canary version
         run: node scripts/prepare-canary-version.mjs
         env:
-          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
           RELEASE_RUN_NUMBER: ${{ github.run_number }}
 
       - name: Publish canary
@@ -82,7 +70,6 @@ jobs:
     name: Verify Stable Release
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      inputs.channel == 'stable' &&
       github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
