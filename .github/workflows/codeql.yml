@@ -5,11 +5,9 @@ on:
   push:
     branches:
       - main
-      - develop
   pull_request:
     branches:
       - main
-      - develop
   schedule:
     - cron: '17 8 * * 4' # Weekly on Thursday at 8:17 AM UTC
   workflow_dispatch:
@@ -68,7 +66,7 @@ jobs:
         if: matrix.language == 'javascript-typescript'
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: '24.15.0'
           check-latest: true
           cache: 'pnpm'
 
