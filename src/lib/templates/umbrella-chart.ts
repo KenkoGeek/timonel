@@ -372,8 +372,7 @@ export class UmbrellaChartTemplate extends Chart {
   ) {
     const tempDir = `temp-${subchart.name}-${index}`;
     const write = (rutterInstance as Record<string, unknown>).write as
-      | ((dir: string) => void)
-      | undefined;
+      ((dir: string) => void) | undefined;
     write?.(tempDir);
 
     this._copyTemplates(subchart.name, tempDir);
@@ -424,8 +423,7 @@ export class UmbrellaChartTemplate extends Chart {
 
   private _processAssets(rutterInstance: unknown, flexibleSubchart: Chart) {
     const getAssets = (rutterInstance as Record<string, unknown>).getAssets as
-      | (() => Array<{ id: string; yaml: string }>)
-      | undefined;
+      (() => Array<{ id: string; yaml: string }>) | undefined;
     const assets = getAssets?.() || [];
 
     assets.forEach((asset, assetIndex) => {
