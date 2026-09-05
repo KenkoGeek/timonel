@@ -44,7 +44,6 @@ export class Rutter {
   private static readonly HELPER_NAME = 'chart.name';
 
   // CDK8s infrastructure
-  private readonly app: App;
   private readonly assets: Array<{ id: string; yaml: string; target: string }> = [];
   private readonly awsResources: AWSResources;
   private readonly chart: Chart;
@@ -69,29 +68,16 @@ export class Rutter {
       operation: 'chart_initialization',
     });
 
-    // Create CDK8s infrastructure
-    this.app = new App();
-    this.chart = new Chart(this.app, props.meta.name, {
+    // Compose with a caller-owned construct tree when one is supplied. Otherwise
+    // Timonel owns an internal App solely as the root for this chart.
+    const scope = props.scope ?? new App();
+    this.chart = new Chart(scope, props.meta.name, {
       ...props.chartProps,
       ...(props.namespace ? { namespace: props.namespace } : {}),
     });
 
-    // Initialize resource providers
     this.awsResources = new AWSResources(this.chart);
     this.karpenterResources = new KarpenterResources(this.chart);
-
-    // Create a proxy for backward compatibility with synchronous toSynthArray calls
-    // This allows tests that use rutter['toSynthArray']() to work without await
-    const originalToSynthArray = this.toSynthArray.bind(this);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this as any)['toSynthArray'] = (..._args: any[]) => {
-      // If no policy engine is configured, use the synchronous version
-      if (!this.props.policyEngine) {
-        return this.toSynthArraySync();
-      }
-      // Otherwise, return the async version (toSynthArray doesn't accept arguments)
-      return originalToSynthArray();
-    };
   }
 
   // AWS Resources
@@ -376,41 +362,22 @@ export class Rutter {
   // Manifest Helpers
   // Utility methods
   /**
-   * Adds a Kubernetes manifest to the chart using CDK8S
+   * Adds an object-form Kubernetes manifest as a cdk8s ApiObject.
    *
-   * This method allows you to add any Kubernetes manifest (CRDs, custom resources, etc.)
-   * either as YAML strings or as objects. The manifest will be processed using CDK8S
-   * for better type safety and validation. Uses js-yaml for reliable YAML parsing.
+   * Prefer native cdk8s/cdk8s-plus constructs attached to `getChart()` whenever an
+   * upstream typed construct exists. Use this object form primarily for CRDs or
+   * custom resources that do not yet have a suitable typed construct.
    *
-   * @param yamlOrObject - Kubernetes manifest as YAML string or object
-   * @param id - Unique identifier for the manifest (required for multiple manifests)
-   *
-   * @example
-   * ```typescript
-   * // Using YAML string for CRD
-   * rutter.addManifest(`
-   * apiVersion: apiextensions.k8s.io/v1
-   * kind: CustomResourceDefinition
-   * metadata:
-   *   name: example.com
-   * spec:
-   *   group: example.com
-   *   versions: []
-   * `, 'my-crd');
-   *
-   * // Using object for any Kubernetes resource
-   * rutter.addManifest({
-   *   apiVersion: 'v1',
-   *   kind: 'ConfigMap',
-   *   metadata: { name: 'my-config' },
-   *   data: { key: 'value' }
-   * }, 'my-configmap');
-   * ```
-   *
+   * @param yamlOrObject - Kubernetes manifest object, or deprecated raw YAML input
+   * @param id - Unique construct identifier
    * @since 2.8.0+
-   * @since 2.9.2 Improved YAML parsing with js-yaml.load for better compatibility
-   * @note Consider using cdk8s-plus constructs for better type safety when available
    */
+  addManifest(manifestObject: Record<string, unknown>, id: string): ApiObject;
+  /**
+   * @deprecated Raw YAML bypasses TypeScript resource typing. Prefer cdk8s/cdk8s-plus
+   * constructs through `getChart()` or pass a typed object to `addManifest()`.
+   */
+  addManifest(yaml: string, id: string): ApiObject;
   addManifest(yamlOrObject: string | Record<string, unknown>, id: string): ApiObject {
     let manifestObject: Record<string, unknown>;
 
@@ -464,7 +431,10 @@ export class Rutter {
    *
    * @param yamlTemplate - The YAML template string with Helm expressions
    * @param id - Unique identifier for the manifest
-   * @returns A placeholder ApiObject
+   * @returns A compatibility placeholder that is excluded from synthesized output
+   * @deprecated Raw YAML templates bypass TypeScript resource typing. Prefer typed
+   * cdk8s/cdk8s-plus constructs through `getChart()` and ValuesRef for Helm values.
+   * This method is planned for removal in the next major release.
    */
   addTemplateManifest(yamlTemplate: string, id: string): ApiObject {
     // Store the template as an asset that will be processed during write
@@ -476,11 +446,18 @@ export class Rutter {
 
     this.assets.push(templateAsset);
 
-    // Return a placeholder ApiObject for compatibility
-    return new ApiObject(this.chart, id, {
+    // Preserve the historical return type without leaking the compatibility
+    // placeholder into generated charts.
+    return new ApiObject(this.chart, `${id}-placeholder`, {
       apiVersion: 'v1',
       kind: 'ConfigMap',
-      metadata: { name: id },
+      metadata: {
+        name: id,
+        annotations: {
+          'timonel.sh/placeholder': 'true',
+          'timonel.sh/deprecated-raw-template': 'true',
+        },
+      },
     });
   }
 
@@ -661,6 +638,36 @@ ${yamlContent.trim()}
   }
 
   /**
+   * Returns stable logical identifiers for all synthesized ApiObjects, including
+   * those nested inside cdk8s-plus resources.
+   */
+  private getSynthesizedApiObjectIds(): string[] {
+    return this.chart.node
+      .findAll()
+      .filter(
+        (construct): construct is ApiObject =>
+          construct instanceof ApiObject && !construct.node.id.endsWith('-placeholder'),
+      )
+      .map((apiObject) => {
+        const owner = apiObject.node.scope;
+        if (apiObject.node.id === 'Resource' && owner && owner !== this.chart) {
+          return owner.node.id;
+        }
+        return apiObject.node.id;
+      });
+  }
+
+  /**
+   * Returns the underlying cdk8s Chart so consumers can attach fully typed
+   * cdk8s/cdk8s-plus constructs directly to Timonel's synthesis tree.
+   *
+   * @returns The cdk8s Chart owned by this Rutter instance
+   */
+  getChart(): Chart {
+    return this.chart;
+  }
+
+  /**
    * Gets chart metadata
    * @returns Chart metadata
    *
@@ -706,7 +713,6 @@ ${yamlContent.trim()}
    *
    * @since 2.8.0+
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity
   public async toSynthArray(): Promise<SynthAsset[]> {
     const timer = this.logger.time('chart_synthesis');
 
@@ -715,13 +721,9 @@ ${yamlContent.trim()}
       operation: 'synthesis_start',
     });
 
-    // Get ApiObject IDs before synthesis, excluding placeholders
-    const apiObjectIds: string[] = [];
-    for (const child of this.chart.node.children) {
-      if (child instanceof ApiObject && !child.node.id.endsWith('-placeholder')) {
-        apiObjectIds.push(child.node.id);
-      }
-    }
+    // Get ApiObject IDs before synthesis, including ApiObjects nested inside
+    // cdk8s-plus constructs while excluding compatibility placeholders.
+    const apiObjectIds = this.getSynthesizedApiObjectIds();
 
     // Use cdk8s Testing.synth to obtain manifest objects, but filter out placeholders
     const allManifestObjs = Testing.synth(this.chart) as unknown[];
@@ -893,13 +895,9 @@ ${yamlContent.trim()}
       operation: 'synthesis_start_sync',
     });
 
-    // Get ApiObject IDs before synthesis, excluding placeholders
-    const apiObjectIds: string[] = [];
-    for (const child of this.chart.node.children) {
-      if (child instanceof ApiObject && !child.node.id.endsWith('-placeholder')) {
-        apiObjectIds.push(child.node.id);
-      }
-    }
+    // Get ApiObject IDs before synthesis, including ApiObjects nested inside
+    // cdk8s-plus constructs while excluding compatibility placeholders.
+    const apiObjectIds = this.getSynthesizedApiObjectIds();
 
     // Use cdk8s Testing.synth to obtain manifest objects, but filter out placeholders
     const allManifestObjs = Testing.synth(this.chart) as unknown[];

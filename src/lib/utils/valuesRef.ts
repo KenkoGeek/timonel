@@ -1,103 +1,105 @@
 /**
- * Type-safe Helm values reference system
- * Creates proxy objects that generate Helm template expressions
+ * Type-safe Helm values reference system.
  *
- * @example
- * const v = valuesRef<MyValues>();
- * v.replicaCount                    // {{ .Values.replicaCount }}
- * v.image.repository                // {{ .Values.image.repository }}
- * v.autoscaling.enabled.not()       // not .Values.autoscaling.enabled
- * v.if(v.enabled, v.count)          // {{- if .Values.enabled }}{{ .Values.count }}{{- end }}
+ * ValuesRef exposes the shape of the caller-provided values interface while
+ * preserving a runtime proxy that renders Helm expressions.
  */
 
 import { createHelmExpression, type HelmExpression } from './helmControlStructures.js';
 
-// Symbol to identify HelmValue objects
 const HELM_VALUE_SYMBOL = Symbol('HelmValue');
 
+type HelmScalar = string | number | boolean;
+type ArrayElement<T> = T extends readonly (infer U)[] ? U : never;
+type StringKeyOf<T> = Extract<keyof T, string>;
+type RuntimeReservedValueKey = 'toJSON' | 'toString' | 'valueOf';
+type HelmValueReservedKey = Extract<keyof HelmValue<unknown>, string> | RuntimeReservedValueKey;
+
 /**
- * Represents a reference to a Helm value that can be used in templates
+ * A Helm value reference with mapped properties that mirror the supplied
+ * TypeScript value shape. Keys reserved by the ValuesRef API remain accessible
+ * through the typed `at()` accessor.
  */
+export type HelmValueRef<T> = HelmValue<T> &
+  (T extends readonly unknown[]
+    ? object
+    : T extends object
+      ? {
+          readonly [K in Exclude<StringKeyOf<T>, HelmValueReservedKey>]-?: HelmValueRef<T[K]>;
+        }
+      : object);
+
+/** Represents a reference to a Helm value that can be used in templates. */
 export interface HelmValue<T = unknown> {
   [HELM_VALUE_SYMBOL]: true;
   __path: string;
   __type?: T;
 
-  // Comparison operators
-  eq(value: HelmValue | string | number | boolean): HelmCondition;
-  ne(value: HelmValue | string | number | boolean): HelmCondition;
-  gt(value: HelmValue | number): HelmCondition;
-  ge(value: HelmValue | number): HelmCondition;
-  lt(value: HelmValue | number): HelmCondition;
-  le(value: HelmValue | number): HelmCondition;
+  /**
+   * Accesses a values key without colliding with ValuesRef methods.
+   * Use this for keys such as `default`, `range`, or `with`.
+   */
+  at<K extends StringKeyOf<T>>(key: K): HelmValueRef<T[K]>;
 
-  // Logical operators (for boolean values)
+  eq(value: HelmValueRef<unknown> | HelmScalar): HelmCondition;
+  ne(value: HelmValueRef<unknown> | HelmScalar): HelmCondition;
+  gt(value: HelmValueRef<unknown> | number): HelmCondition;
+  ge(value: HelmValueRef<unknown> | number): HelmCondition;
+  lt(value: HelmValueRef<unknown> | number): HelmCondition;
+  le(value: HelmValueRef<unknown> | number): HelmCondition;
+
   not(): HelmCondition;
   and(other: HelmCondition): HelmCondition;
   or(other: HelmCondition): HelmCondition;
 
-  // String/value functions
-  default(defaultValue: HelmValue | string | number | boolean): HelmValue<T>;
-  quote(): HelmValue<string>;
-  upper(): HelmValue<string>;
-  lower(): HelmValue<string>;
-  title(): HelmValue<string>;
-  trim(): HelmValue<string>;
-  trimPrefix(prefix: string): HelmValue<string>;
-  trimSuffix(suffix: string): HelmValue<string>;
-  replace(old: string, newStr: string): HelmValue<string>;
+  default(defaultValue: HelmValueRef<unknown> | HelmScalar): HelmValueRef<T>;
+  quote(): HelmValueRef<string>;
+  upper(): HelmValueRef<string>;
+  lower(): HelmValueRef<string>;
+  title(): HelmValueRef<string>;
+  trim(): HelmValueRef<string>;
+  trimPrefix(prefix: string): HelmValueRef<string>;
+  trimSuffix(suffix: string): HelmValueRef<string>;
+  replace(old: string, newStr: string): HelmValueRef<string>;
   contains(substr: string): HelmCondition;
   hasPrefix(prefix: string): HelmCondition;
   hasSuffix(suffix: string): HelmCondition;
+  trunc(length: number): HelmValueRef<string>;
 
-  // Number functions
-  trunc(length: number): HelmValue<string>;
-
-  // Type checking
   kindIs(kind: 'string' | 'slice' | 'map' | 'bool' | 'int' | 'float'): HelmCondition;
   hasKey(key: string): HelmCondition;
 
-  // YAML functions
-  toYaml(): HelmValue<string>;
-  toJson(): HelmValue<string>;
-  nindent(spaces: number): HelmValue<string>;
-  indent(spaces: number): HelmValue<string>;
-
-  // Convert to HelmExpression for use in manifests
+  toYaml(): HelmValueRef<string>;
+  toJson(): HelmValueRef<string>;
+  nindent(spaces: number): HelmValueRef<string>;
+  indent(spaces: number): HelmValueRef<string>;
   toExpression(): HelmExpression;
 
-  // For field-level conditionals
-  if<V>(condition: HelmCondition, thenValue: V): HelmFieldConditional<V>;
-  ifElse<V>(condition: HelmCondition, thenValue: V, elseValue: V): HelmValue<V>;
+  if<V>(condition: HelmCondition | HelmValueRef<unknown>, thenValue: V): HelmFieldConditional<V>;
+  ifElse<V extends HelmValueRef<unknown> | HelmScalar>(
+    condition: HelmCondition,
+    thenValue: V,
+    elseValue: V,
+  ): HelmValueRef<V extends HelmValueRef<infer U> ? U : V>;
 
-  // Range over arrays
   range<V>(
-    callback: (item: HelmValue<T extends (infer U)[] ? U : unknown>, index: HelmValue<number>) => V,
-  ): HelmRange<V>;
+    callback: (item: HelmValueRef<ArrayElement<T>>, index: HelmValueRef<number>) => V,
+  ): HelmRange<V, ArrayElement<T>>;
 
-  // With context
-  with<V>(callback: (ctx: HelmValue<T>) => V): HelmWith<V>;
+  with<V>(callback: (ctx: HelmValueRef<T>) => V): HelmWith<V, T>;
 }
 
-/**
- * Represents a Helm condition (boolean expression)
- */
+/** Represents a Helm boolean condition. */
 export interface HelmCondition {
   [HELM_VALUE_SYMBOL]: true;
   __condition: string;
-
-  // Logical operators
   not(): HelmCondition;
   and(other: HelmCondition): HelmCondition;
   or(other: HelmCondition): HelmCondition;
-
-  // Convert to string for use in templates
   toString(): string;
 }
 
-/**
- * Represents a field-level conditional
- */
+/** Represents a field-level conditional. */
 export interface HelmFieldConditional<T> {
   __helmFieldConditional: true;
   condition: HelmCondition;
@@ -105,78 +107,70 @@ export interface HelmFieldConditional<T> {
   elseValue?: T;
 }
 
-/**
- * Represents a range loop
- */
-export interface HelmRange<T> {
+/** Represents a Helm range block. */
+export interface HelmRange<T, TItem = unknown> {
   __helmRange: true;
-  source: HelmValue;
-  callback: (item: HelmValue, index: HelmValue<number>) => T;
+  source: HelmValueRef<readonly TItem[]>;
+  callback: (item: HelmValueRef<TItem>, index: HelmValueRef<number>) => T;
 }
 
-/**
- * Represents a with block
- */
-export interface HelmWith<T> {
+/** Represents a Helm with block. */
+export interface HelmWith<T, TContext = unknown> {
   __helmWith: true;
-  source: HelmValue;
-  callback: (ctx: HelmValue) => T;
+  source: HelmValueRef<TContext>;
+  callback: (ctx: HelmValueRef<TContext>) => T;
 }
 
-/**
- * Helper context for includes, printf, etc.
- */
+/** Helper context for Helm built-ins and functions. */
 export interface HelmHelpers {
-  // Include a named template
-  include(templateName: string, context?: '.' | HelmValue): HelmValue<string>;
-
-  // Printf formatting
-  printf(format: string, ...args: (HelmValue | string | number)[]): HelmValue<string>;
-
-  // Access to special Helm objects
+  include(templateName: string, context?: '.' | HelmValueRef<unknown>): HelmValueRef<string>;
+  printf(
+    format: string,
+    ...args: Array<HelmValueRef<unknown> | string | number>
+  ): HelmValueRef<string>;
   release: {
-    name: HelmValue<string>;
-    namespace: HelmValue<string>;
-    service: HelmValue<string>;
-    isUpgrade: HelmValue<boolean>;
-    isInstall: HelmValue<boolean>;
-    revision: HelmValue<number>;
+    name: HelmValueRef<string>;
+    namespace: HelmValueRef<string>;
+    service: HelmValueRef<string>;
+    isUpgrade: HelmValueRef<boolean>;
+    isInstall: HelmValueRef<boolean>;
+    revision: HelmValueRef<number>;
   };
-
   chart: {
-    name: HelmValue<string>;
-    version: HelmValue<string>;
-    appVersion: HelmValue<string>;
-    type: HelmValue<string>;
+    name: HelmValueRef<string>;
+    version: HelmValueRef<string>;
+    appVersion: HelmValueRef<string>;
+    type: HelmValueRef<string>;
   };
-
   capabilities: {
     kubeVersion: {
-      version: HelmValue<string>;
-      major: HelmValue<string>;
-      minor: HelmValue<string>;
+      version: HelmValueRef<string>;
+      major: HelmValueRef<string>;
+      minor: HelmValueRef<string>;
     };
     apiVersions: {
       has(apiVersion: string): HelmCondition;
     };
   };
-
-  // Create a raw condition from string (escape hatch, but documented)
+  /** Escape hatch for Helm conditions that cannot be expressed through ValuesRef. */
   rawCondition(condition: string): HelmCondition;
 }
 
-// Helper to serialize a value to Helm template string
-function serializeValue(value: HelmValue | string | number | boolean): string {
-  if (typeof value === 'object' && value !== null && HELM_VALUE_SYMBOL in value) {
-    return (value as HelmValue).__path;
-  }
-  if (typeof value === 'string') {
-    return `"${value}"`;
-  }
-  return String(value);
+function helmStringLiteral(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-// Create a HelmCondition object
+function serializeValue(value: HelmValueRef<unknown> | HelmScalar): string {
+  if (isHelmValue(value)) {
+    return value.__path;
+  }
+  return typeof value === 'string' ? helmStringLiteral(value) : String(value);
+}
+
+function appendPropertyPath(path: string, property: string): string {
+  return path === '.' ? `.${property}` : `${path}.${property}`;
+}
+
 function createCondition(condition: string): HelmCondition {
   if (!condition || typeof condition !== 'string') {
     throw new Error('Condition must be a non-empty string');
@@ -206,320 +200,237 @@ function createCondition(condition: string): HelmCondition {
   };
 }
 
-// Create a HelmValue proxy
-function createValueProxy<T>(path: string): HelmValue<T> {
-  // Create a base object that has the HelmExpression structure
-  // This allows cdk8s to serialize it correctly
-  // The properties MUST be directly on the object for cdk8s to see them
-  const baseObject = Object.create(null) as HelmValue<T> & {
-    __helmExpression: true;
-    value: string;
-  };
-  baseObject.__helmExpression = true;
-  baseObject.value = `{{ ${path} }}`;
+/**
+ * Creates the runtime proxy used by ValuesRef and by serializer callback scopes.
+ * This function is intentionally not re-exported from the package root.
+ */
+export function createHelmValueProxy<T>(path: string): HelmValueRef<T> {
+  const baseObject = Object.create(null) as HelmValue<T>;
 
   const handler: ProxyHandler<typeof baseObject> = {
-    // Make properties enumerable for JSON.stringify and cdk8s
-    ownKeys() {
-      return ['__helmExpression', 'value'];
+    has(_target, prop) {
+      return prop === HELM_VALUE_SYMBOL;
     },
-    getOwnPropertyDescriptor(target, prop) {
-      if (prop === '__helmExpression') {
-        return { value: true, writable: false, enumerable: true, configurable: true };
-      }
-      if (prop === 'value') {
-        return { value: `{{ ${path} }}`, writable: false, enumerable: true, configurable: true };
-      }
-      return undefined;
-    },
-    // Handle 'in' operator for isHelmValue check
-    has(target, prop) {
-      if (prop === HELM_VALUE_SYMBOL) return true;
-      if (prop === '__helmExpression') return true;
-      if (prop === 'value') return true;
-      return false;
-    },
-    get(target, prop: string | symbol) {
-      // Handle symbol properties
+    get(_target, prop: string | symbol) {
       if (prop === HELM_VALUE_SYMBOL) return true;
       if (prop === '__path') return path;
       if (prop === '__type') return undefined;
-
-      // For cdk8s serialization - expose HelmExpression properties
-      if (prop === '__helmExpression') return true;
-      if (prop === 'value') return `{{ ${path} }}`;
-
-      // Handle JSON serialization (for cdk8s)
+      if (prop === Symbol.toPrimitive) return () => path;
       if (prop === 'toJSON') {
-        return () => ({ __helmExpression: true, value: `{{ ${path} }}` });
+        return () => `{{ ${path} }}`;
       }
 
-      // Handle built-in methods
-      if (typeof prop === 'string') {
-        switch (prop) {
-          // Comparison operators
-          case 'eq':
-            return (value: HelmValue | string | number | boolean) =>
-              createCondition(`eq ${path} ${serializeValue(value)}`);
-          case 'ne':
-            return (value: HelmValue | string | number | boolean) =>
-              createCondition(`ne ${path} ${serializeValue(value)}`);
-          case 'gt':
-            return (value: HelmValue | number) =>
-              createCondition(`gt ${path} ${serializeValue(value)}`);
-          case 'ge':
-            return (value: HelmValue | number) =>
-              createCondition(`ge ${path} ${serializeValue(value)}`);
-          case 'lt':
-            return (value: HelmValue | number) =>
-              createCondition(`lt ${path} ${serializeValue(value)}`);
-          case 'le':
-            return (value: HelmValue | number) =>
-              createCondition(`le ${path} ${serializeValue(value)}`);
+      if (typeof prop !== 'string') return undefined;
 
-          // Logical operators
-          case 'not':
-            return () => createCondition(`not ${path}`);
-          case 'and':
-            return (other: HelmCondition) => createCondition(`and ${path} (${other.__condition})`);
-          case 'or':
-            return (other: HelmCondition) => createCondition(`or ${path} (${other.__condition})`);
-
-          // String/value functions
-          case 'default':
-            return (defaultValue: HelmValue | string | number | boolean) =>
-              createValueProxy<T>(`${path} | default ${serializeValue(defaultValue)}`);
-          case 'quote':
-            return () => createValueProxy<string>(`(${path} | quote)`);
-          case 'upper':
-            return () => createValueProxy<string>(`(${path} | upper)`);
-          case 'lower':
-            return () => createValueProxy<string>(`(${path} | lower)`);
-          case 'title':
-            return () => createValueProxy<string>(`(${path} | title)`);
-          case 'trim':
-            return () => createValueProxy<string>(`(${path} | trim)`);
-          case 'trimPrefix':
-            return (prefix: string) =>
-              createValueProxy<string>(`(${path} | trimPrefix "${prefix}")`);
-          case 'trimSuffix':
-            return (suffix: string) =>
-              createValueProxy<string>(`(${path} | trimSuffix "${suffix}")`);
-          case 'replace':
-            return (old: string, newStr: string) =>
-              createValueProxy<string>(`(${path} | replace "${old}" "${newStr}")`);
-          case 'contains':
-            return (substr: string) => createCondition(`contains "${substr}" ${path}`);
-          case 'hasPrefix':
-            return (prefix: string) => createCondition(`hasPrefix ${path} "${prefix}"`);
-          case 'hasSuffix':
-            return (suffix: string) => createCondition(`hasSuffix ${path} "${suffix}"`);
-
-          // Number functions
-          case 'trunc':
-            return (length: number) => createValueProxy<string>(`(${path} | trunc ${length})`);
-
-          // Type checking
-          case 'kindIs':
-            return (kind: string) => createCondition(`kindIs "${kind}" ${path}`);
-          case 'hasKey':
-            return (key: string) => createCondition(`hasKey ${path} "${key}"`);
-
-          // YAML functions
-          case 'toYaml':
-            return () => createValueProxy<string>(`${path} | toYaml`);
-          case 'toJson':
-            return () => createValueProxy<string>(`${path} | toJson`);
-          case 'nindent':
-            return (spaces: number) => createValueProxy<string>(`${path} | nindent ${spaces}`);
-          case 'indent':
-            return (spaces: number) => createValueProxy<string>(`${path} | indent ${spaces}`);
-
-          // Convert to HelmExpression
-          case 'toExpression':
-            return () => createHelmExpression(`{{ ${path} }}`);
-
-          // Field-level conditional
-          case 'if':
-            return <V>(
-              condition: HelmCondition | HelmValue,
-              thenValue: V,
-            ): HelmFieldConditional<V> => {
-              // If condition is a HelmValue, convert it to a HelmCondition
-              // In Helm, any value can be used as a condition (truthy check)
-              let helmCondition: HelmCondition;
-              if (isHelmCondition(condition)) {
-                helmCondition = condition;
-              } else if (isHelmValue(condition)) {
-                // Use the value path directly as condition
-                helmCondition = createCondition((condition as HelmValue).__path);
-              } else {
-                throw new Error(
-                  'v.if() requires a HelmCondition or HelmValue as the first argument',
-                );
-              }
-              return {
-                __helmFieldConditional: true,
-                condition: helmCondition,
-                thenValue,
-              };
+      switch (prop) {
+        case 'at':
+          return <K extends StringKeyOf<T>>(key: K) =>
+            createHelmValueProxy<T[K]>(appendPropertyPath(path, key));
+        case 'eq':
+          return (value: HelmValueRef<unknown> | HelmScalar) =>
+            createCondition(`eq ${path} ${serializeValue(value)}`);
+        case 'ne':
+          return (value: HelmValueRef<unknown> | HelmScalar) =>
+            createCondition(`ne ${path} ${serializeValue(value)}`);
+        case 'gt':
+          return (value: HelmValueRef<unknown> | number) =>
+            createCondition(`gt ${path} ${serializeValue(value)}`);
+        case 'ge':
+          return (value: HelmValueRef<unknown> | number) =>
+            createCondition(`ge ${path} ${serializeValue(value)}`);
+        case 'lt':
+          return (value: HelmValueRef<unknown> | number) =>
+            createCondition(`lt ${path} ${serializeValue(value)}`);
+        case 'le':
+          return (value: HelmValueRef<unknown> | number) =>
+            createCondition(`le ${path} ${serializeValue(value)}`);
+        case 'not':
+          return () => createCondition(`not ${path}`);
+        case 'and':
+          return (other: HelmCondition) => createCondition(`and ${path} (${other.__condition})`);
+        case 'or':
+          return (other: HelmCondition) => createCondition(`or ${path} (${other.__condition})`);
+        case 'default':
+          return (defaultValue: HelmValueRef<unknown> | HelmScalar) =>
+            createHelmValueProxy<T>(`${path} | default ${serializeValue(defaultValue)}`);
+        case 'quote':
+          return () => createHelmValueProxy<string>(`(${path} | quote)`);
+        case 'upper':
+          return () => createHelmValueProxy<string>(`(${path} | upper)`);
+        case 'lower':
+          return () => createHelmValueProxy<string>(`(${path} | lower)`);
+        case 'title':
+          return () => createHelmValueProxy<string>(`(${path} | title)`);
+        case 'trim':
+          return () => createHelmValueProxy<string>(`(${path} | trim)`);
+        case 'trimPrefix':
+          return (prefix: string) =>
+            createHelmValueProxy<string>(`(${path} | trimPrefix ${helmStringLiteral(prefix)})`);
+        case 'trimSuffix':
+          return (suffix: string) =>
+            createHelmValueProxy<string>(`(${path} | trimSuffix ${helmStringLiteral(suffix)})`);
+        case 'replace':
+          return (old: string, newStr: string) =>
+            createHelmValueProxy<string>(
+              `(${path} | replace ${helmStringLiteral(old)} ${helmStringLiteral(newStr)})`,
+            );
+        case 'contains':
+          return (substr: string) =>
+            createCondition(`contains ${helmStringLiteral(substr)} ${path}`);
+        case 'hasPrefix':
+          return (prefix: string) =>
+            createCondition(`hasPrefix ${helmStringLiteral(prefix)} ${path}`);
+        case 'hasSuffix':
+          return (suffix: string) =>
+            createCondition(`hasSuffix ${helmStringLiteral(suffix)} ${path}`);
+        case 'trunc':
+          return (length: number) => createHelmValueProxy<string>(`(${path} | trunc ${length})`);
+        case 'kindIs':
+          return (kind: string) => createCondition(`kindIs ${helmStringLiteral(kind)} ${path}`);
+        case 'hasKey':
+          return (key: string) => createCondition(`hasKey ${path} ${helmStringLiteral(key)}`);
+        case 'toYaml':
+          return () => createHelmValueProxy<string>(`${path} | toYaml`);
+        case 'toJson':
+          return () => createHelmValueProxy<string>(`${path} | toJson`);
+        case 'nindent':
+          return (spaces: number) => createHelmValueProxy<string>(`${path} | nindent ${spaces}`);
+        case 'indent':
+          return (spaces: number) => createHelmValueProxy<string>(`${path} | indent ${spaces}`);
+        case 'toExpression':
+          return () => createHelmExpression(`{{ ${path} }}`);
+        case 'if':
+          return <V>(
+            condition: HelmCondition | HelmValueRef<unknown>,
+            thenValue: V,
+          ): HelmFieldConditional<V> => {
+            const helmCondition = isHelmCondition(condition)
+              ? condition
+              : isHelmValue(condition)
+                ? createCondition(condition.__path)
+                : undefined;
+            if (!helmCondition) {
+              throw new Error('v.if() requires a HelmCondition or HelmValue as the first argument');
+            }
+            return {
+              __helmFieldConditional: true,
+              condition: helmCondition,
+              thenValue,
             };
-
-          case 'ifElse':
-            return <V>(condition: HelmCondition, thenValue: V, elseValue: V): HelmValue<V> => {
-              // This creates an inline if-else expression
-              const condStr = condition.__condition;
-              return createValueProxy<V>(
-                `(ternary ${serializeValue(thenValue as unknown as HelmValue)} ${serializeValue(elseValue as unknown as HelmValue)} (${condStr}))`,
-              );
-            };
-
-          // Range
-          case 'range':
-            return <V>(
-              callback: (item: HelmValue, index: HelmValue<number>) => V,
-            ): HelmRange<V> => ({
-              __helmRange: true,
-              source: createValueProxy<T>(path),
-              callback,
-            });
-
-          // With
-          case 'with':
-            return <V>(callback: (ctx: HelmValue) => V): HelmExpression => {
-              // Execute callback immediately with a proxy context
-              const ctxProxy = { __path: '.', [HELM_VALUE_SYMBOL]: true } as HelmValue;
-              const content = callback(ctxProxy);
-
-              // Extract content string
-              let contentStr: string;
-              if (
-                typeof content === 'object' &&
-                content !== null &&
-                '__helmExpression' in content
-              ) {
-                const helmExpr = content as unknown as HelmExpression;
-                contentStr = helmExpr.value;
-              } else {
-                contentStr = String(content);
-              }
-
-              // Create a special marker for field-level with
-              // Format: __FIELD_WITH_MARKER__:path:content
-              const marker = `__FIELD_WITH_MARKER__:${path}:${contentStr}`;
-              return createHelmExpression(marker);
-            };
-
-          // toString for template interpolation
-          case 'toString':
-            return () => `{{ ${path} }}`;
-
-          // valueOf for primitive coercion
-          case 'valueOf':
-            return () => path;
-
-          // Nested property access
-          default:
-            return createValueProxy(`${path}.${prop}`);
-        }
+          };
+        case 'ifElse':
+          return <V extends HelmValueRef<unknown> | HelmScalar>(
+            condition: HelmCondition,
+            thenValue: V,
+            elseValue: V,
+          ) =>
+            createHelmValueProxy(
+              `(ternary ${serializeValue(thenValue)} ${serializeValue(elseValue)} (${condition.__condition}))`,
+            );
+        case 'range':
+          return <V>(
+            callback: (item: HelmValueRef<ArrayElement<T>>, index: HelmValueRef<number>) => V,
+          ): HelmRange<V, ArrayElement<T>> => ({
+            __helmRange: true,
+            source: createHelmValueProxy<readonly ArrayElement<T>[]>(path),
+            callback,
+          });
+        case 'with':
+          return <V>(callback: (ctx: HelmValueRef<T>) => V): HelmWith<V, T> => ({
+            __helmWith: true,
+            source: createHelmValueProxy<T>(path),
+            callback,
+          });
+        case 'toString':
+          return () => `{{ ${path} }}`;
+        case 'valueOf':
+          return () => path;
+        default:
+          return createHelmValueProxy<unknown>(appendPropertyPath(path, prop));
       }
-
-      return undefined;
     },
   };
 
-  return new Proxy(baseObject, handler) as HelmValue<T>;
+  return new Proxy(baseObject, handler) as unknown as HelmValueRef<T>;
 }
 
+type HelmHelperKey = Extract<keyof HelmHelpers, string>;
+
 /**
- * Creates a type-safe reference to Helm values
- *
- * @example
- * interface MyValues {
- *   replicaCount: number;
- *   autoscaling: { enabled: boolean };
- * }
- *
- * const v = valuesRef<MyValues>();
- * v.replicaCount                    // {{ .Values.replicaCount }}
- * v.autoscaling.enabled.not()       // not .Values.autoscaling.enabled
+ * Root ValuesRef shape. Root Helm helper names are reserved and can be reached
+ * as values through `at()`, for example `v.at('release')`.
  */
-export function valuesRef<T extends Record<string, unknown>>(): HelmValue<T> & HelmHelpers {
-  const values = createValueProxy<T>('.Values');
+export type ValuesRef<T extends object> = HelmValue<T> &
+  HelmHelpers &
+  (T extends readonly unknown[]
+    ? object
+    : {
+        readonly [
+          K in Exclude<StringKeyOf<T>, HelmValueReservedKey | HelmHelperKey>
+        ]-?: HelmValueRef<T[K]>;
+      });
 
-  // Add helper methods
+/** Creates a type-safe reference tree rooted at `.Values`. */
+export function valuesRef<T extends object>(): ValuesRef<T> {
+  const values = createHelmValueProxy<T>('.Values');
+
   const helpers: HelmHelpers = {
-    include(templateName: string, context: '.' | HelmValue = '.') {
-      const ctx = context === '.' ? '.' : (context as HelmValue).__path;
-      return createValueProxy<string>(`(include "${templateName}" ${ctx})`);
+    include(templateName: string, context: '.' | HelmValueRef<unknown> = '.') {
+      const ctx = context === '.' ? '.' : context.__path;
+      return createHelmValueProxy<string>(`(include ${helmStringLiteral(templateName)} ${ctx})`);
     },
-
-    printf(format: string, ...args: (HelmValue | string | number)[]) {
-      const argsStr = args
-        .map((arg) => serializeValue(arg as HelmValue | string | number | boolean))
-        .join(' ');
-      return createValueProxy<string>(`(printf "${format}" ${argsStr})`);
+    printf(format: string, ...args: Array<HelmValueRef<unknown> | string | number>) {
+      const argsStr = args.map((arg) => serializeValue(arg)).join(' ');
+      const suffix = argsStr ? ` ${argsStr}` : '';
+      return createHelmValueProxy<string>(`(printf ${helmStringLiteral(format)}${suffix})`);
     },
-
     release: {
-      name: createValueProxy<string>('.Release.Name'),
-      namespace: createValueProxy<string>('.Release.Namespace'),
-      service: createValueProxy<string>('.Release.Service'),
-      isUpgrade: createValueProxy<boolean>('.Release.IsUpgrade'),
-      isInstall: createValueProxy<boolean>('.Release.IsInstall'),
-      revision: createValueProxy<number>('.Release.Revision'),
+      name: createHelmValueProxy<string>('.Release.Name'),
+      namespace: createHelmValueProxy<string>('.Release.Namespace'),
+      service: createHelmValueProxy<string>('.Release.Service'),
+      isUpgrade: createHelmValueProxy<boolean>('.Release.IsUpgrade'),
+      isInstall: createHelmValueProxy<boolean>('.Release.IsInstall'),
+      revision: createHelmValueProxy<number>('.Release.Revision'),
     },
-
     chart: {
-      name: createValueProxy<string>('.Chart.Name'),
-      version: createValueProxy<string>('.Chart.Version'),
-      appVersion: createValueProxy<string>('.Chart.AppVersion'),
-      type: createValueProxy<string>('.Chart.Type'),
+      name: createHelmValueProxy<string>('.Chart.Name'),
+      version: createHelmValueProxy<string>('.Chart.Version'),
+      appVersion: createHelmValueProxy<string>('.Chart.AppVersion'),
+      type: createHelmValueProxy<string>('.Chart.Type'),
     },
-
     capabilities: {
       kubeVersion: {
-        version: createValueProxy<string>('.Capabilities.KubeVersion.Version'),
-        major: createValueProxy<string>('.Capabilities.KubeVersion.Major'),
-        minor: createValueProxy<string>('.Capabilities.KubeVersion.Minor'),
+        version: createHelmValueProxy<string>('.Capabilities.KubeVersion.Version'),
+        major: createHelmValueProxy<string>('.Capabilities.KubeVersion.Major'),
+        minor: createHelmValueProxy<string>('.Capabilities.KubeVersion.Minor'),
       },
       apiVersions: {
         has(apiVersion: string) {
-          return createCondition(`.Capabilities.APIVersions.Has "${apiVersion}"`);
+          return createCondition(`.Capabilities.APIVersions.Has ${helmStringLiteral(apiVersion)}`);
         },
       },
     },
-
     rawCondition(condition: string) {
       return createCondition(condition);
     },
   };
 
-  // Merge values proxy with helpers
   return new Proxy(values, {
     get(target, prop) {
-      // Check helpers first
-      if (prop in helpers) {
-        // eslint-disable-next-line security/detect-object-injection
-        return (helpers as unknown as Record<string | symbol, unknown>)[prop];
+      if (Object.prototype.hasOwnProperty.call(helpers, prop)) {
+        return Reflect.get(helpers, prop);
       }
-      // Then delegate to values proxy
-      // eslint-disable-next-line security/detect-object-injection
-      return (target as unknown as Record<string | symbol, unknown>)[prop];
+      return Reflect.get(target, prop);
     },
-  }) as HelmValue<T> & HelmHelpers;
+  }) as unknown as ValuesRef<T>;
 }
 
-/**
- * Check if a value is a HelmValue
- */
-export function isHelmValue(value: unknown): value is HelmValue {
+/** Check if a value is a Helm value proxy. */
+export function isHelmValue(value: unknown): value is HelmValueRef<unknown> {
   return typeof value === 'object' && value !== null && HELM_VALUE_SYMBOL in value;
 }
 
-/**
- * Check if a value is a HelmCondition
- */
+/** Check if a value is a Helm condition. */
 export function isHelmCondition(value: unknown): value is HelmCondition {
   return (
     typeof value === 'object' &&
@@ -529,37 +440,27 @@ export function isHelmCondition(value: unknown): value is HelmCondition {
   );
 }
 
-/**
- * Check if a value is a HelmFieldConditional
- */
+/** Check if a value is a field-level conditional. */
 export function isHelmFieldConditional(value: unknown): value is HelmFieldConditional<unknown> {
   return typeof value === 'object' && value !== null && '__helmFieldConditional' in value;
 }
 
-/**
- * Check if a value is a HelmRange
- */
-export function isHelmRange(value: unknown): value is HelmRange<unknown> {
+/** Check if a value is a range block. */
+export function isHelmRange(value: unknown): value is HelmRange<unknown, unknown> {
   return typeof value === 'object' && value !== null && '__helmRange' in value;
 }
 
-/**
- * Check if a value is a HelmWith
- */
-export function isHelmWith(value: unknown): value is HelmWith<unknown> {
+/** Check if a value is a with block. */
+export function isHelmWith(value: unknown): value is HelmWith<unknown, unknown> {
   return typeof value === 'object' && value !== null && '__helmWith' in value;
 }
 
-/**
- * Serialize a HelmValue to its template string
- */
-export function serializeHelmValue(value: HelmValue): string {
+/** Serialize a Helm value reference to template syntax. */
+export function serializeHelmValue(value: HelmValueRef<unknown>): string {
   return `{{ ${value.__path} }}`;
 }
 
-/**
- * Serialize a HelmCondition to its template string
- */
+/** Serialize a Helm condition body. */
 export function serializeHelmCondition(condition: HelmCondition): string {
   return condition.__condition;
 }
