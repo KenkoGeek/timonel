@@ -58,7 +58,7 @@
     "test:unit": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage --exclude tests/performance-benchmarks.test.ts",
     "doc:coverage": "tsx scripts/project-doc-coverage.ts",
     "doc:coverage:validate": "tsx scripts/validate-doc-coverage.ts",
     "ci:check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm build",
