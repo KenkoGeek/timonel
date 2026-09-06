@@ -1,3 +1,10 @@
+## [3.1.2](https://github.com/KenkoGeek/timonel/compare/v3.1.1...v3.1.2) (2026-09-06)
+
+### Bug Fixes
+
+- **ci:** allow npm trusted publishing OIDC ([#288](https://github.com/KenkoGeek/timonel/issues/288)) ([06b2894](https://github.com/KenkoGeek/timonel/commit/06b28944686374625049b3d8edfaa710af74d28f))
+- **core:** enforce typed-first library contracts ([#282](https://github.com/KenkoGeek/timonel/issues/282)) ([abd22bd](https://github.com/KenkoGeek/timonel/commit/abd22bdf7c3744784e539f73f85fecd55d60cdf6))
+
 ## [3.1.1](https://github.com/KenkoGeek/timonel/compare/v3.1.0...v3.1.1) (2026-03-15)
 
 ### Bug Fixes
