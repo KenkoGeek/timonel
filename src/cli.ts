@@ -554,6 +554,7 @@ async function cmdTemplates(flags?: CliFlags) {
 const UMBRELLA_SYNTH_MODES = ['dependencies', 'inline'] as const;
 type UmbrellaSynthMode = (typeof UMBRELLA_SYNTH_MODES)[number];
 
+/** Parsed command-line flags shared by Timonel CLI commands. */
 interface CliFlags {
   dryRun?: boolean;
   silent?: boolean;
@@ -642,10 +643,12 @@ async function cmdUmbrellaInit(name?: string, silent = false) {
   log(`Add subcharts with: tl umbrella add <subchart-name>`, silent);
 }
 
+/** Convert a kebab-case subchart name to the generated camelCase import identifier. */
 function toCamelCase(str: string): string {
   return str.replace(/-([a-z])/g, (g) => g[1]?.toUpperCase() || '');
 }
 
+/** Find the final top-level import line in generated umbrella TypeScript source. */
 function findLastImportIndex(lines: string[]): number {
   let lastImportIndex = -1;
 
@@ -663,6 +666,7 @@ function findLastImportIndex(lines: string[]): number {
   return lastImportIndex;
 }
 
+/** Add an import statement to generated umbrella source without duplicating it. */
 function addImportStatement(content: string, importStatement: string): string {
   if (content.includes(importStatement)) {
     return content;
@@ -680,6 +684,7 @@ function addImportStatement(content: string, importStatement: string): string {
   return lines.join('\n');
 }
 
+/** Rebuild the generated `SUBCHARTS` array body with a new unique entry. */
 function buildSubchartsContent(
   subchartsContent: string | undefined,
   subchartEntry: string,
@@ -703,6 +708,7 @@ function buildSubchartsContent(
   return `\n${lines.join('\n')}\n`;
 }
 
+/** Add a generated subchart factory entry to the umbrella source array. */
 function addSubchartToArray(content: string, chartName: string, camelCaseName: string): string {
   const subchartsRegex = /(const SUBCHARTS[\s\S]*?=\s*\[)([\s\S]*?)(\];)/;
   const match = content.match(subchartsRegex);
@@ -723,6 +729,7 @@ function addSubchartToArray(content: string, chartName: string, camelCaseName: s
   return content.replace(subchartsRegex, `${prefix}${newBody}${suffix}`);
 }
 
+/** Merge CLI flags while preserving every repeated `--set` override. */
 function mergeCliFlags(base?: CliFlags, override?: CliFlags): CliFlags {
   const merged: CliFlags = { ...(base || {}) };
 
@@ -744,6 +751,7 @@ function mergeCliFlags(base?: CliFlags, override?: CliFlags): CliFlags {
   return merged;
 }
 
+/** Persist a new subchart import and factory entry into `umbrella.ts`. */
 function updateUmbrellaTs(subchartPath: string, chartName: string) {
   const umbrellaFile = path.join(process.cwd(), UMBRELLA_FILE_NAME);
   const content = processUmbrellaFile(umbrellaFile, subchartPath, chartName);
@@ -751,6 +759,7 @@ function updateUmbrellaTs(subchartPath: string, chartName: string) {
   fs.writeFileSync(umbrellaFile, content);
 }
 
+/** Transform umbrella source text to reference a newly generated subchart. */
 function processUmbrellaFile(
   umbrellaFile: string,
   subchartPath: string,
@@ -766,6 +775,7 @@ function processUmbrellaFile(
   return content;
 }
 
+/** Build the import path, identifier, and statement for a generated subchart. */
 function createImportData(subchartPath: string, chartName: string) {
   const importPath = `./charts/${subchartPath}/chart`;
   const camelCaseName = toCamelCase(chartName);
@@ -865,6 +875,7 @@ async function cmdUmbrellaSynth(outDir?: string, flags?: CliFlags) {
   await executeTypeScriptUmbrella(umbrellaFile, outDir ?? defaultOutDir, synthMode, flags);
 }
 
+/** Execute an umbrella TypeScript entry point through the project-local tsx runtime. */
 async function executeTypeScriptUmbrella(
   resolvedPath: string,
   outDir: string,
@@ -1019,6 +1030,7 @@ function parseFlags(args: string[]): CliFlags {
   return flags;
 }
 
+/** Dispatch a parsed top-level CLI command to its implementation. */
 async function executeCommand(
   command: string | undefined,
   args: string[],

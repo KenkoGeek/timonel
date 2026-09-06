@@ -10,174 +10,43 @@
 [![TypeScript][ts-badge]][ts-url]
 [![Maintained by KenkoGeek][maintained-badge]][maintained-url]
 
-**Timonel** (Spanish for "helmsman") is a powerful TypeScript library that programmatically generates
-Helm charts using cdk8s. Define Kubernetes resources with type-safe classes and synthesize complete
-Helm charts with `Chart.yaml`, `values.yaml`, environment-specific values files, and `templates/`
-directory.
+**Timonel** is a TypeScript library for generating complete Helm charts programmatically on top of
+cdk8s and cdk8s-plus. Kubernetes resources stay typed in application code while Timonel handles
+Helm chart structure, values files, helpers, environment variants, policy validation, and final
+chart output.
 
-## ✨ Key Features
+The library API is the primary product. The `tl` CLI is a convenience layer for scaffolding,
+synthesis, Helm validation, deployment, and umbrella-chart workflows.
 
-### Core Capabilities
+## Architecture
 
-- **🔒 Type-safe API** with strict TypeScript and cdk8s constructs
-- **🔧 Native cdk8s composition** through `getChart()`, with object manifests only as a fallback
-- **🌍 Multi-environment support** with automatic values files generation
-- **☂️ Umbrella Charts** for managing multiple subcharts as a single unit
-- **⚡ Minimal CLI** (`tl`) for scaffolding, synthesis, validation, and deployment
-- **📦 Flexible subchart templates** supporting both cdk8s and cdk8s-plus-33
+Timonel is intentionally **typed-first**. Use Kubernetes resource APIs in this order:
 
-### Type-Safe Helm Helpers (v3.0+)
+1. `cdk8s-plus-33` when it already provides the resource abstraction;
+2. cdk8s `ApiObject` or a focused typed Timonel abstraction when a higher-level construct does not
+   fit;
+3. object-form `Rutter.addManifest()` for CRDs or custom resources without a suitable typed
+   construct;
+4. raw YAML only as a legacy escape hatch.
 
-#### ValuesRef System (NEW in v3.0 - RECOMMENDED)
+The raw-string `addManifest()` overload and `addTemplateManifest()` are deprecated and planned for
+removal in the next major release.
 
-Type-safe proxy-based values references with full IDE support:
+## Requirements
 
-- Import: `import { valuesRef } from 'timonel'`
-- **Comparison operators**: `eq`, `ne`, `gt`, `ge`, `lt`, `le`
-- **Logical operators**: `not`, `and`, `or`
-- **String functions**: `quote`, `upper`, `lower`, `trim`, `replace`, `contains`
-- **Default values**: `default()`
-- **Type checking**: `kindIs`, `hasKey`
-- **YAML functions**: `toYaml`, `toJson`, `nindent`, `indent`
-- **Field-level conditionals**: `v.if()`, `v.ifElse()` - Complex conditional logic
-- **Range loops**: `v.range()` - Type-safe iteration
-- **Context switching**: `v.with()` - Scoped value access
+- Node.js `^22.22.2`, `^24.15.0`, or `>=26.0.0`
+- pnpm `>=9`
+- Helm 3 when using `tl validate`, `tl deploy`, or manual chart validation
 
-#### Composable Helpers
-
-Template definition and inclusion helpers:
-
-- `helmInclude`, `helmDefine`, `helmVar`, `helmBlock`, `helmComment`, `helmFragment`
-- `template`, `include`, `quote`, `indent`
-
-#### Value Reference Helpers
-
-Useful string-based utilities (no ValuesRef equivalent):
-
-- `requiredValuesRef` - Required value with validation
-- `numberRef`, `boolRef`, `floatRef` - Type-cast references (int, bool, float64)
-- `base64Ref` - Base64 encoding
-
-#### Legacy Helpers (NOT RECOMMENDED)
-
-**⚠️ Use ValuesRef system instead:**
-
-- `valuesRef(path)` → use `v.path` (ValuesRef system)
-- `stringRef()` → use `v.quote()` (ValuesRef system)
-- `defaultRef()` → use `v.default()` (ValuesRef system)
-- `jsonRef()` → use `v.toJson()` (ValuesRef system)
-- `conditionalRef()` → use `v.if()` (ValuesRef system)
-- `helmIf`, `helmIfSimple` → use `v.if()` (ValuesRef system)
-- `helmRange` → use `v.range()` (ValuesRef system)
-- `helmWith` → use `v.with()` (ValuesRef system)
-- `helmIfElseIf` → use `v.if()` with nested conditions
-
-### Enhanced Helm Helpers
-
-- **Environment Helpers**: `envRef`, `envDefault`, `envRequired`, `envFromSecret`, `envFromConfigMap`
-- **GitOps Helpers**: `gitBranch`, `gitCommit`, `gitTag`, `gitopsAnnotations`
-- **Observability Helpers**: `prometheusAnnotations`, `datadogAnnotations`, `tracingAnnotations`
-- **Validation Helpers**: `validateRequired`, `validatePattern`, `validateRange`, `validateEnum`
-- **Standard Helpers**: 40+ built-in Helm helpers (chart.name, chart.fullname, chart.labels, etc.)
-
-### Cloud Integrations
-
-- **AWS Resources**:
-  - EBS/EFS StorageClass with encryption and performance options
-  - ALB Ingress with SSL/TLS and health checks
-  - IRSA ServiceAccount for pod-level IAM roles
-  - ECR integration
-  - Karpenter NodePool, NodeClaim, and EC2NodeClass
-- **Karpenter Features**:
-  - Disruption budgets and consolidation policies
-  - Instance type selection and requirements
-  - Spot instance support
-  - Custom AMI and user data
-
-### Security & Validation
-
-- **🛡️ Security-first approach**:
-  - Input validation (CWE-20, CWE-22/23)
-  - Path traversal prevention
-  - Command injection prevention (CWE-78/77/88)
-  - Log injection protection (CWE-117)
-  - Code injection prevention (CWE-94)
-- **🔍 Policy Engine** (NEW):
-  - Extensible validation framework for Kubernetes manifests
-  - Plugin-based architecture for custom policy rules
-  - Zero-impact integration (completely optional)
-  - Support for security, compliance, and best practice policies
-- **NetworkPolicy support** for pod-level network isolation
-- **Helm chart validation** with `validateHelmYaml`
-- **SecurityUtils** for path validation and sanitization
-
-### Developer Experience
-
-- **Structured logging** with Pino (JSON format, performance tracking)
-- **Environment variables loader** for external configuration
-- **YAML serialization** with Helm template preservation
-- **TypeScript strict mode** with all compiler checks enabled
-- **Comprehensive error handling** with detailed messages
-
-## 🚀 Quick Start
-
-### Installation
+## Installation
 
 ```bash
 pnpm add timonel cdk8s cdk8s-plus-33 constructs
 ```
 
-### Typed library usage
+npm and other compatible package managers can also install the package.
 
-```typescript
-import * as kplus from 'cdk8s-plus-33';
-import { Rutter } from 'timonel';
-
-const chart = new Rutter({
-  meta: { name: 'my-app', version: '1.0.0' },
-});
-
-new kplus.ConfigMap(chart.getChart(), 'app-config', {
-  metadata: { name: 'app-config' },
-  data: { mode: 'production' },
-});
-
-await chart.write('./dist/my-app');
-```
-
-Use cdk8s/cdk8s-plus constructs as the default resource API. `addManifest(object, id)` remains a
-fallback for custom resources without an upstream typed construct. The raw YAML overload of
-`addManifest()` and `addTemplateManifest()` are deprecated and will be removed in the next major
-release.
-
-### CLI
-
-The CLI is an optional convenience layer over the library:
-
-```bash
-tl init my-app
-tl synth my-app my-app-dist
-```
-
-### Umbrella Charts
-
-```bash
-# Create umbrella chart structure
-tl umbrella init my-umbrella-app
-
-# Add subcharts
-tl umbrella add frontend
-tl umbrella add backend
-
-# Generate umbrella chart
-tl umbrella synth
-```
-
-## 💡 Examples
-
-### Simple Web Application
-
-Prefer native cdk8s-plus resources and attach them to Timonel's chart:
+## Quick start
 
 ```typescript
 import * as kplus from 'cdk8s-plus-33';
@@ -185,17 +54,20 @@ import { Rutter } from 'timonel';
 
 const chart = new Rutter({
   meta: {
-    name: 'web-app',
+    name: 'my-app',
     version: '1.0.0',
-    description: 'Typed web application chart',
+    description: 'Typed Helm chart generated by Timonel',
+  },
+  defaultValues: {
+    environment: 'production',
   },
 });
 
-const deployment = new kplus.Deployment(chart.getChart(), 'Web', {
-  metadata: { name: 'web-app' },
+const deployment = new kplus.Deployment(chart.getChart(), 'App', {
+  metadata: { name: 'my-app' },
   containers: [
     {
-      name: 'web',
+      name: 'app',
       image: 'nginx:1.27',
       portNumber: 80,
       resources: {
@@ -205,656 +77,390 @@ const deployment = new kplus.Deployment(chart.getChart(), 'Web', {
   ],
 });
 
-new kplus.HorizontalPodAutoscaler(chart.getChart(), 'WebHpa', {
+deployment.exposeViaService();
+
+new kplus.HorizontalPodAutoscaler(chart.getChart(), 'AppHpa', {
   target: deployment,
   minReplicas: 1,
   maxReplicas: 5,
 });
 
-await chart.write('./dist/web-app');
+await chart.write('./dist/my-app');
 ```
 
-This path retains the cdk8s-plus TypeScript types for both the Deployment and HPA. For a custom
-resource that has no suitable upstream construct, `addManifest(object, id)` remains available as a
-fallback. Raw YAML input is deprecated.
+The generated chart contains `Chart.yaml`, `values.yaml`, `templates/`, `_helpers.tpl`, and
+`.helmignore`.
 
-### Policy Engine Integration
+Validate the final Helm output:
+
+```bash
+helm lint ./dist/my-app
+helm template my-app ./dist/my-app
+```
+
+## `Rutter`
+
+`Rutter` owns a cdk8s `Chart` and converts its resource tree into Helm chart assets.
 
 ```typescript
-import { Rutter, PolicyEngine } from 'timonel';
-import { securityPolicies } from '@mycompany/k8s-security-policies';
-
-// Create policy engine with custom plugins
-const policyEngine = new PolicyEngine().use(securityPolicies).configure({
-  timeout: 5000,
-  parallel: true,
-});
-
 const chart = new Rutter({
-  meta: {
-    name: 'secure-app',
-    version: '1.0.0',
+  meta: { name: 'orders', version: '1.0.0' },
+  namespace: 'orders',
+  defaultValues: {
+    replicas: 2,
   },
-  // Optional policy validation
-  policyEngine,
+  envValues: {
+    production: {
+      replicas: 4,
+    },
+  },
+});
+```
+
+Useful methods include:
+
+| API                       | Purpose                                                   |
+| ------------------------- | --------------------------------------------------------- |
+| `getChart()`              | Access the real cdk8s `Chart` for native typed constructs |
+| `write(outDir)`           | Synthesize and write the complete Helm chart              |
+| `toSynthArray()`          | Asynchronously synthesize Helm assets                     |
+| `getMeta()`               | Read chart metadata                                       |
+| `getDefaultValues()`      | Read default values                                       |
+| `getEnvValues()`          | Read environment-specific values                          |
+| `addManifest(object, id)` | Object fallback for custom resources                      |
+
+`toSynthArraySync()` remains for compatibility and is deprecated. It cannot be used with a policy
+engine.
+
+### Existing construct tree
+
+Pass `scope` when Timonel should participate in an existing cdk8s/constructs tree:
+
+```typescript
+import { App } from 'cdk8s';
+import * as kplus from 'cdk8s-plus-33';
+import { Rutter } from 'timonel';
+
+const app = new App();
+const chart = new Rutter({
+  scope: app,
+  meta: { name: 'shared-tree', version: '1.0.0' },
 });
 
-// Policies validate manifests before chart generation
-chart.write('./dist'); // Fails if policy violations found
+new kplus.ConfigMap(chart.getChart(), 'Config', {
+  metadata: { name: 'shared-tree' },
+  data: { mode: 'production' },
+});
 ```
 
-### Creating Custom Policy Plugins
+## Type-safe Helm values
 
-```typescript
-import { PolicyPlugin, PolicyViolation } from 'timonel';
-
-export const mySecurityPolicy: PolicyPlugin = {
-  name: 'my-security-policy',
-  version: '1.0.0',
-  description: 'Custom security validation rules',
-
-  async validate(manifests, context) {
-    const violations: PolicyViolation[] = [];
-
-    for (const manifest of manifests) {
-      if (manifest.kind === 'Deployment') {
-        // Check for security context
-        if (!manifest.spec?.template?.spec?.securityContext) {
-          violations.push({
-            plugin: this.name,
-            severity: 'error',
-            message: 'Deployment must specify securityContext',
-            resourcePath: `${manifest.kind}/${manifest.metadata?.name}`,
-            suggestion: 'Add spec.template.spec.securityContext to your Deployment',
-          });
-        }
-      }
-    }
-
-    return violations;
-  },
-};
-```
-
-### Umbrella Chart with Multiple Services
-
-```typescript
-import { UmbrellaChartTemplate } from 'timonel';
-
-const umbrellaConfig = {
-  name: 'my-umbrella-app',
-  version: '1.0.0',
-  subcharts: [
-    {
-      name: 'frontend',
-      version: '1.0.0',
-      chart: frontendChartFunction,
-    },
-    {
-      name: 'backend',
-      version: '1.0.0',
-      chart: backendChartFunction,
-    },
-  ],
-};
-
-export const umbrella = new UmbrellaChartTemplate(umbrellaConfig);
-```
-
-### Using Type-Safe Helm Helpers
-
-#### ValuesRef System (Recommended)
-
-The new ValuesRef system provides a type-safe, proxy-based approach to Helm values with full IDE support.
-
-**⚠️ Important:** This is completely different from the legacy `valuesRef(path: string)` helper.
-The new system uses generics and returns a proxy object with methods.
+`valuesRef<T>()` exposes Helm values using the shape of a TypeScript type.
 
 ```typescript
 import { valuesRef } from 'timonel';
 
-interface MyValues {
-  replicaCount: number;
-  image: { repository: string; tag: string };
-  autoscaling: { enabled: boolean; minReplicas: number };
+interface Values {
+  environment: string;
+  replicas: number;
+  image: {
+    repository: string;
+    tag: string;
+  };
+  autoscaling: {
+    enabled: boolean;
+  };
+  env: Array<{
+    name: string;
+    value: string;
+  }>;
 }
 
-const v = valuesRef<MyValues>();
+const v = valuesRef<Values>();
 
-// Type-safe value references with IDE autocomplete
-const replicas = v.replicaCount; // {{ .Values.replicaCount }}
-const imageTag = v.image.tag; // {{ .Values.image.tag }}
+const imageTag = v.image.tag.quote();
+const multipleReplicas = v.replicas.gt(1);
+const production = v.environment.eq('production');
+const fixedTag = v.image.tag.default('1.0.0');
 
-// Comparison operators
-const isProd = v.environment.eq('production'); // eq .Values.environment "production"
-const hasReplicas = v.replicaCount.gt(1); // gt .Values.replicaCount 1
-
-// Logical operators
-const notEnabled = v.autoscaling.enabled.not(); // not .Values.autoscaling.enabled
-
-// String functions
-const upperEnv = v.environment.upper(); // .Values.environment | upper
-const quotedTag = v.image.tag.quote(); // .Values.image.tag | quote
-
-// Default values
-const port = v.port.default(8080); // {{ .Values.port | default 8080 }}
-
-// Field-level conditionals
-const deployment = {
-  spec: {
-    replicas: v.if(notEnabled, v.replicaCount), // Conditionally include field
-  },
-};
-
-// Range loops
-const envVars = v.env.range((item, index) => ({
+const env = v.env.range((item) => ({
   name: item.name,
   value: item.value,
 }));
 
-// Context switching
-const dbConfig = v.database.with((db) => ({
-  host: db.host,
-  port: db.port,
-}));
+const replicasField = v.replicas.if(v.autoscaling.enabled.not(), v.replicas);
 ```
 
-ValuesRef reserves method names such as `default`, `range`, and `with`, plus root Helm helpers such
-as `release`, `chart`, and `capabilities`. If your values schema uses one of those names, use the
-typed `at()` accessor instead of an ambiguous property access:
+The compiler rejects value paths that do not exist in `Values`.
+
+### Reserved values keys
+
+Names used by the proxy API, such as `default`, `range`, and `with`, and root helpers such as
+`release`, `chart`, and `capabilities`, are accessed with the typed `at()` method when those names
+also exist in your values schema:
 
 ```typescript
-interface ReservedValues {
+interface Values {
   release: { name: string };
   settings: { default: string };
 }
 
-const reserved = valuesRef<ReservedValues>();
-const releaseName = reserved.at('release').name; // {{ .Values.release.name }}
-const defaultSetting = reserved.settings.at('default'); // {{ .Values.settings.default }}
+const v = valuesRef<Values>();
+
+const releaseName = v.at('release').name;
+const defaultSetting = v.settings.at('default');
 ```
 
-`at()` accepts only keys present in the current TypeScript values type, so it remains compile-time
-safe and does not introduce an arbitrary string-based Helm path API.
+`at()` accepts only keys from the current TypeScript values type.
 
-#### Template Composition Helpers
+## Custom resources
 
-Use these helpers for template definitions and inclusions:
-
-```typescript
-import { helmInclude, helmDefine, helmFragment } from 'timonel';
-
-// Template inclusion with pipe
-const labels = helmInclude('chart.labels', '.', { pipe: 'nindent 4' });
-
-// Define a named template
-const myTemplate = helmDefine('myapp.config', {
-  key: 'value',
-});
-
-// Combine multiple constructs
-const combined = helmFragment(helmInclude('chart.labels', '.'), { customKey: 'customValue' });
-```
-
-#### Legacy Flow Control (NOT RECOMMENDED)
-
-**⚠️ These are legacy and NOT RECOMMENDED. Use ValuesRef system (v.if, v.range, v.with)
-instead:**
+Use object-form `addManifest()` when no appropriate typed construct is available:
 
 ```typescript
-// ❌ OLD WAY - string-based valuesRef (no type safety)
-const oldRef = valuesRef('.Values.production');
-
-// ✅ NEW WAY - ValuesRef system (type-safe)
-const v = valuesRef<MyValues>();
-const newRef = v.production; // {{ .Values.production }}
-
-// ❌ OLD WAY - helmIf, helmRange, helmWith (string-based)
-const config = helmIf('.Values.production', { replicas: 5 }, { replicas: 1 });
-
-// ✅ NEW WAY - v.if(), v.range(), v.with() (type-safe)
-const config = v.if(v.production, { replicas: 5 });
-```
-
-**Why ValuesRef is Better:**
-
-- ✅ **100% Type-Safe** - Catch errors at compile time with TypeScript generics
-- ✅ **No Raw Strings** - Eliminate manual template interpolation and typos
-- ✅ **Full IDE Support** - Autocomplete, type hints, and refactoring support
-- ✅ **Proxy-based** - Chainable methods for complex logic
-- ✅ **Composable** - Nest and combine operations naturally
-- ❌ **Legacy helpers** - String-based, error-prone, no IDE support
-
-**Migration:** Replace `valuesRef(path)` with `v.path`. Replace `helmIf`, `helmRange`, `helmWith`
-with `v.if()`, `v.range()`, `v.with()`.
-
-**Learn more:** See the
-[Type-Safe Helm Helpers Guide](https://github.com/KenkoGeek/timonel/wiki/Helm-Helpers-System) for
-complete documentation, examples, and best practices.
-
-## 🔍 Policy Engine
-
-The Policy Engine provides extensible validation for Kubernetes manifests through a
-plugin-based architecture. It's completely optional and has zero impact on existing users.
-
-### Key Features
-
-- **🔌 Plugin Architecture**: Extensible through external npm packages
-- **⚡ Zero Impact**: Completely optional with no performance overhead when unused
-- **🛡️ Security Focus**: Built-in support for security and compliance policies
-- **🔄 Async Support**: Handles both synchronous and asynchronous validation plugins
-- **📊 Rich Reporting**: Detailed violation reports with suggestions and context
-- **⏱️ Timeout Protection**: Configurable timeouts prevent hanging validations
-- **🔧 Configurable**: Environment-specific policy configuration support
-- **🚀 Performance Optimized**: Parallel execution, caching, and resource monitoring
-- **🔄 Error Resilience**: Graceful degradation and retry mechanisms
-- **📈 Observability**: Structured logging and performance metrics
-
-### Quick Start
-
-```typescript
-import { Rutter, PolicyEngine } from 'timonel';
-
-// Optional: Add policy validation
-const policyEngine = new PolicyEngine({
-  timeout: 10000,
-  parallel: true,
-  gracefulDegradation: true,
-});
-
-// Register plugins
-await policyEngine.use(await import('@mycompany/security-policies'));
-await policyEngine.use(await import('@kubernetes/best-practices'));
-
-const chart = new Rutter({
-  meta: { name: 'my-app', version: '1.0.0' },
-  policyEngine, // ← Completely optional
-});
-
-chart.write('./dist'); // Validates before writing
-```
-
-### Available Policy Plugins
-
-**Built-in Examples:**
-
-- **Security Plugin** - Comprehensive security validation (security contexts, RBAC, network policies)
-- **Best Practices Plugin** - Kubernetes best practices (resource limits, naming, probes)
-- **AWS Plugin** - AWS-specific validations (EKS, ALB, IRSA, cost optimization)
-
-**Community Plugins:**
-
-- `@kubernetes/pod-security-standards` - Official Kubernetes PSS validation
-- `@open-policy-agent/timonel-plugin` - OPA Rego policy integration
-- `@falco/security-policies` - Falco runtime security rules
-
-**Enterprise Plugins:**
-
-- `@company/compliance-policies` - Organization-specific compliance rules
-- `@aws/well-architected-policies` - AWS Well-Architected Framework validation
-- `@security/cis-benchmarks` - CIS Kubernetes Benchmark validation
-
-### Creating Custom Policies
-
-```typescript
-import { PolicyPlugin, PolicyViolation, ValidationContext } from 'timonel';
-
-export const customSecurityPolicy: PolicyPlugin = {
-  name: 'custom-security-policy',
-  version: '1.0.0',
-  description: 'Custom security validation rules',
-
-  // Optional: Configuration schema for validation
-  configSchema: {
-    type: 'object',
-    properties: {
-      strictMode: { type: 'boolean', default: false },
-      allowedNamespaces: { type: 'array', items: { type: 'string' } },
-    },
-  },
-
-  async validate(manifests: unknown[], context: ValidationContext): Promise<PolicyViolation[]> {
-    const violations: PolicyViolation[] = [];
-    const config = context.config as { strictMode?: boolean; allowedNamespaces?: string[] };
-
-    for (const manifest of manifests) {
-      if (manifest.kind === 'Deployment') {
-        // Validate security context
-        if (!manifest.spec?.template?.spec?.securityContext) {
-          violations.push({
-            plugin: this.name,
-            severity: config?.strictMode ? 'error' : 'warning',
-            message: 'Deployment should specify securityContext',
-            resourcePath: `${manifest.kind}/${manifest.metadata?.name}`,
-            field: 'spec.template.spec.securityContext',
-            suggestion: 'Add securityContext with runAsNonRoot: true',
-            context: {
-              kubernetesVersion: context.kubernetesVersion,
-              environment: context.environment,
-            },
-          });
-        }
-
-        // Validate namespace restrictions
-        const namespace = manifest.metadata?.namespace || 'default';
-        if (config?.allowedNamespaces && !config.allowedNamespaces.includes(namespace)) {
-          violations.push({
-            plugin: this.name,
-            severity: 'error',
-            message: `Deployment in unauthorized namespace: ${namespace}`,
-            resourcePath: `${manifest.kind}/${manifest.metadata?.name}`,
-            field: 'metadata.namespace',
-            suggestion: `Deploy to allowed namespaces: ${config.allowedNamespaces.join(', ')}`,
-          });
-        }
-      }
-    }
-
-    return violations;
-  },
-};
-```
-
-### Advanced Configuration
-
-```typescript
-const policyEngine = new PolicyEngine({
-  // Execution settings
-  timeout: 15000, // 15 second timeout per plugin
-  parallel: true, // Run plugins in parallel for better performance
-  failFast: false, // Collect all violations before failing
-  gracefulDegradation: true, // Continue on plugin failures
-
-  // Performance optimization
-  cacheOptions: {
-    maxSize: 1000, // Cache up to 1000 validation results
-    ttl: 300000, // 5 minute cache TTL
-    enableStats: true, // Enable cache performance monitoring
-  },
-
-  // Parallel execution tuning
-  parallelOptions: {
-    maxConcurrency: 4, // Run up to 4 plugins concurrently
-    enableResourceMonitoring: true,
-  },
-
-  // Retry configuration
-  retryConfig: {
-    maxAttempts: 3,
-    baseDelay: 1000,
-    retryOnTimeout: true,
-    retryOnPluginError: false,
-  },
-
-  // Plugin-specific configuration
-  pluginConfig: {
-    'security-plugin': {
-      strictMode: true,
-      allowedNamespaces: ['default', 'kube-system'],
-      securityContext: {
-        required: true,
-        runAsNonRoot: true,
+chart.addManifest(
+  {
+    apiVersion: 'monitoring.coreos.com/v1',
+    kind: 'ServiceMonitor',
+    metadata: { name: 'orders' },
+    spec: {
+      selector: {
+        matchLabels: { app: 'orders' },
       },
-    },
-    'best-practices-plugin': {
-      enforceResourceLimits: true,
-      requireLabels: ['app', 'version', 'environment'],
-      maxReplicas: 50,
-    },
-    'aws-plugin': {
-      region: 'us-west-2',
-      enforceTagging: true,
-      costOptimization: {
-        enabled: true,
-        maxInstanceSize: 'xlarge',
-      },
+      endpoints: [{ port: 'http' }],
     },
   },
-});
-
-// Register plugins
-await policyEngine.use(securityPolicies);
-await policyEngine.use(bestPracticesPolicies);
-await policyEngine.use(awsPolicies);
+  'OrdersServiceMonitor',
+);
 ```
 
-### Environment-Specific Policies
+Do not switch a standard Kubernetes resource to raw YAML merely because one field contains Helm
+logic. Prefer typed constructs and Timonel's Helm-value helpers where they fit.
+
+## Umbrella charts
+
+`UmbrellaRutter` combines multiple `Rutter` instances as Helm dependencies:
 
 ```typescript
-// Load different policies based on environment
-const createPolicyEngine = (environment: string) => {
-  const engine = new PolicyEngine({
-    environment,
-    configurationLoader: {
-      configurationFiles: ['config/policy-engine.json', `config/environments/${environment}.json`],
-    },
+import * as kplus from 'cdk8s-plus-33';
+import { Rutter, UmbrellaRutter } from 'timonel';
+
+function serviceChart(name: string): Rutter {
+  const chart = new Rutter({
+    meta: { name, version: '1.0.0' },
   });
 
-  // Base security policies for all environments
-  await engine.use(baseSecurity);
+  new kplus.ConfigMap(chart.getChart(), 'Config', {
+    metadata: { name: `${name}-config` },
+  });
 
-  // Environment-specific policies
-  switch (environment) {
-    case 'production':
-      await engine.use(strictSecurity);
-      await engine.use(compliancePolicies);
-      await engine.use(awsPolicies);
-      break;
-    case 'staging':
-      await engine.use(moderateSecurity);
-      await engine.use(awsPolicies);
-      break;
-    case 'development':
-      // Minimal policies for development
-      await engine.use(basicSecurity);
-      break;
-  }
-
-  return engine;
-};
-```
-
-### Integration with CI/CD
-
-```typescript
-// In your CI/CD pipeline
-import { Rutter, PolicyEngine, PolicyEngineError } from 'timonel';
-
-const validateChart = async (chartPath: string, environment: string) => {
-  const policyEngine = await createPolicyEngine(environment);
-
-  try {
-    const chart = new Rutter({
-      meta: { name: 'my-app', version: process.env.VERSION },
-      policyEngine,
-    });
-
-    await chart.write(chartPath);
-
-    // Log validation success with metrics
-    const stats = policyEngine.getCacheStats();
-    console.log('✅ Chart validation passed', {
-      environment,
-      cacheHitRate: stats.hitRate,
-      pluginCount: policyEngine.getPluginCount(),
-    });
-  } catch (error) {
-    if (error instanceof PolicyEngineError) {
-      console.error('❌ Policy violations found:');
-
-      // Group violations by severity
-      const errors = error.violations.filter((v) => v.severity === 'error');
-      const warnings = error.violations.filter((v) => v.severity === 'warning');
-
-      if (errors.length > 0) {
-        console.error(`\n🚨 Errors (${errors.length}):`);
-        errors.forEach((v) => {
-          console.error(`  • ${v.resourcePath}: ${v.message}`);
-          if (v.suggestion) {
-            console.error(`    💡 ${v.suggestion}`);
-          }
-        });
-      }
-
-      if (warnings.length > 0) {
-        console.warn(`\n⚠️  Warnings (${warnings.length}):`);
-        warnings.forEach((v) => {
-          console.warn(`  • ${v.resourcePath}: ${v.message}`);
-        });
-      }
-
-      // Fail CI/CD on errors, but allow warnings
-      if (errors.length > 0) {
-        process.exit(1);
-      }
-    } else {
-      throw error;
-    }
-  }
-};
-
-// Usage in GitHub Actions, GitLab CI, etc.
-await validateChart('./dist', process.env.ENVIRONMENT || 'development');
-```
-
-### Plugin Ecosystem
-
-The Policy Engine supports a rich ecosystem of plugins for various use cases:
-
-#### Security & Compliance
-
-- **Pod Security Standards** - Kubernetes PSS validation
-- **CIS Benchmarks** - Center for Internet Security benchmarks
-- **NIST Framework** - NIST Cybersecurity Framework compliance
-- **PCI DSS** - Payment Card Industry compliance
-- **SOC 2** - Service Organization Control 2 compliance
-
-#### Cloud Provider Integrations
-
-- **AWS Well-Architected** - AWS best practices and cost optimization
-- **Azure Security Center** - Azure-specific security policies
-- **GCP Security Command Center** - Google Cloud security validation
-
-#### Development & Operations
-
-- **GitOps Policies** - GitOps workflow validation
-- **Resource Optimization** - Cost and performance optimization
-- **Observability** - Monitoring and logging best practices
-- **Backup & Recovery** - Data protection policies
-
-#### Creating Plugin Packages
-
-```typescript
-// package.json for a policy plugin
-{
-  "name": "@mycompany/k8s-security-policies",
-  "version": "1.0.0",
-  "description": "Security policies for Kubernetes manifests",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "keywords": ["timonel", "policy", "security", "kubernetes"],
-  "peerDependencies": {
-    "timonel": "^3.1.0"
-  }
+  return chart;
 }
 
-// src/index.ts
-export { SecurityPlugin } from './security-plugin.js';
-export { CompliancePlugin } from './compliance-plugin.js';
-export type { SecurityConfig, ComplianceConfig } from './types.js';
-```
-
-### Performance & Monitoring
-
-The Policy Engine includes comprehensive performance monitoring:
-
-```typescript
-// Monitor policy engine performance
-const result = await policyEngine.validate(manifests, { name: 'example-chart', version: '1.0.0' });
-
-console.log('Validation Performance:', {
-  executionTime: result.metadata.executionTime,
-  pluginCount: result.metadata.pluginCount,
-  manifestCount: result.metadata.manifestCount,
-  violationsFound: result.violations.length,
-});
-
-// Cache performance monitoring
-const cacheStats = policyEngine.getCacheStats();
-console.log('Cache Performance:', {
-  hitRate: cacheStats.hitRate,
-  totalHits: cacheStats.hits,
-  totalMisses: cacheStats.misses,
-  cacheSize: cacheStats.size,
-});
-
-// Clear cache when needed
-policyEngine.invalidateCache({ all: true });
-```
-
-## 📚 Documentation
-
-- **[API Reference](https://github.com/KenkoGeek/timonel/wiki/API-Reference)** - Complete API
-  documentation
-- **[CLI Reference](https://github.com/KenkoGeek/timonel/wiki/CLI-Reference)** - Command-line
-  interface guide
-- **[Policy Engine Guide](https://github.com/KenkoGeek/timonel/wiki/Policy-Engine)** -
-  Policy validation and plugin development
-- **[Plugin Development Guide](https://github.com/KenkoGeek/timonel/wiki/Plugin-Development)** -
-  Creating custom policy plugins
-- **[Configuration Reference](https://github.com/KenkoGeek/timonel/wiki/Policy-Configuration)** -
-  Policy engine configuration options
-- **[Policy Examples](https://github.com/KenkoGeek/timonel/wiki/Policy-Examples)** - Example plugins
-  and usage patterns
-- **[Examples](https://github.com/KenkoGeek/timonel/wiki/Examples)** - Real-world usage examples
-- **[Best Practices](https://github.com/KenkoGeek/timonel/wiki/Best-Practices)** - Recommended
-  patterns and practices
-- **[Contributing](https://github.com/KenkoGeek/timonel/wiki/Contributing)** - Development setup
-  and guidelines
-- **[Timonel Examples Repository](https://github.com/KenkoGeek/timonel-examples)** - Curated
-  collection of ready-to-run Timonel sample projects (Outdated)
-
-## 🔧 Troubleshooting
-
-### CDK8s Module Not Found Error
-
-If you get `Error: Cannot find module 'cdk8s'` when running `tl umbrella synth`:
-
-**Problem**: Timonel is installed globally, but your project needs CDK8s dependencies locally.
-
-**Solution**: Create a `package.json` in your project directory:
-
-```json
-{
-  "name": "my-timonel-project",
-  "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "cdk8s": "^2.70.28",
-    "cdk8s-plus-33": "^2.4.6",
-    "constructs": "^10.4.3",
-    "timonel": "^3.1.0"
+const umbrella = new UmbrellaRutter({
+  meta: {
+    name: 'commerce',
+    version: '1.0.0',
   },
-  "devDependencies": {
-    "@types/node": "^24.5.2",
-    "typescript": "^5.9.2"
-  }
-}
+  subcharts: [
+    { name: 'catalog', version: '1.0.0', rutter: serviceChart('catalog') },
+    { name: 'orders', version: '1.0.0', rutter: serviceChart('orders') },
+  ],
+});
+
+await umbrella.write('./dist/commerce');
 ```
 
-Then run:
+The CLI also supports dependency and inline umbrella synthesis modes.
+
+## AWS and EKS helpers
+
+Timonel includes focused helpers for Kubernetes-side AWS integrations:
+
+- EBS and EFS `StorageClass` resources;
+- IRSA and ECR-oriented `ServiceAccount` resources;
+- ALB `Ingress` configuration;
+- Karpenter `NodePool`, `NodeClaim`, and `EC2NodeClass` resources;
+- convenience NodePool builders for disruption and scheduling policies.
+
+Example:
+
+```typescript
+chart.addAWSIRSAServiceAccount({
+  name: 'orders',
+  roleArn: 'arn:aws:iam::123456789012:role/orders',
+});
+```
+
+These APIs generate Kubernetes resources. They do **not** create IAM roles, storage systems, ECR
+repositories, controllers, cluster networking, or Karpenter CRDs in AWS.
+
+## Policy Engine
+
+The optional Policy Engine validates synthesized Kubernetes manifests through user-supplied
+plugins before Timonel writes the Helm chart.
+
+```typescript
+import type { PolicyPlugin } from 'timonel';
+import { PolicyEngine, Rutter } from 'timonel';
+
+const requireMetadataName: PolicyPlugin = {
+  name: 'require-metadata-name',
+  version: '1.0.0',
+  async validate(manifests) {
+    return manifests.flatMap((manifest) => {
+      if (!manifest || typeof manifest !== 'object') return [];
+
+      const object = manifest as {
+        kind?: string;
+        metadata?: { name?: string };
+      };
+
+      if (object.metadata?.name) return [];
+
+      return [
+        {
+          plugin: 'require-metadata-name',
+          severity: 'error' as const,
+          message: `${object.kind ?? 'Resource'} must have metadata.name`,
+        },
+      ];
+    });
+  },
+};
+
+const policyEngine = new PolicyEngine({
+  timeout: 5000,
+  parallel: true,
+});
+
+await policyEngine.use(requireMetadataName);
+
+const chart = new Rutter({
+  meta: { name: 'validated', version: '1.0.0' },
+  policyEngine,
+});
+```
+
+Policy options include plugin timeouts, retries, graceful degradation, caching, parallel execution,
+inline plugin configuration, schema validation, and environment-variable configuration.
+
+`ConfigurationLoader` currently accepts file-related options, but file-backed policy configuration
+loading is not implemented. Do not rely on `configurationFiles` to load plugin configuration from
+disk in the current release.
+
+## Environment variable configuration
+
+The environment-variable loader reads YAML/JSON configuration and generates Kubernetes `env`
+entries:
+
+```typescript
+import { loadAndGenerateEnvVars } from 'timonel';
+
+const env = loadAndGenerateEnvVars({
+  configPath: './env-config.yaml',
+  defaultScope: 'global.env',
+});
+```
+
+It can generate literal Helm values and Kubernetes `secretKeyRef` entries. It does not fetch values
+from Vault, AWS Secrets Manager, or other external secret stores.
+
+## CLI
+
+Run the locally installed CLI with `pnpm exec tl` or expose the package binary through your package
+manager.
+
+```text
+tl init <chart-name>
+tl synth [chartDir] [outDir]
+tl validate
+tl deploy <release> [namespace]
+tl templates
+tl umbrella init <name>
+tl umbrella add <subchart>
+tl umbrella synth [outDir]
+```
+
+Common flags:
+
+```text
+--dry-run
+--silent
+--env <environment>
+--set <key=value>
+--mode <dependencies|inline>
+--help, -h
+```
+
+`tl validate` and `tl deploy` execute the Helm CLI, so Helm must be installed and the current working
+directory must point at the chart you intend to validate or deploy.
+
+## Generated chart structure
+
+A normal chart written by `Rutter` looks like:
+
+```text
+my-app/
+├── Chart.yaml
+├── values.yaml
+├── values-production.yaml   # when envValues.production exists
+├── .helmignore
+└── templates/
+    ├── _helpers.tpl
+    ├── App.yaml
+    ├── AppHpa.yaml
+    └── ...
+```
+
+Resource filenames use stable cdk8s construct identifiers where possible.
+
+## Documentation
+
+The GitHub wiki contains the full documentation set:
+
+- [Home](https://github.com/KenkoGeek/timonel/wiki)
+- [Quick Start](https://github.com/KenkoGeek/timonel/wiki/Quick-Start)
+- [Architecture](https://github.com/KenkoGeek/timonel/wiki/Architecture)
+- [API Reference](https://github.com/KenkoGeek/timonel/wiki/API-Reference)
+- [Type-Safe Helm Helpers](https://github.com/KenkoGeek/timonel/wiki/Helm-Helpers-System)
+- [Umbrella Charts](https://github.com/KenkoGeek/timonel/wiki/Examples-Umbrella-Charts)
+- [AWS Resources](https://github.com/KenkoGeek/timonel/wiki/AWS-Resources)
+- [Policy Engine](https://github.com/KenkoGeek/timonel/wiki/Policy-Engine)
+- [CLI Reference](https://github.com/KenkoGeek/timonel/wiki/CLI-Reference)
+- [Migration Guide](https://github.com/KenkoGeek/timonel/wiki/Migration-Guide)
+- [Contributing](https://github.com/KenkoGeek/timonel/wiki/Contributing)
+- [Release and Versioning](https://github.com/KenkoGeek/timonel/wiki/Release-and-Versioning)
+
+## Development
 
 ```bash
-npm install
-tl umbrella synth  # Now it works!
+pnpm install --frozen-lockfile
+pnpm ci:check
+pnpm test:unit
+pnpm test:integration
+pnpm test:coverage
+pnpm md:lint
+pnpm doc:coverage:validate
+pnpm security:audit
+pnpm pack
 ```
 
-## 🤝 Contributing
+Contribution and agent rules are defined in [`AGENTS.md`](AGENTS.md).
 
-See our [Contributing Guide](https://github.com/KenkoGeek/timonel/wiki/Contributing) for development
-setup and guidelines.
+## Releases
 
-## 📄 License
+Development follows a trunk-based model centered on `main`:
+
+- pull requests target `main`;
+- successful main CI can publish an npm `canary` build;
+- stable publication is an explicit workflow with production approval;
+- npm publication uses Trusted Publishing/OIDC and provenance.
+
+See the [release guide](https://github.com/KenkoGeek/timonel/wiki/Release-and-Versioning) for the
+current workflow and operational constraints.
+
+## License
 
 MIT
 

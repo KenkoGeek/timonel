@@ -29,105 +29,182 @@ export type HelmValueRef<T> = HelmValue<T> &
         }
       : object);
 
-/** Represents a reference to a Helm value that can be used in templates. */
+/**
+ * Reference to a Helm value or scoped Helm expression.
+ *
+ * Instances are runtime proxies. The generic type preserves the shape of the referenced value
+ * while helper methods compose Helm/Sprig expressions.
+ */
 export interface HelmValue<T = unknown> {
+  /** Internal runtime marker used by Timonel serializers. */
   [HELM_VALUE_SYMBOL]: true;
+  /** Internal Helm expression path represented by this proxy. */
   __path: string;
+  /** Type-only marker; it is not populated at runtime. */
   __type?: T;
 
   /**
-   * Accesses a values key without colliding with ValuesRef methods.
-   * Use this for keys such as `default`, `range`, or `with`.
+   * Access a typed property whose name collides with a ValuesRef method or root helper.
+   * @param key - Property key from the current TypeScript values type
+   * @returns A typed proxy for the nested value
    */
   at<K extends StringKeyOf<T>>(key: K): HelmValueRef<T[K]>;
 
+  /** Compare the value for equality. */
   eq(value: HelmValueRef<unknown> | HelmScalar): HelmCondition;
+  /** Compare the value for inequality. */
   ne(value: HelmValueRef<unknown> | HelmScalar): HelmCondition;
+  /** Compare whether the value is greater than another numeric value/reference. */
   gt(value: HelmValueRef<unknown> | number): HelmCondition;
+  /** Compare whether the value is greater than or equal to another numeric value/reference. */
   ge(value: HelmValueRef<unknown> | number): HelmCondition;
+  /** Compare whether the value is less than another numeric value/reference. */
   lt(value: HelmValueRef<unknown> | number): HelmCondition;
+  /** Compare whether the value is less than or equal to another numeric value/reference. */
   le(value: HelmValueRef<unknown> | number): HelmCondition;
 
+  /** Negate the truthiness of the referenced Helm value. */
   not(): HelmCondition;
+  /** Combine the referenced value with another condition using Helm `and`. */
   and(other: HelmCondition): HelmCondition;
+  /** Combine the referenced value with another condition using Helm `or`. */
   or(other: HelmCondition): HelmCondition;
 
+  /** Apply Helm `default` while preserving the referenced value type. */
   default(defaultValue: HelmValueRef<unknown> | HelmScalar): HelmValueRef<T>;
+  /** Pipe the value through `quote`. */
   quote(): HelmValueRef<string>;
+  /** Pipe the value through `upper`. */
   upper(): HelmValueRef<string>;
+  /** Pipe the value through `lower`. */
   lower(): HelmValueRef<string>;
+  /** Pipe the value through `title`. */
   title(): HelmValueRef<string>;
+  /** Pipe the value through `trim`. */
   trim(): HelmValueRef<string>;
+  /** Remove a prefix with Sprig `trimPrefix`. */
   trimPrefix(prefix: string): HelmValueRef<string>;
+  /** Remove a suffix with Sprig `trimSuffix`. */
   trimSuffix(suffix: string): HelmValueRef<string>;
+  /** Replace string occurrences with Sprig `replace`. */
   replace(old: string, newStr: string): HelmValueRef<string>;
+  /** Test whether the referenced string contains a substring. */
   contains(substr: string): HelmCondition;
+  /** Test whether the referenced string starts with a prefix. */
   hasPrefix(prefix: string): HelmCondition;
+  /** Test whether the referenced string ends with a suffix. */
   hasSuffix(suffix: string): HelmCondition;
+  /** Truncate the referenced string to the requested length. */
   trunc(length: number): HelmValueRef<string>;
 
+  /** Test the Helm runtime kind of the referenced value. */
   kindIs(kind: 'string' | 'slice' | 'map' | 'bool' | 'int' | 'float'): HelmCondition;
+  /** Test whether the referenced map contains a key. */
   hasKey(key: string): HelmCondition;
 
+  /** Serialize the referenced value with Helm `toYaml`. */
   toYaml(): HelmValueRef<string>;
+  /** Serialize the referenced value with Helm `toJson`. */
   toJson(): HelmValueRef<string>;
+  /** Apply Helm/Sprig `nindent`. */
   nindent(spaces: number): HelmValueRef<string>;
+  /** Apply Helm/Sprig `indent`. */
   indent(spaces: number): HelmValueRef<string>;
+  /** Convert the proxy to Timonel's lower-level HelmExpression marker. */
   toExpression(): HelmExpression;
 
+  /**
+   * Conditionally include a field value during Helm rendering.
+   * @param condition - Helm condition or value whose truthiness controls inclusion
+   * @param thenValue - Value emitted when the condition succeeds
+   */
   if<V>(condition: HelmCondition | HelmValueRef<unknown>, thenValue: V): HelmFieldConditional<V>;
+
+  /**
+   * Build a Helm ternary expression.
+   * @param condition - Condition selecting between the two values
+   * @param thenValue - Value returned when the condition is true
+   * @param elseValue - Value returned when the condition is false
+   */
   ifElse<V extends HelmValueRef<unknown> | HelmScalar>(
     condition: HelmCondition,
     thenValue: V,
     elseValue: V,
   ): HelmValueRef<V extends HelmValueRef<infer U> ? U : V>;
 
+  /**
+   * Create a typed Helm `range` block over an array value.
+   * @param callback - Callback receiving typed item and index proxies
+   */
   range<V>(
     callback: (item: HelmValueRef<ArrayElement<T>>, index: HelmValueRef<number>) => V,
   ): HelmRange<V, ArrayElement<T>>;
 
+  /**
+   * Create a Helm `with` block scoped to the referenced value.
+   * @param callback - Callback receiving a proxy rooted at Helm `.` within the block
+   */
   with<V>(callback: (ctx: HelmValueRef<T>) => V): HelmWith<V, T>;
 }
 
-/** Represents a Helm boolean condition. */
+/** Represents a composable Helm boolean condition. */
 export interface HelmCondition {
+  /** Internal runtime marker used by Timonel serializers. */
   [HELM_VALUE_SYMBOL]: true;
+  /** Raw Helm condition body without template delimiters. */
   __condition: string;
+  /** Negate this condition. */
   not(): HelmCondition;
+  /** Combine this condition with another using Helm `and`. */
   and(other: HelmCondition): HelmCondition;
+  /** Combine this condition with another using Helm `or`. */
   or(other: HelmCondition): HelmCondition;
+  /** Return the raw Helm condition body. */
   toString(): string;
 }
 
-/** Represents a field-level conditional. */
+/** Represents a field-level conditional consumed by the Helm YAML serializer. */
 export interface HelmFieldConditional<T> {
+  /** Runtime marker for serializer detection. */
   __helmFieldConditional: true;
+  /** Condition controlling whether the field is emitted. */
   condition: HelmCondition;
+  /** Field value emitted when the condition succeeds. */
   thenValue: T;
+  /** Optional compatibility else value. */
   elseValue?: T;
 }
 
-/** Represents a Helm range block. */
+/** Represents a typed Helm `range` block. */
 export interface HelmRange<T, TItem = unknown> {
+  /** Runtime marker for serializer detection. */
   __helmRange: true;
+  /** Array value being iterated. */
   source: HelmValueRef<readonly TItem[]>;
+  /** Callback used by the serializer with scoped item/index proxies. */
   callback: (item: HelmValueRef<TItem>, index: HelmValueRef<number>) => T;
 }
 
-/** Represents a Helm with block. */
+/** Represents a typed Helm `with` block. */
 export interface HelmWith<T, TContext = unknown> {
+  /** Runtime marker for serializer detection. */
   __helmWith: true;
+  /** Value that becomes the Helm `.` scope. */
   source: HelmValueRef<TContext>;
+  /** Callback used by the serializer with a scoped context proxy. */
   callback: (ctx: HelmValueRef<TContext>) => T;
 }
 
-/** Helper context for Helm built-ins and functions. */
+/** Helper context for Helm built-ins exposed on the root `ValuesRef`. */
 export interface HelmHelpers {
+  /** Render Helm `include` for a named template and context. */
   include(templateName: string, context?: '.' | HelmValueRef<unknown>): HelmValueRef<string>;
+  /** Render Helm `printf` with typed value references or scalar arguments. */
   printf(
     format: string,
     ...args: Array<HelmValueRef<unknown> | string | number>
   ): HelmValueRef<string>;
+  /** References to Helm `.Release` built-ins. */
   release: {
     name: HelmValueRef<string>;
     namespace: HelmValueRef<string>;
@@ -136,12 +213,14 @@ export interface HelmHelpers {
     isInstall: HelmValueRef<boolean>;
     revision: HelmValueRef<number>;
   };
+  /** References to Helm `.Chart` built-ins. */
   chart: {
     name: HelmValueRef<string>;
     version: HelmValueRef<string>;
     appVersion: HelmValueRef<string>;
     type: HelmValueRef<string>;
   };
+  /** References to selected Helm `.Capabilities` built-ins. */
   capabilities: {
     kubeVersion: {
       version: HelmValueRef<string>;
@@ -149,17 +228,20 @@ export interface HelmHelpers {
       minor: HelmValueRef<string>;
     };
     apiVersions: {
+      /** Test whether the target cluster advertises a Kubernetes API version. */
       has(apiVersion: string): HelmCondition;
     };
   };
-  /** Escape hatch for Helm conditions that cannot be expressed through ValuesRef. */
+  /** Escape hatch for conditions that cannot be expressed through typed helpers. */
   rawCondition(condition: string): HelmCondition;
 }
 
+/** Escape a JavaScript string as a Helm double-quoted string literal. */
 function helmStringLiteral(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
+/** Convert a typed Helm reference or scalar into a Helm expression argument. */
 function serializeValue(value: HelmValueRef<unknown> | HelmScalar): string {
   if (isHelmValue(value)) {
     return value.__path;
@@ -167,10 +249,12 @@ function serializeValue(value: HelmValueRef<unknown> | HelmScalar): string {
   return typeof value === 'string' ? helmStringLiteral(value) : String(value);
 }
 
+/** Append a property segment while preserving scoped `.` semantics. */
 function appendPropertyPath(path: string, property: string): string {
   return path === '.' ? `.${property}` : `${path}.${property}`;
 }
 
+/** Create a validated, composable Helm condition marker. */
 function createCondition(condition: string): HelmCondition {
   if (!condition || typeof condition !== 'string') {
     throw new Error('Condition must be a non-empty string');
@@ -179,21 +263,25 @@ function createCondition(condition: string): HelmCondition {
   return {
     [HELM_VALUE_SYMBOL]: true,
     __condition: condition,
+    /** Negate the current condition. */
     not() {
       return createCondition(`not (${this.__condition})`);
     },
+    /** Combine the current condition with another using Helm `and`. */
     and(other: HelmCondition) {
       if (!other || typeof other.__condition !== 'string') {
         throw new Error('Invalid HelmCondition provided to and()');
       }
       return createCondition(`and (${this.__condition}) (${other.__condition})`);
     },
+    /** Combine the current condition with another using Helm `or`. */
     or(other: HelmCondition) {
       if (!other || typeof other.__condition !== 'string') {
         throw new Error('Invalid HelmCondition provided to or()');
       }
       return createCondition(`or (${this.__condition}) (${other.__condition})`);
     },
+    /** Return the raw condition body. */
     toString() {
       return this.__condition;
     },
@@ -208,9 +296,11 @@ export function createHelmValueProxy<T>(path: string): HelmValueRef<T> {
   const baseObject = Object.create(null) as HelmValue<T>;
 
   const handler: ProxyHandler<typeof baseObject> = {
+    /** Expose only Timonel's internal marker through the Proxy `in` trap. */
     has(_target, prop) {
       return prop === HELM_VALUE_SYMBOL;
     },
+    /** Resolve helper methods, runtime markers, and nested typed property proxies. */
     get(_target, prop: string | symbol) {
       if (prop === HELM_VALUE_SYMBOL) return true;
       if (prop === '__path') return path;
@@ -375,10 +465,12 @@ export function valuesRef<T extends object>(): ValuesRef<T> {
   const values = createHelmValueProxy<T>('.Values');
 
   const helpers: HelmHelpers = {
+    /** Implement the root Helm `include` helper. */
     include(templateName: string, context: '.' | HelmValueRef<unknown> = '.') {
       const ctx = context === '.' ? '.' : context.__path;
       return createHelmValueProxy<string>(`(include ${helmStringLiteral(templateName)} ${ctx})`);
     },
+    /** Implement the root Helm `printf` helper. */
     printf(format: string, ...args: Array<HelmValueRef<unknown> | string | number>) {
       const argsStr = args.map((arg) => serializeValue(arg)).join(' ');
       const suffix = argsStr ? ` ${argsStr}` : '';
@@ -405,17 +497,20 @@ export function valuesRef<T extends object>(): ValuesRef<T> {
         minor: createHelmValueProxy<string>('.Capabilities.KubeVersion.Minor'),
       },
       apiVersions: {
+        /** Test `.Capabilities.APIVersions` for an advertised API. */
         has(apiVersion: string) {
           return createCondition(`.Capabilities.APIVersions.Has ${helmStringLiteral(apiVersion)}`);
         },
       },
     },
+    /** Build a condition from a caller-supplied Helm condition body. */
     rawCondition(condition: string) {
       return createCondition(condition);
     },
   };
 
   return new Proxy(values, {
+    /** Route reserved root helper names before delegating to the values proxy. */
     get(target, prop) {
       if (Object.prototype.hasOwnProperty.call(helpers, prop)) {
         return Reflect.get(helpers, prop);
