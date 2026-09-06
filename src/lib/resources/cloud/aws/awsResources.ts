@@ -498,53 +498,93 @@ export class AWSResources extends BaseResourceProvider {
 }
 
 // Type definitions
+/** Configuration for an AWS EBS CSI StorageClass. */
 export interface AWSEBSStorageClassSpec {
+  /** Kubernetes StorageClass name. */
   name: string;
+  /** EBS volume type. Defaults to `gp3`. */
   volumeType?: 'gp2' | 'gp3' | 'io1' | 'io2' | 'sc1' | 'st1';
+  /** Whether dynamically provisioned volumes should be encrypted. */
   encrypted?: boolean;
+  /** Requested IOPS for volume types that support explicit IOPS. */
   iops?: number;
+  /** Requested throughput in MiB/s for volume types that support it. */
   throughput?: number;
+  /** Filesystem type passed to the CSI provisioner. */
   fsType?: string;
+  /** Kubernetes reclaim policy. */
   reclaimPolicy?: 'Delete' | 'Retain';
+  /** Whether PVCs may expand the provisioned volume. */
   allowVolumeExpansion?: boolean;
+  /** StorageClass volume binding mode. */
   volumeBindingMode?: 'Immediate' | 'WaitForFirstConsumer';
+  /** Optional Kubernetes labels. */
   labels?: Record<string, string>;
+  /** Optional Kubernetes annotations. */
   annotations?: Record<string, string>;
 }
 
+/** Configuration for an AWS EFS CSI StorageClass. */
 export interface AWSEFSStorageClassSpec {
+  /** Kubernetes StorageClass name. */
   name: string;
+  /** EFS filesystem identifier used by the CSI provisioner. */
   fileSystemId?: string;
+  /** Permissions applied to dynamically created access-point directories. */
   directoryPerms?: string;
+  /** Start of the POSIX group ID allocation range. */
   gidRangeStart?: number;
+  /** End of the POSIX group ID allocation range. */
   gidRangeEnd?: number;
+  /** Base path for dynamically provisioned directories. */
   basePath?: string;
+  /** Kubernetes reclaim policy. */
   reclaimPolicy?: 'Delete' | 'Retain';
+  /** StorageClass volume binding mode. */
   volumeBindingMode?: 'Immediate' | 'WaitForFirstConsumer';
+  /** Optional Kubernetes labels. */
   labels?: Record<string, string>;
+  /** Optional Kubernetes annotations. */
   annotations?: Record<string, string>;
 }
 
+/** Configuration for an IRSA-enabled cdk8s-plus ServiceAccount. */
 export interface AWSIRSAServiceAccountSpec {
+  /** Kubernetes ServiceAccount name. */
   name: string;
+  /** IAM role ARN written to the IRSA annotation. */
   roleArn: string;
+  /** Whether Kubernetes should automount the service-account token. */
   automountServiceAccountToken?: boolean;
+  /** Existing image pull secrets referenced by name. */
   imagePullSecrets?: Array<{ name: string }>;
+  /** Optional Kubernetes labels. */
   labels?: Record<string, string>;
+  /** Additional annotations merged with the IRSA role annotation. */
   annotations?: Record<string, string>;
 }
 
+/** Configuration for an ECR-oriented IRSA ServiceAccount. */
 export interface AWSECRServiceAccountSpec {
+  /** Kubernetes ServiceAccount name. */
   name: string;
+  /** IAM role ARN written to the IRSA annotation. */
   roleArn: string;
+  /** Whether Kubernetes should automount the service-account token. */
   automountServiceAccountToken?: boolean;
+  /** Existing image pull secrets referenced by name. */
   imagePullSecrets?: Array<{ name: string }>;
+  /** Optional Kubernetes labels. */
   labels?: Record<string, string>;
+  /** Additional Kubernetes annotations. */
   annotations?: Record<string, string>;
 }
 
+/** Configuration for an AWS Load Balancer Controller-backed Ingress. */
 export interface AWSALBIngressSpec {
+  /** Kubernetes Ingress name. */
   name: string;
+  /** Host/path routing rules added to the Ingress. */
   rules: Array<{
     host?: string;
     paths: Array<{
@@ -555,16 +595,25 @@ export interface AWSALBIngressSpec {
       };
     }>;
   }>;
+  /** Optional TLS secret references and host lists. */
   tls?: Array<{
     hosts?: string[];
     secretName?: string;
   }>;
+  /** ALB exposure scheme. */
   scheme?: 'internet-facing' | 'internal';
+  /** ALB target registration mode. */
   targetType?: 'ip' | 'instance';
+  /** ACM certificate ARN added to the controller annotations. */
   certificateArn?: string;
+  /** Whether to request HTTP-to-HTTPS redirection on port 443. */
   sslRedirect?: boolean;
+  /** ALB health check path. */
   healthCheckPath?: string;
+  /** Kubernetes IngressClass name. Defaults to `alb`. */
   ingressClassName?: string;
+  /** Optional Kubernetes labels. */
   labels?: Record<string, string>;
+  /** Additional controller or Kubernetes annotations. */
   annotations?: Record<string, string>;
 }

@@ -125,7 +125,7 @@ export class Rutter {
   /**
    * Creates an AWS IRSA ServiceAccount
    * @param spec - IRSA ServiceAccount specification
-   * @returns Created ServiceAccount ApiObject
+   * @returns Created cdk8s-plus ServiceAccount
    *
    * @example
    * ```typescript
@@ -144,7 +144,7 @@ export class Rutter {
   /**
    * Creates an AWS ALB Ingress
    * @param spec - ALB Ingress specification
-   * @returns Created Ingress ApiObject
+   * @returns Created cdk8s-plus Ingress
    *
    * @example
    * ```typescript
@@ -343,7 +343,7 @@ export class Rutter {
   /**
    * Creates a ServiceAccount with ECR access annotations
    * @param spec - ECR ServiceAccount specification
-   * @returns Created ServiceAccount ApiObject
+   * @returns Created cdk8s-plus ServiceAccount
    *
    * @example
    * ```typescript
@@ -378,6 +378,12 @@ export class Rutter {
    * constructs through `getChart()` or pass a typed object to `addManifest()`.
    */
   addManifest(yaml: string, id: string): ApiObject;
+  /**
+   * Implements the object and deprecated raw-YAML overloads.
+   * @param yamlOrObject - Kubernetes manifest object or raw YAML compatibility input
+   * @param id - Unique cdk8s construct identifier
+   * @returns The created cdk8s ApiObject
+   */
   addManifest(yamlOrObject: string | Record<string, unknown>, id: string): ApiObject {
     let manifestObject: Record<string, unknown>;
 
@@ -1100,39 +1106,60 @@ ${helper.template}
 }
 
 // Type definitions
+/**
+ * Helm chart metadata accepted by `Rutter`.
+ *
+ * `name` and `version` are required because they are emitted into `Chart.yaml`.
+ */
 export interface ChartMetadata {
+  /** Human-readable Helm chart description. */
   description?: string;
+  /** Project or product home page URL. */
   home?: string;
+  /** Search keywords emitted into chart metadata. */
   keywords?: string[];
+  /** Helm chart maintainer records. */
   maintainers?: Array<{
     email?: string;
     name: string;
     url?: string;
   }>;
+  /** Helm chart name. */
   name: string;
+  /** Source repository or documentation URLs. */
   sources?: string[];
+  /** Helm chart semantic version. */
   version: string;
 }
 
+/**
+ * Configuration for a `Rutter` chart.
+ */
 export interface RutterProps {
+  /** Additional cdk8s Chart properties applied to the generated chart. */
   chartProps?: ChartProps;
-  /** Cloud provider for default helpers */
+  /** Cloud provider for default helpers. */
   cloudProvider?: 'aws';
+  /** Default values emitted to `values.yaml`. */
   defaultValues?: Record<string, unknown>;
+  /** Environment-specific values emitted to `values-<environment>.yaml`. */
   envValues?: Record<string, Record<string, unknown>>;
-  /** Custom Helm helpers content or definitions */
+  /** Custom Helm helpers content or definitions. */
   helpersTpl?: string | HelperDefinition[];
-  /** Custom prefix for manifest files */
+  /** Custom prefix for manifest files. */
   manifestPrefix?: string;
+  /** Required Helm chart metadata. */
   meta: ChartMetadata;
+  /** Optional default namespace for the underlying cdk8s Chart. */
   namespace?: string;
-  /** Optional policy engine for manifest validation */
+  /** Optional policy engine for manifest validation. */
   policyEngine?: PolicyEngine;
+  /** Optional caller-owned construct scope used as the parent of Timonel's cdk8s Chart. */
   scope?: Construct;
-  /** Combine all resources into single manifest file */
+  /** Combine all resources into a single manifest file. */
   singleManifestFile?: boolean;
   /**
-   * Custom logger instance
+   * Custom logger instance.
    * @since 2.13.0
    */
   logger?: TimonelLogger;

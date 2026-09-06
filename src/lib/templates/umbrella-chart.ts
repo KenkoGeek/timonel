@@ -12,7 +12,7 @@ import { generateHelpersTemplate } from '../utils/helmHelpers.js';
 
 import { createFlexibleSubchart } from './flexible-subchart.js';
 
-// Interface for charts that support Helm generation
+/** Internal compatibility shape for cdk8s Charts that expose Helm writing. */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface HelmChart extends Chart {
   writeHelmChart(outputDir: string): void;

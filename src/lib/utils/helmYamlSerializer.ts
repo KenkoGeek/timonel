@@ -36,6 +36,7 @@ const FIELD_WITH_MARKER = '__FIELD_WITH_MARKER__:';
  */
 function simpleHelmYaml(obj: unknown): string {
   // First, recursively convert HelmValue and HelmExpression to plain strings
+  /** Convert nested Helm marker objects into YAML-serializable scalar strings. */
   function convertToPlain(value: unknown): unknown {
     if (isHelmValue(value)) {
       return `{{ ${(value as HelmValueRef<unknown>).__path} }}`;
@@ -1482,12 +1483,29 @@ function calculateComplexity(expressions: HelmExpressionMatch[]): number {
 }
 
 // Export other helpers for compatibility if needed
+/**
+ * Detect Helm template expressions using Timonel's parser.
+ * @param str - YAML/template content to inspect
+ * @returns Detected expression descriptors
+ */
 export function detectHelmExpressions(str: string): unknown[] {
   return parseHelmExpressions(str);
 }
+
+/**
+ * Preprocess Helm marker objects before YAML serialization.
+ * @param obj - Value tree containing Helm constructs or ValuesRef proxies
+ * @returns Serializer-ready value tree
+ */
 export function preprocessHelmExpressions(obj: unknown): unknown {
   return preprocessHelmConstructs(obj);
 }
+
+/**
+ * Preserve the historical post-processing compatibility hook.
+ * @param yaml - YAML content to return unchanged
+ * @returns The original YAML content
+ */
 export function postProcessHelmExpressions(yaml: string): string {
   return yaml;
 }
