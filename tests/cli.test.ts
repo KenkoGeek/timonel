@@ -377,6 +377,140 @@ describe('CLI Chart Operations', () => {
   });
 });
 
+describe('CLI Dry Run', () => {
+  it('should preview chart initialization without creating files', () => {
+    const testDir = createTestDir('dry-run-init');
+
+    try {
+      const result = runCLI(['init', 'preview-chart', '--dry-run'], { cwd: testDir });
+
+      expect(result.exitCode).toBe(0);
+      expect(`${result.stdout}${result.stderr}`).toContain('Dry run: would create chart');
+      expect(existsSync(join(testDir, 'preview-chart'))).toBe(false);
+    } finally {
+      cleanupTestDir(testDir);
+    }
+  });
+
+  it('should preview synthesis without writing a chart or temporary wrapper files', () => {
+    const testDir = createTestDir('dry-run-synth');
+
+    try {
+      runCLI(['init', 'preview-chart'], { cwd: testDir });
+      const chartDir = join(testDir, 'preview-chart');
+
+      const result = runCLI(['synth', 'preview-chart', '--dry-run'], { cwd: testDir });
+
+      expect(result.exitCode).toBe(0);
+      expect(`${result.stdout}${result.stderr}`).toContain('Dry run: would synthesize');
+      expect(existsSync(join(chartDir, 'dist'))).toBe(false);
+      expect(existsSync(join(chartDir, '.timonel-temp-chart.ts'))).toBe(false);
+      expect(existsSync(join(chartDir, '.timonel-wrapper.mjs'))).toBe(false);
+    } finally {
+      cleanupTestDir(testDir);
+    }
+  });
+
+  it('should preview Helm validation without invoking Helm', () => {
+    const testDir = createTestDir('dry-run-validate');
+
+    try {
+      const result = runCLI(['validate', '--dry-run'], { cwd: testDir });
+
+      expect(result.exitCode).toBe(0);
+      expect(`${result.stdout}${result.stderr}`).toContain(
+        'Dry run: would execute Helm lint for the current chart',
+      );
+    } finally {
+      cleanupTestDir(testDir);
+    }
+  });
+
+  it('should preview Helm deployment without invoking Helm or exposing set values', () => {
+    const testDir = createTestDir('dry-run-deploy');
+
+    try {
+      const result = runCLI(
+        [
+          'deploy',
+          'preview-release',
+          'preview-namespace',
+          '--dry-run',
+          '--set',
+          'secret.token=supersecret',
+        ],
+        { cwd: testDir },
+      );
+      const output = `${result.stdout}${result.stderr}`;
+
+      expect(result.exitCode).toBe(0);
+      expect(output).toContain('Dry run: would execute Helm upgrade --install');
+      expect(output).not.toContain('supersecret');
+    } finally {
+      cleanupTestDir(testDir);
+    }
+  });
+
+  it('should preview umbrella initialization without creating files', () => {
+    const testDir = createTestDir('dry-run-umbrella-init');
+
+    try {
+      const result = runCLI(['umbrella', 'init', 'preview-umbrella', '--dry-run'], {
+        cwd: testDir,
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(`${result.stdout}${result.stderr}`).toContain('Dry run: would create umbrella chart');
+      expect(existsSync(join(testDir, 'preview-umbrella'))).toBe(false);
+    } finally {
+      cleanupTestDir(testDir);
+    }
+  });
+
+  it('should preview umbrella subchart addition without changing configuration', () => {
+    const testDir = createTestDir('dry-run-umbrella-add');
+    const umbrellaRoot = join(testDir, 'umbrella-app');
+
+    try {
+      runCLI(['umbrella', 'init', 'umbrella-app'], { cwd: testDir });
+      const configPath = join(umbrellaRoot, 'umbrella.config.json');
+      const configBefore = readFileSync(configPath, 'utf8');
+
+      const result = runCLI(['umbrella', 'add', 'frontend', '--dry-run'], {
+        cwd: umbrellaRoot,
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(`${result.stdout}${result.stderr}`).toContain('Dry run: would add subchart');
+      expect(existsSync(join(umbrellaRoot, 'charts', 'frontend'))).toBe(false);
+      expect(readFileSync(configPath, 'utf8')).toBe(configBefore);
+    } finally {
+      cleanupTestDir(testDir);
+    }
+  });
+
+  it('should preview umbrella synthesis without creating output', () => {
+    const testDir = createTestDir('dry-run-umbrella-synth');
+    const umbrellaRoot = join(testDir, 'umbrella-app');
+
+    try {
+      runCLI(['umbrella', 'init', 'umbrella-app'], { cwd: testDir });
+      runCLI(['umbrella', 'add', 'frontend'], { cwd: umbrellaRoot });
+
+      const result = runCLI(['umbrella', 'synth', '--dry-run'], { cwd: umbrellaRoot });
+
+      expect(result.exitCode).toBe(0);
+      expect(`${result.stdout}${result.stderr}`).toContain(
+        'Dry run: would synthesize umbrella chart',
+      );
+      expect(existsSync(join(umbrellaRoot, 'dist'))).toBe(false);
+      expect(existsSync(join(umbrellaRoot, '.timonel-umbrella-wrapper.mjs'))).toBe(false);
+    } finally {
+      cleanupTestDir(testDir);
+    }
+  });
+});
+
 describe('CLI Error Handling', () => {
   it('should handle file system errors gracefully', () => {
     const testDir = createTestDir('fs-error-test');

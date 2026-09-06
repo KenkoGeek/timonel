@@ -393,6 +393,9 @@ Common flags:
 --help, -h
 ```
 
+`--dry-run` validates the requested operation and reports what would happen without writing chart
+files or invoking Helm. Combine it with `--silent` when the preview itself should also be suppressed.
+
 `tl validate` and `tl deploy` execute the Helm CLI, so Helm must be installed and the current working
 directory must point at the chart you intend to validate or deploy.
 

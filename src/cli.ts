@@ -216,9 +216,12 @@ function usageAndExit(msg?: string, silent = false) {
 
 /**
  * Initialize a new chart
+ * @param name - The chart name to create
+ * @param silent - Whether to suppress output messages
+ * @param dryRun - When true, validate and report the operation without writing files
  * @since 2.8.4 Updated to mention Helm chart generation instead of Kubernetes manifests
  */
-async function cmdInit(name?: string, silent = false) {
+async function cmdInit(name?: string, silent = false, dryRun = false) {
   if (!name) usageAndExit('Missing <chart-name>');
   const validName = name as string; // Now guaranteed to be defined
 
@@ -232,6 +235,14 @@ async function cmdInit(name?: string, silent = false) {
   const cwd = process.cwd();
   const base = SecurityUtils.validatePath(path.join(cwd, validName), cwd);
   const chartFile = SecurityUtils.validatePath(path.join(base, 'chart.ts'), cwd);
+
+  if (dryRun) {
+    log(
+      `Dry run: would create chart '${SecurityUtils.sanitizeLogMessage(validName)}' at ${SecurityUtils.sanitizeLogMessage(base)}`,
+      silent,
+    );
+    return;
+  }
 
   // Create directory
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
@@ -301,6 +312,14 @@ async function cmdSynth(chartDirOrOutDir?: string, flags?: CliFlags, explicitOut
 
   const requestedOutDir = outDir ?? defaultOutDir;
   const validatedOutDir = resolveOutputDirectory(requestedOutDir, chartDir, flags?.silent);
+
+  if (flags?.dryRun) {
+    log(
+      `Dry run: would synthesize ${SecurityUtils.sanitizeLogMessage(chartFile)} to ${SecurityUtils.sanitizeLogMessage(validatedOutDir)}`,
+      flags.silent,
+    );
+    return;
+  }
 
   // Read the original chart file and modify the writeHelmChart output directory
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
@@ -395,6 +414,11 @@ async function cmdValidate(flags?: CliFlags) {
     }
   }
 
+  if (flags?.dryRun) {
+    log('Dry run: would execute Helm lint for the current chart', flags.silent);
+    return;
+  }
+
   const result = spawnSync('helm', lintArgs, {
     stdio: flags?.silent ? 'pipe' : 'inherit',
     encoding: 'utf8',
@@ -452,20 +476,12 @@ function validateSetFlag(setValue: string): void {
 }
 
 /**
- * Deploys a Helm chart to a Kubernetes cluster.
- * Uses helm upgrade --install to deploy or update a release.
- *
- * @param release - The release name for the deployment
- * @param namespace - Optional namespace for the deployment
- * @param flags - CLI flags for controlling deployment behavior
- * @since 2.8.4
- * @since 2.11.1 Honors --env and --set flags when invoking helm upgrade
+ * Build validated Helm arguments for deployment.
+ * @returns Validated argument list for `helm upgrade --install`
  */
-async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags) {
-  if (!release) usageAndExit('Missing <release>');
-
-  validateReleaseName(release!);
-  const args = ['upgrade', '--install', release!, '.'];
+function buildDeployArgs(release: string, namespace?: string, flags?: CliFlags): string[] {
+  validateReleaseName(release);
+  const args = ['upgrade', '--install', release, '.'];
 
   if (namespace) {
     validateNamespace(namespace);
@@ -489,21 +505,39 @@ async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags)
     }
   }
 
-  // Execute helm command with validated arguments
-  // Security: All user inputs are validated before being added to args:
-  // - validatedRelease: validated against Helm naming rules
-  // - namespace: validated against Kubernetes naming rules
-  // - sanitizedEnv: validated by SecurityUtils.sanitizeEnvironmentName
-  // - setValue: validated by validateSetFlag
+  return args;
+}
 
-  const result = spawnSync(
-    'helm',
-    args.filter((arg): arg is string => Boolean(arg)),
-    {
-      stdio: flags?.silent ? 'pipe' : 'inherit',
-      encoding: 'utf8',
-    },
-  );
+/**
+ * Deploys a Helm chart to a Kubernetes cluster.
+ * Uses helm upgrade --install to deploy or update a release.
+ *
+ * @param release - The release name for the deployment
+ * @param namespace - Optional namespace for the deployment
+ * @param flags - CLI flags for controlling deployment behavior
+ * @since 2.8.4
+ * @since 2.11.1 Honors --env and --set flags when invoking helm upgrade
+ */
+async function cmdDeploy(release?: string, namespace?: string, flags?: CliFlags) {
+  if (!release) usageAndExit('Missing <release>');
+
+  const args = buildDeployArgs(release!, namespace, flags);
+
+  if (flags?.dryRun) {
+    const namespaceDescription = namespace
+      ? ` in namespace '${SecurityUtils.sanitizeLogMessage(namespace)}'`
+      : '';
+    log(
+      `Dry run: would execute Helm upgrade --install for release '${SecurityUtils.sanitizeLogMessage(release!)}'${namespaceDescription}`,
+      flags.silent,
+    );
+    return;
+  }
+
+  const result = spawnSync('helm', args, {
+    stdio: flags?.silent ? 'pipe' : 'inherit',
+    encoding: 'utf8',
+  });
 
   if (result.status !== 0) {
     if (flags?.silent && result.stderr) {
@@ -581,10 +615,10 @@ async function cmdUmbrella(subcommand?: string, args?: string[], flags?: CliFlag
 
   switch (subcommand) {
     case 'init':
-      await cmdUmbrellaInit(workingArgs[0], mergedFlags.silent);
+      await cmdUmbrellaInit(workingArgs[0], mergedFlags.silent, mergedFlags.dryRun);
       break;
     case 'add':
-      await cmdUmbrellaAdd(workingArgs[0], mergedFlags.silent);
+      await cmdUmbrellaAdd(workingArgs[0], mergedFlags.silent, mergedFlags.dryRun);
       break;
     case 'synth':
       await cmdUmbrellaSynth(workingArgs[0], mergedFlags);
@@ -600,9 +634,10 @@ async function cmdUmbrella(subcommand?: string, args?: string[], flags?: CliFlag
  *
  * @param name - The name of the umbrella chart
  * @param silent - Whether to suppress output messages
+ * @param dryRun - When true, validate and report the operation without writing files
  * @since 2.8.4
  */
-async function cmdUmbrellaInit(name?: string, silent = false) {
+async function cmdUmbrellaInit(name?: string, silent = false, dryRun = false) {
   const MISSING_NAME_MSG = 'Missing umbrella chart name';
   if (!name) usageAndExit(MISSING_NAME_MSG);
   const validName = name as string; // Now guaranteed to be defined
@@ -610,6 +645,14 @@ async function cmdUmbrellaInit(name?: string, silent = false) {
   const base = path.join(process.cwd(), validName);
   const umbrellaFile = path.join(base, UMBRELLA_FILE_NAME);
   const configFile = path.join(base, UMBRELLA_CONFIG_FILE);
+
+  if (dryRun) {
+    log(
+      `Dry run: would create umbrella chart '${SecurityUtils.sanitizeLogMessage(validName)}' at ${SecurityUtils.sanitizeLogMessage(base)}`,
+      silent,
+    );
+    return;
+  }
 
   // Create directory
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
@@ -790,9 +833,10 @@ function createImportData(subchartPath: string, chartName: string) {
  *
  * @param subchartPath - The path/name for the new subchart
  * @param silent - Whether to suppress output messages
+ * @param dryRun - When true, validate and report the operation without writing files
  * @since 2.8.4
  */
-async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
+async function cmdUmbrellaAdd(subchartPath?: string, silent = false, dryRun = false) {
   const MISSING_SUBCHART_MSG = 'Missing subchart name or path';
   if (!subchartPath) usageAndExit(MISSING_SUBCHART_MSG);
   const validSubchartPath = subchartPath as string; // Now guaranteed to be defined
@@ -822,11 +866,19 @@ async function cmdUmbrellaAdd(subchartPath?: string, silent = false) {
     process.exit(1);
   }
 
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
-  fs.mkdirSync(subchartDir, { recursive: true });
-
   const relativeSubchartPath = path.relative(chartsRoot, subchartDir) || subchartName;
   const normalizedSubchartPath = relativeSubchartPath.split(path.sep).join('/');
+
+  if (dryRun) {
+    log(
+      `Dry run: would add subchart '${SecurityUtils.sanitizeLogMessage(subchartName)}' at path '${SecurityUtils.sanitizeLogMessage(normalizedSubchartPath)}'`,
+      silent,
+    );
+    return;
+  }
+
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI tool needs dynamic paths
+  fs.mkdirSync(subchartDir, { recursive: true });
 
   const chartFile = SecurityUtils.validatePath(path.join(subchartDir, 'chart.ts'), chartsRoot);
   const { generateFlexibleSubchartTemplate } = await import('./lib/templates/flexible-subchart.js');
@@ -884,6 +936,15 @@ async function executeTypeScriptUmbrella(
 ) {
   const umbrellaBase = path.dirname(resolvedPath);
   const validatedOutDir = resolveOutputDirectory(outDir, umbrellaBase, flags?.silent);
+
+  if (flags?.dryRun) {
+    log(
+      `Dry run: would synthesize umbrella chart ${SecurityUtils.sanitizeLogMessage(resolvedPath)} to ${SecurityUtils.sanitizeLogMessage(validatedOutDir)} in ${mode} mode`,
+      flags.silent,
+    );
+    return;
+  }
+
   const wrapperScript = `
 import { pathToFileURL } from 'url';
 
@@ -1038,7 +1099,7 @@ async function executeCommand(
 ): Promise<void> {
   switch (command) {
     case 'init':
-      await cmdInit(args[0], flags.silent);
+      await cmdInit(args[0], flags.silent, flags.dryRun);
       break;
     case 'synth':
       await cmdSynth(args[0], flags, args[1]);
