@@ -89,6 +89,30 @@ describe('Helm YAML Serializer', () => {
       ]);
     });
 
+    it('should preserve delimiters embedded inside Helm string literals', () => {
+      const raw = '{{`literal }} text`}}';
+      const quoted = '{{ printf "literal }} text" }}';
+      const parsed = parseHelmExpressions(`${raw}\n${quoted}`);
+
+      expect(parsed).toHaveLength(2);
+      expect(parsed[0]?.expression).toBe(raw);
+      expect(parsed[0]?.type).toBe('raw');
+      expect(parsed[1]?.expression).toBe(quoted);
+    });
+
+    it('should parse multiline Helm expressions and keep deprecated-function warnings', () => {
+      const yaml = '{{ template "chart.name"\n.Values }}';
+      const parsed = parseHelmExpressions(yaml);
+      const result = validateHelmYaml(yaml);
+
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0]?.startLine).toBe(1);
+      expect(parsed[0]?.endLine).toBe(2);
+      expect(
+        result.warnings.some((warning) => warning.message.includes("Function 'template'")),
+      ).toBe(true);
+    });
+
     it('should warn for single- and double-quoted Helm expressions', () => {
       const result = validateHelmYaml(`
         data:
@@ -106,10 +130,10 @@ describe('Helm YAML Serializer', () => {
       ]);
     });
 
-    it('should handle adversarial Helm-like input without regex backtracking', () => {
+    it('should handle adversarial Helm-like input in linear time', () => {
       const repeatedOpeners = '{{{{'.repeat(2_000);
       const repeatedSpaces = `{{${' '.repeat(20_000)}value }}`;
-      const repeatedQuotedOpeners = `"${'{{{{'.repeat(1_000)}"`;
+      const repeatedQuotedOpeners = `"{{`.repeat(5_000);
 
       expect(() => validateHelmYaml(repeatedOpeners)).not.toThrow();
       expect(() => validateHelmYaml(repeatedSpaces)).not.toThrow();

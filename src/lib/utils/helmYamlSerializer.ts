@@ -1271,6 +1271,17 @@ export function validateHelmYaml(yaml: string): HelmValidationResult {
  * @returns List of detected Helm expressions with positional info.
  * @since 2.11.0
  */
+interface ScannedHelmExpression {
+  type: HelmExpressionType;
+  expression: string;
+  start: number;
+  end: number;
+  startLine: number;
+  startCol: number;
+  endLine: number;
+  endCol: number;
+}
+
 export function parseHelmExpressions(content: string): Array<{
   type: HelmExpressionType;
   expression: string;
@@ -1279,56 +1290,143 @@ export function parseHelmExpressions(content: string): Array<{
   endLine: number;
   endCol: number;
 }> {
-  const expressions: Array<{
-    type: HelmExpressionType;
-    expression: string;
-    startLine: number;
-    startCol: number;
-    endLine: number;
-    endCol: number;
-  }> = [];
-  const lines = content.split('\n');
+  return scanHelmExpressions(content).map((expression) => ({
+    type: expression.type,
+    expression: SecurityUtils.sanitizeLogMessage(expression.expression),
+    startLine: expression.startLine,
+    startCol: expression.startCol,
+    endLine: expression.endLine,
+    endCol: expression.endCol,
+  }));
+}
 
-  for (const [i, line] of lines.entries()) {
-    if (!line) continue;
+/**
+ * Scan Helm actions in a single forward pass, honoring quoted/raw strings, comments, nesting, and
+ * multiline actions without regex backtracking.
+ * @param content YAML/template content to scan.
+ * @returns Complete Helm expressions with source offsets and positions.
+ */
+function scanHelmExpressions(content: string): ScannedHelmExpression[] {
+  const expressions: ScannedHelmExpression[] = [];
+  const position = { offset: 0, line: 1, column: 1 };
 
-    let cursor = 0;
-    while (cursor < line.length - 1) {
-      const start = line.indexOf('{{', cursor);
-      if (start === -1) break;
+  while (position.offset < content.length - 1) {
+    const start = content.indexOf('{{', position.offset);
+    if (start === -1) break;
 
-      const close = line.indexOf('}}', start + 2);
-      if (close === -1) break;
+    advanceSourcePosition(content, position, start);
+    const startLine = position.line;
+    const startCol = position.column;
+    const close = findHelmExpressionClose(content, start);
+    if (close === -1) break;
 
-      const rawExpression = line.slice(start, close + 2);
-      const sanitizedExpression = SecurityUtils.sanitizeLogMessage(rawExpression);
-      expressions.push({
-        type: classifyHelmExpression(rawExpression),
-        expression: sanitizedExpression,
-        startLine: i + 1,
-        startCol: start + 1,
-        endLine: i + 1,
-        endCol: close + 3,
-      });
-
-      cursor = close + 2;
-    }
+    const end = close + 2;
+    const rawExpression = content.slice(start, end);
+    advanceSourcePosition(content, position, end);
+    expressions.push({
+      type: classifyHelmExpression(rawExpression),
+      expression: rawExpression,
+      start,
+      end,
+      startLine,
+      startCol,
+      endLine: position.line,
+      endCol: position.column,
+    });
   }
 
   return expressions;
 }
 
+/** Advance a source offset and its one-based line/column coordinates exactly once. */
+function advanceSourcePosition(
+  content: string,
+  position: { offset: number; line: number; column: number },
+  target: number,
+): void {
+  while (position.offset < target) {
+    if (content.charAt(position.offset) === '\n') {
+      position.line++;
+      position.column = 1;
+    } else {
+      position.column++;
+    }
+    position.offset++;
+  }
+}
+
+/** Locate the closing delimiter for one Helm action in a bounded forward scan. */
+// eslint-disable-next-line sonarjs/cognitive-complexity -- Explicit linear lexer state prevents regex/backtracking DoS while preserving Helm string/comment semantics.
+function findHelmExpressionClose(content: string, start: number): number {
+  let scan = start + 2;
+  let depth = 1;
+  let quote = '';
+  let escaped = false;
+  let firstQuotedClose = -1;
+
+  if (isHelmCommentAction(content, scan)) {
+    const commentEnd = content.indexOf('*/', scan);
+    if (commentEnd === -1) return -1;
+    return content.indexOf('}}', commentEnd + 2);
+  }
+
+  while (scan < content.length - 1) {
+    const char = content.charAt(scan);
+    const next = content.charAt(scan + 1);
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\' && quote !== '`') {
+        escaped = true;
+      } else if (char === quote) {
+        quote = '';
+      } else if (char === '}' && next === '}' && firstQuotedClose === -1) {
+        firstQuotedClose = scan;
+      }
+      scan++;
+      continue;
+    }
+
+    if (char === "'" || char === '"' || char === '`') {
+      quote = char;
+      scan++;
+      continue;
+    }
+
+    if (char === '{' && next === '{') {
+      depth++;
+      scan += 2;
+      continue;
+    }
+
+    if (char === '}' && next === '}') {
+      depth--;
+      if (depth === 0) return scan;
+      scan += 2;
+      continue;
+    }
+
+    scan++;
+  }
+
+  return quote && firstQuotedClose !== -1 ? firstQuotedClose : -1;
+}
+
+/** Detect a Helm comment action after optional trim marker and whitespace. */
+function isHelmCommentAction(content: string, actionStart: number): boolean {
+  let probe = actionStart;
+  if (content.charAt(probe) === '-') probe++;
+  while (probe < content.length && isWhitespaceCharacter(content.charAt(probe))) probe++;
+  return content.charAt(probe) === '/' && content.charAt(probe + 1) === '*';
+}
 /**
  * Validate Helm syntax for a single Helm expression string.
- * Checks for balanced parentheses, balanced quotes, basic function call validity.
- * Throws errors with descriptive messages on failure.
  * @param expression Helm template expression string.
  * @throws Error on syntax validation failure.
- * @since 2.11.0
  */
 function validateHelmSyntax(expression: string): void {
   const content = stripHelmExpressionDelimiters(expression);
-
   if (!isBalanced(content, '(', ')')) {
     throw new Error('Unbalanced parentheses in Helm expression');
   }
@@ -1495,43 +1593,19 @@ function isIdentifierCharacter(char: string): boolean {
  * @since 2.11.1 Corrected pattern matching to capture quoted Helm templates
  */
 function checkQuotedExpressions(yaml: string, warnings: HelmValidationError[]): void {
-  for (let index = 0; index < yaml.length - 5; index++) {
-    const quote = yaml.charAt(index);
-    if (
-      (quote !== "'" && quote !== '"') ||
-      yaml.charAt(index + 1) !== '{' ||
-      yaml.charAt(index + 2) !== '{'
-    ) {
-      continue;
-    }
+  for (const expression of scanHelmExpressions(yaml)) {
+    if (expression.start === 0 || expression.end >= yaml.length) continue;
 
-    let cursor = index + 3;
-    let containsSingleClosingBrace = false;
-    while (cursor < yaml.length - 1) {
-      if (yaml.charAt(cursor) === '}' && yaml.charAt(cursor + 1) === '}') break;
-      if (yaml.charAt(cursor) === '}') containsSingleClosingBrace = true;
-      cursor++;
-    }
+    const quote = yaml.charAt(expression.start - 1);
+    if ((quote !== "'" && quote !== '"') || yaml.charAt(expression.end) !== quote) continue;
 
-    if (
-      cursor >= yaml.length - 1 ||
-      containsSingleClosingBrace ||
-      cursor === index + 3 ||
-      yaml.charAt(cursor + 2) !== quote
-    ) {
-      continue;
-    }
-
-    const helmExpression = yaml.slice(index + 1, cursor + 2);
-    const quotedExpression = yaml.slice(index, cursor + 3);
+    const quotedExpression = yaml.slice(expression.start - 1, expression.end + 1);
     warnings.push({
       type: 'semantic',
       message: 'Helm expression should not be quoted',
       expression: SecurityUtils.sanitizeLogMessage(quotedExpression),
-      suggestion: `Remove quotes around: ${SecurityUtils.sanitizeLogMessage(helmExpression)}`,
+      suggestion: `Remove quotes around: ${SecurityUtils.sanitizeLogMessage(expression.expression)}`,
     });
-
-    index = cursor + 2;
   }
 }
 
