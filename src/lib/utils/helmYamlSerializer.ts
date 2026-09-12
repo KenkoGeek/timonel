@@ -1132,26 +1132,19 @@ type HelmExpressionType =
   'block' | 'nested' | 'comment' | 'action-trimmed' | 'raw' | 'include-context' | 'generic';
 
 /**
- * Pattern descriptor with compiled RegExp and its type
- * @since 2.11.0
+ * Classify a complete Helm expression without regular expressions.
+ * @param expression Complete expression including `{{` and `}}` delimiters.
+ * @returns Helm expression classification used by validation statistics.
  */
-interface PatternDescriptor {
-  regex: RegExp;
-  type: HelmExpressionType;
+function classifyHelmExpression(expression: string): HelmExpressionType {
+  const content = stripHelmExpressionDelimiters(expression).trim();
+  if (content.startsWith('/*') && content.endsWith('*/')) return 'comment';
+  if (content.startsWith('`') && content.endsWith('`')) return 'raw';
+  if (content.startsWith('include ')) return 'include-context';
+  if (content.includes('{{')) return 'nested';
+  if (content.startsWith('define ')) return 'block';
+  return 'action-trimmed';
 }
-
-/**
- * Compile and cache Helm expression patterns with types for optimized single pass processing
- * @since 2.11.0
- */
-const COMPILED_PATTERNS: PatternDescriptor[] = [
-  { regex: /\{\{-?\s*define\s+[^}]+\s*-?\}\}[\s\S]*?\{\{-?\s*end\s*-?\}\}/g, type: 'block' },
-  { regex: /\{\{[^}]*\{\{[^}]*\}\}[^}]*\}\}/g, type: 'nested' },
-  { regex: /\{\{\/\*[\s\S]*?\*\/\}\}/g, type: 'comment' },
-  { regex: /\{\{-?[\s\S]*?-?\}\}/g, type: 'action-trimmed' },
-  { regex: /\{\{`[\s\S]*?`\}\}/g, type: 'raw' },
-  { regex: /\{\{\s*include\s+"[^"]+"\s+[^}]+\s*\}\}/g, type: 'include-context' },
-];
 
 /**
  * Represents a match of a Helm expression in a string with position details
@@ -1239,7 +1232,7 @@ export function validateHelmYaml(yaml: string): HelmValidationResult {
     }
   }
 
-  checkCommonIssues(yaml, warnings);
+  checkCommonIssues(expressions, warnings);
   checkQuotedExpressions(yaml, warnings);
 
   const expressionsByType = expressions.reduce(
@@ -1286,32 +1279,42 @@ export function parseHelmExpressions(content: string): Array<{
   endLine: number;
   endCol: number;
 }> {
-  const expressions = [];
+  const expressions: Array<{
+    type: HelmExpressionType;
+    expression: string;
+    startLine: number;
+    startCol: number;
+    endLine: number;
+    endCol: number;
+  }> = [];
   const lines = content.split('\n');
 
-  for (let i = 0; i < lines.length; i++) {
-    // eslint-disable-next-line security/detect-object-injection -- Safe: iterating over array indices
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     if (!line) continue;
-    for (const { regex, type } of COMPILED_PATTERNS) {
-      let match;
-      regex.lastIndex = 0;
-      // Note: regex.exec() is RegExp matching, NOT OS command execution
-      while ((match = regex.exec(line)) !== null) {
-        // Sanitize matched expression to prevent any injection in downstream processing
-        const sanitizedExpression = SecurityUtils.sanitizeLogMessage(match[0] || '');
-        expressions.push({
-          type,
-          expression: sanitizedExpression,
-          startLine: i + 1,
-          startCol: match.index + 1,
-          endLine: i + 1,
-          endCol: match.index + (match[0]?.length || 0) + 1,
-        });
-        if (match.index === regex.lastIndex) regex.lastIndex++;
-      }
+
+    let cursor = 0;
+    while (cursor < line.length - 1) {
+      const start = line.indexOf('{{', cursor);
+      if (start === -1) break;
+
+      const close = line.indexOf('}}', start + 2);
+      if (close === -1) break;
+
+      const rawExpression = line.slice(start, close + 2);
+      const sanitizedExpression = SecurityUtils.sanitizeLogMessage(rawExpression);
+      expressions.push({
+        type: classifyHelmExpression(rawExpression),
+        expression: sanitizedExpression,
+        startLine: i + 1,
+        startCol: start + 1,
+        endLine: i + 1,
+        endCol: close + 3,
+      });
+
+      cursor = close + 2;
     }
   }
+
   return expressions;
 }
 
@@ -1324,8 +1327,7 @@ export function parseHelmExpressions(content: string): Array<{
  * @since 2.11.0
  */
 function validateHelmSyntax(expression: string): void {
-  // Strip outer braces for parsing content
-  const content = expression.replace(/^\{\{-?\s*/, '').replace(/\s*-?\}\}$/, '');
+  const content = stripHelmExpressionDelimiters(expression);
 
   if (!isBalanced(content, '(', ')')) {
     throw new Error('Unbalanced parentheses in Helm expression');
@@ -1334,6 +1336,38 @@ function validateHelmSyntax(expression: string): void {
     throw new Error('Unbalanced quotes in Helm expression');
   }
   validateFunctionCalls(content);
+}
+
+/**
+ * Remove outer Helm delimiters without regex backtracking on untrusted input.
+ * @param expression Helm template expression string.
+ * @returns Expression content without `{{`, `}}`, trim markers, or surrounding whitespace.
+ */
+function stripHelmExpressionDelimiters(expression: string): string {
+  let start = expression.startsWith('{{') ? 2 : 0;
+  if (expression.charAt(start) === '-') start++;
+  while (start < expression.length && isWhitespaceCharacter(expression.charAt(start))) start++;
+
+  let end = expression.endsWith('}}') ? expression.length - 2 : expression.length;
+  while (end > start && isWhitespaceCharacter(expression.charAt(end - 1))) end--;
+  if (end > start && expression.charAt(end - 1) === '-') {
+    end--;
+    while (end > start && isWhitespaceCharacter(expression.charAt(end - 1))) end--;
+  }
+
+  return expression.slice(start, end);
+}
+
+/** Return true for whitespace accepted around Helm delimiters. */
+function isWhitespaceCharacter(char: string | undefined): boolean {
+  return (
+    char === ' ' ||
+    char === '\t' ||
+    char === '\n' ||
+    char === '\r' ||
+    char === '\f' ||
+    char === '\v'
+  );
 }
 
 /**
@@ -1395,37 +1429,61 @@ function validateFunctionCalls(_content: string): void {
   // Additional validations can be implemented here as needed.
   // For now, no error thrown by default.
 }
-
 /**
- * Checks for common semantic issues in the YAML string to emit warnings.
- * Checks for deprecated functions and problematic usage.
- * @param yaml YAML string content.
+ * Checks parsed Helm expressions for deprecated functions.
+ * @param expressions Parsed Helm expressions.
  * @param warnings Array to populate warnings.
  * @since 2.11.0
  */
-function checkCommonIssues(yaml: string, warnings: HelmValidationError[]): void {
+function checkCommonIssues(
+  expressions: Array<{ expression: string }>,
+  warnings: HelmValidationError[],
+): void {
   const deprecatedFunctions = ['template'];
-  for (const func of deprecatedFunctions) {
-    // Validate func is alphanumeric only to prevent injection
-    if (!/^[a-zA-Z0-9_]+$/.test(func)) {
-      continue; // Skip invalid function names
-    }
-    // Escape special regex characters to prevent injection
-    const escapedFunc = func.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // eslint-disable-next-line security/detect-non-literal-regexp -- Safe: func is validated and escaped
-    const pattern = new RegExp(`\\{\\{[^}]*\\b${escapedFunc}\\b[^}]*\\}\\}`, 'g');
-    let match;
-    while ((match = pattern.exec(yaml)) !== null) {
-      // Sanitize function name for output to prevent injection in error messages
+
+  for (const expression of expressions) {
+    const content = stripHelmExpressionDelimiters(expression.expression);
+    for (const func of deprecatedFunctions) {
+      if (!containsIdentifier(content, func)) continue;
+
       const sanitizedFunc = SecurityUtils.sanitizeLogMessage(func);
       warnings.push({
         type: 'semantic',
         message: `Function '${sanitizedFunc}' is deprecated`,
-        expression: match[0],
+        expression: expression.expression,
         suggestion: `Consider avoiding deprecated function '${sanitizedFunc}'`,
       });
     }
   }
+}
+
+/** Check for an identifier as a standalone Helm token without regular expressions. */
+function containsIdentifier(content: string, identifier: string): boolean {
+  let fromIndex = 0;
+  while (fromIndex < content.length) {
+    const index = content.indexOf(identifier, fromIndex);
+    if (index === -1) return false;
+
+    const before = index === 0 ? '' : content.charAt(index - 1);
+    const afterIndex = index + identifier.length;
+    const after = afterIndex >= content.length ? '' : content.charAt(afterIndex);
+    if (!isIdentifierCharacter(before) && !isIdentifierCharacter(after)) return true;
+
+    fromIndex = index + identifier.length;
+  }
+  return false;
+}
+
+/** Return true when a character can be part of a Helm identifier. */
+function isIdentifierCharacter(char: string): boolean {
+  if (!char) return false;
+  const code = char.charCodeAt(0);
+  return (
+    (code >= 48 && code <= 57) ||
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122) ||
+    char === '_'
+  );
 }
 
 /**
@@ -1437,21 +1495,43 @@ function checkCommonIssues(yaml: string, warnings: HelmValidationError[]): void 
  * @since 2.11.1 Corrected pattern matching to capture quoted Helm templates
  */
 function checkQuotedExpressions(yaml: string, warnings: HelmValidationError[]): void {
-  const quotedPatterns = [/'(\{\{[^}]+\}\})'/g, /"(\{\{[^}]+\}\})"/g];
-  for (const pattern of quotedPatterns) {
-    let match;
-    pattern.lastIndex = 0;
-    while ((match = pattern.exec(yaml)) !== null) {
-      // Sanitize matched content to prevent injection in suggestion text
-      const sanitizedMatch = SecurityUtils.sanitizeLogMessage(match[1] || '');
-      const sanitizedExpression = SecurityUtils.sanitizeLogMessage(match[0] || '');
-      warnings.push({
-        type: 'semantic',
-        message: 'Helm expression should not be quoted',
-        expression: sanitizedExpression,
-        suggestion: `Remove quotes around: ${sanitizedMatch}`,
-      });
+  for (let index = 0; index < yaml.length - 5; index++) {
+    const quote = yaml.charAt(index);
+    if (
+      (quote !== "'" && quote !== '"') ||
+      yaml.charAt(index + 1) !== '{' ||
+      yaml.charAt(index + 2) !== '{'
+    ) {
+      continue;
     }
+
+    let cursor = index + 3;
+    let containsSingleClosingBrace = false;
+    while (cursor < yaml.length - 1) {
+      if (yaml.charAt(cursor) === '}' && yaml.charAt(cursor + 1) === '}') break;
+      if (yaml.charAt(cursor) === '}') containsSingleClosingBrace = true;
+      cursor++;
+    }
+
+    if (
+      cursor >= yaml.length - 1 ||
+      containsSingleClosingBrace ||
+      cursor === index + 3 ||
+      yaml.charAt(cursor + 2) !== quote
+    ) {
+      continue;
+    }
+
+    const helmExpression = yaml.slice(index + 1, cursor + 2);
+    const quotedExpression = yaml.slice(index, cursor + 3);
+    warnings.push({
+      type: 'semantic',
+      message: 'Helm expression should not be quoted',
+      expression: SecurityUtils.sanitizeLogMessage(quotedExpression),
+      suggestion: `Remove quotes around: ${SecurityUtils.sanitizeLogMessage(helmExpression)}`,
+    });
+
+    index = cursor + 2;
   }
 }
 
