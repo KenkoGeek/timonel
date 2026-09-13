@@ -72,16 +72,27 @@ stringData:
     const account = new kplus.ServiceAccount(rutter.getChart(), 'RestartAccount', {
       metadata: { name: 'restart-manager' },
     });
+    new kplus.ConfigMap(rutter.getChart(), 'AlwaysConfig', {
+      metadata: { name: 'always-config' },
+      data: { mode: 'always' },
+    });
 
     rutter.when(values.restart.enabled.and(values.restart.forced.not()), account);
 
-    const [asset] = await rutter.toSynthArray();
+    const assets = await rutter.toSynthArray();
+    const accountAsset = assets.find((asset) => asset.id === 'RestartAccount');
+    const configAsset = assets.find((asset) => asset.id === 'AlwaysConfig');
 
-    expect(asset?.yaml).toContain(
+    expect(assets).toHaveLength(2);
+    expect(accountAsset?.yaml).toContain(
       '{{- if and .Values.restart.enabled (not .Values.restart.forced) }}',
     );
-    expect(asset?.yaml).toContain('kind: ServiceAccount');
-    expect(asset?.yaml).toContain('{{- end }}');
+    expect(accountAsset?.yaml).toContain('kind: ServiceAccount');
+    expect(accountAsset?.yaml).toContain('{{- end }}');
+    expect(configAsset?.yaml).toContain('kind: ConfigMap');
+    expect(configAsset?.yaml).toContain('mode: always');
+    expect(configAsset?.yaml).not.toContain('{{- if');
+    expect(configAsset?.yaml).not.toContain('{{- end }}');
   });
 
   it('rejects conditional resources owned by another chart', () => {
