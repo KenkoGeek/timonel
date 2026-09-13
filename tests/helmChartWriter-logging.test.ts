@@ -27,6 +27,7 @@ describe('HelmChartWriter default logger lifecycle', () => {
 
     const directories: string[] = [];
     const customLogger = new TimonelLogger({ silent: true, prettyPrint: false });
+    const beforeCustomWrite = process.listenerCount('exit');
 
     try {
       const customOutDir = mkdtempSync(join(tmpdir(), 'timonel-listener-custom-'));
@@ -37,7 +38,7 @@ describe('HelmChartWriter default logger lifecycle', () => {
         assets: [],
         logger: customLogger,
       });
-      expect(process.listenerCount('exit')).toBe(beforeWriterImport);
+      expect(process.listenerCount('exit')).toBe(beforeCustomWrite);
 
       const firstOutDir = mkdtempSync(join(tmpdir(), 'timonel-listener-default-'));
       directories.push(firstOutDir);
