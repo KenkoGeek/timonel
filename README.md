@@ -215,24 +215,45 @@ const defaultSetting = v.settings.at('default');
 
 ## Custom resources
 
-Use object-form `addManifest()` when no appropriate typed construct is available:
+When cdk8s-plus does not expose an extension API, keep normal construct usage with
+`TypedCustomResource<TBody>` rather than falling back to a manifest body:
 
 ```typescript
-chart.addManifest(
-  {
-    apiVersion: 'monitoring.coreos.com/v1',
-    kind: 'ServiceMonitor',
-    metadata: { name: 'orders' },
+import { TypedCustomResource, valuesRef, type HelmExpression } from 'timonel';
+
+interface ServiceMonitorBody {
+  spec: {
+    selector: { matchLabels: Record<string, string> };
+    endpoints: Array<{ port: string; interval: string | HelmExpression }>;
+  };
+}
+
+const v = valuesRef<{ monitoring: { interval: string } }>();
+
+new TypedCustomResource<ServiceMonitorBody>(chart.getChart(), 'OrdersServiceMonitor', {
+  apiVersion: 'monitoring.coreos.com/v1',
+  kind: 'ServiceMonitor',
+  metadata: { name: 'orders' },
+  body: {
     spec: {
-      selector: {
-        matchLabels: { app: 'orders' },
-      },
-      endpoints: [{ port: 'http' }],
+      selector: { matchLabels: { app: 'orders' } },
+      endpoints: [{ port: 'http', interval: v.monitoring.interval.toExpression() }],
     },
   },
-  'OrdersServiceMonitor',
-);
+});
 ```
+
+The generic body is preserved in the published declarations, so invalid CRD fields fail consumer
+compilation. It also supports APIs with non-`spec` top-level fields, such as OpenShift SCC, by
+modeling those fields in `TBody`.
+
+For CRDs generated with `cdk8s import`, instantiate the generated construct directly under
+`chart.getChart()`. Timonel discovers the resulting `ApiObject` during normal synthesis, so no
+adapter or `addManifest()` call is required. Prefer generated CRD classes when an upstream schema is
+available; use `TypedCustomResource<TBody>` when you own or maintain the TypeScript contract.
+
+Object-form `addManifest()` remains a compatibility fallback for callers that do not have a typed
+schema. Raw-string manifest APIs remain legacy escape hatches.
 
 Do not switch a standard Kubernetes resource to raw YAML merely because one field contains Helm
 logic. Prefer typed constructs and Timonel's Helm-value helpers where they fit.

@@ -15,6 +15,12 @@ export * from './lib/policy/index.js';
 // Input Validation
 export * from './lib/validation/inputValidator.js';
 
+// Typed Custom Resources
+export {
+  TypedCustomResource,
+  type TypedCustomResourceProps,
+} from './lib/resources/typedCustomResource.js';
+
 // Templates
 export { FlexibleSubchart, createFlexibleSubchart } from './lib/templates/flexible-subchart.js';
 export { UmbrellaChartTemplate as UmbrellaChart } from './lib/templates/umbrella-chart.js';
