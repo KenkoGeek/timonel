@@ -127,10 +127,37 @@ Useful methods include:
 | `getMeta()`               | Read chart metadata                                       |
 | `getDefaultValues()`      | Read default values                                       |
 | `getEnvValues()`          | Read environment-specific values                          |
+| `addChartFile(asset)`     | Package an arbitrary non-manifest chart file              |
+| `getChartFiles()`         | Read configured non-manifest chart files                  |
 | `addManifest(object, id)` | Object fallback for custom resources                      |
 
 `toSynthArraySync()` remains for compatibility and is deprecated. It cannot be used with a policy
 engine.
+
+### Packaged chart files
+
+Use `chartFiles` or `addChartFile()` for non-manifest files that must ship inside the Helm chart,
+such as JSON consumed through `.Files.Get`, scripts, dashboards, or binary assets:
+
+```typescript
+const chart = new Rutter({
+  meta: { name: 'orders', version: '1.0.0' },
+  chartFiles: [
+    {
+      destination: 'files/service-inputs.json',
+      content: JSON.stringify({ queue: 'orders' }),
+    },
+  ],
+});
+
+chart.addChartFile({
+  destination: 'files/apply.mjs',
+  content: 'export default true;\n',
+});
+```
+
+Destinations are chart-relative, traversal is rejected, and generated chart files such as
+`Chart.yaml` cannot be overwritten. `Uint8Array` content is supported for binary files.
 
 ### Existing construct tree
 

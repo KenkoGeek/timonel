@@ -5,7 +5,7 @@ import type { Construct } from 'constructs';
 import { parse } from 'yaml';
 
 import { include } from './helm.js';
-import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
+import { HelmChartWriter, type ChartFileAsset, type SynthAsset } from './helmChartWriter.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
 import { createLogger, type TimonelLogger } from './utils/logger.js';
 import type {
@@ -45,6 +45,7 @@ export class Rutter {
 
   // CDK8s infrastructure
   private readonly assets: Array<{ id: string; yaml: string; target: string }> = [];
+  private readonly chartFiles: ChartFileAsset[];
   private readonly awsResources: AWSResources;
   private readonly chart: Chart;
   private readonly defaultValues: Record<string, unknown>;
@@ -57,6 +58,7 @@ export class Rutter {
   constructor(props: RutterProps) {
     this.defaultValues = props.defaultValues ?? {};
     this.envValues = props.envValues ?? {};
+    this.chartFiles = [...(props.chartFiles ?? [])];
     this.meta = props.meta;
     this.props = props;
     this.logger = props.logger ?? createLogger('rutter');
@@ -704,6 +706,21 @@ ${yamlContent.trim()}
   }
 
   /**
+   * Adds an arbitrary non-manifest file to the generated Helm chart.
+   *
+   * The destination is chart-relative and is validated by `HelmChartWriter`
+   * during `write()`. Existing generated files cannot be overwritten.
+   */
+  addChartFile(asset: ChartFileAsset): void {
+    this.chartFiles.push(asset);
+  }
+
+  /** Return the chart-file assets configured for this chart. */
+  getChartFiles(): readonly ChartFileAsset[] {
+    return [...this.chartFiles];
+  }
+
+  /**
    * Gets all assets (CRDs, etc.)
    * @returns Array of assets
    *
@@ -1091,6 +1108,7 @@ ${helper.template}
       defaultValues: this.defaultValues,
       envValues: this.envValues,
       assets: synthAssets,
+      chartFiles: this.chartFiles,
       helpersTpl: helpersContent,
       logger: this.logger,
     });
@@ -1138,6 +1156,8 @@ export interface ChartMetadata {
 export interface RutterProps {
   /** Additional cdk8s Chart properties applied to the generated chart. */
   chartProps?: ChartProps;
+  /** Arbitrary non-manifest files packaged at chart-relative destinations. */
+  chartFiles?: readonly ChartFileAsset[];
   /** Cloud provider for default helpers. */
   cloudProvider?: 'aws';
   /** Default values emitted to `values.yaml`. */

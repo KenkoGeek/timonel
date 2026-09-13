@@ -92,6 +92,20 @@ export interface SynthAsset {
 }
 
 /**
+ * Arbitrary non-manifest file packaged inside a Helm chart.
+ *
+ * This is intentionally separate from `SynthAsset`: chart files keep their
+ * caller-provided filename and are not YAML-processed or forced under
+ * `templates/`/`crds`.
+ */
+export interface ChartFileAsset {
+  /** Safe chart-relative destination, for example `files/config.json`. */
+  destination: string;
+  /** Text or binary file content. */
+  content: string | Uint8Array;
+}
+
+/**
  * Options for writing a complete Helm chart
  *
  * @interface HelmChartWriteOptions
@@ -108,6 +122,8 @@ export interface HelmChartWriteOptions {
   envValues?: EnvValuesMap | undefined;
   /** Kubernetes manifests to place under templates/ */
   assets: SynthAsset[];
+  /** Arbitrary non-manifest files to package at chart-relative destinations. */
+  chartFiles?: readonly ChartFileAsset[];
   /** Helm helpers content for templates/_helpers.tpl */
   helpersTpl?: string | HelperDefinition[];
   /** NOTES.txt content under templates/ */
@@ -154,6 +170,7 @@ export class HelmChartWriter {
       defaultValues = {},
       envValues = {},
       assets,
+      chartFiles = [],
       helpersTpl,
       notesTpl,
       valuesSchema,
@@ -190,6 +207,7 @@ export class HelmChartWriter {
     this.writeNotes(validatedOutDir, notesTpl);
     this.writeSchema(validatedOutDir, valuesSchema);
     this.writeHelmIgnore(validatedOutDir);
+    this.writeChartFiles(validatedOutDir, chartFiles);
 
     logger.info('Helm chart write operation completed successfully', {
       chartName: meta.name,
@@ -287,6 +305,11 @@ export class HelmChartWriter {
    */
   private static writeAssets(outDir: string, assets: SynthAsset[]): void {
     writeAssets(outDir, assets);
+  }
+
+  /** Write arbitrary chart-relative files without YAML transformation. */
+  private static writeChartFiles(outDir: string, chartFiles: readonly ChartFileAsset[]): void {
+    writeChartFiles(outDir, chartFiles);
   }
 
   /**
@@ -606,4 +629,75 @@ function resolveAssetPath(assetId: string): { directorySegments: string[]; fileB
   }
 
   return { directorySegments, fileBaseName };
+}
+
+/** Normalize and validate a chart-relative file destination. */
+function normalizeChartFileDestination(destination: string): string {
+  if (!destination || typeof destination !== 'string') {
+    throw new Error('Chart file destination must be a non-empty string');
+  }
+
+  if (destination.includes('\0')) {
+    throw new Error('Chart file destination cannot contain null bytes');
+  }
+
+  const normalized = destination.replace(/\\+/g, '/');
+  if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)) {
+    throw new Error(`Chart file destination must be relative: ${destination}`);
+  }
+
+  const segments = normalized.split('/');
+  if (segments.some((segment) => !segment || segment === '.' || segment === '..')) {
+    throw new Error(`Chart file destination contains an unsafe path segment: ${destination}`);
+  }
+
+  for (const segment of segments) {
+    if (/[<>:"|?*]/.test(segment)) {
+      throw new Error(`Chart file destination contains unsupported characters: ${destination}`);
+    }
+
+    const hasControlCharacter = Array.from(segment).some((character) => {
+      const codePoint = character.codePointAt(0);
+      return typeof codePoint === 'number' && (codePoint < 0x20 || codePoint === 0x7f);
+    });
+    if (hasControlCharacter) {
+      throw new Error(`Chart file destination contains control characters: ${destination}`);
+    }
+  }
+
+  return segments.join('/');
+}
+
+/** Write deterministic arbitrary chart files while preventing generated-file collisions. */
+function writeChartFiles(outDir: string, chartFiles: readonly ChartFileAsset[]): void {
+  const normalizedAssets = chartFiles
+    .map((asset) => ({ ...asset, destination: normalizeChartFileDestination(asset.destination) }))
+    .sort((left, right) => left.destination.localeCompare(right.destination));
+  const destinations = new Set<string>();
+  const writePlans: Array<ChartFileAsset & { absolutePath: string }> = [];
+
+  // Validate the complete batch before writing any caller-provided file so duplicate,
+  // traversal, or collision errors never leave a partially written extra-file set.
+  for (const asset of normalizedAssets) {
+    if (destinations.has(asset.destination)) {
+      throw new Error(`Duplicate chart file destination: ${asset.destination}`);
+    }
+    destinations.add(asset.destination);
+
+    const absolutePath = SecurityUtils.validatePath(path.join(outDir, asset.destination), outDir);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    if (fs.existsSync(absolutePath)) {
+      throw new Error(`Chart file destination already exists: ${asset.destination}`);
+    }
+
+    writePlans.push({ ...asset, absolutePath });
+  }
+
+  for (const plan of writePlans) {
+    const parentDir = SecurityUtils.validatePath(path.dirname(plan.absolutePath), outDir);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    fs.mkdirSync(parentDir, { recursive: true });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    fs.writeFileSync(plan.absolutePath, plan.content);
+  }
 }
