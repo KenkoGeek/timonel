@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { dumpHelmAwareYaml } from '../src/lib/utils/helmYamlSerializer.js';
-import { isHelmRange, isHelmWith, valuesRef } from '../src/lib/utils/valuesRef.js';
+import { isHelmMapRange, isHelmRange, isHelmWith, valuesRef } from '../src/lib/utils/valuesRef.js';
 
 interface Values {
   enabled: boolean;
   replicas: number;
   items: Array<{ name: string; value: string }>;
+  envKeys: string[];
+  env: Record<string, string>;
+  dynamicKey: string;
   database: {
     host: string;
     port: number;
@@ -50,6 +53,15 @@ describe('ValuesRef runtime contract', () => {
     expect(v.default('fallback').__path).toBe('.Values | default "fallback"');
   });
 
+  it('supports literal and dynamic map lookups with root-stable paths', () => {
+    const v = valuesRef<Values>();
+
+    expect(v.env.hasKey('PORT').__condition).toBe('hasKey $.Values.env "PORT"');
+    expect(v.env.hasKey(v.dynamicKey).__condition).toBe('hasKey $.Values.env $.Values.dynamicKey');
+    expect(v.env.index('PORT').__path).toBe('(index $.Values.env "PORT")');
+    expect(v.env.index(v.dynamicKey).__path).toBe('(index $.Values.env $.Values.dynamicKey)');
+  });
+
   it('returns a HelmRange marker and preserves typed callback paths', () => {
     const v = valuesRef<Values>();
     const range = v.items.range((item, index) => ({
@@ -65,6 +77,35 @@ describe('ValuesRef runtime contract', () => {
     expect(yaml).toContain('- name: {{ $item.name }}');
     expect(yaml).toContain('value: {{ $item.value }}');
     expect(yaml).toContain('index: {{ $index }}');
+    expect(yaml).toContain('{{ end }}');
+  });
+
+  it('supports dynamic map lookup from an array range callback', () => {
+    const v = valuesRef<Values>();
+    const range = v.envKeys.range((key) => ({
+      name: key,
+      value: v.env.index(key).quote(),
+    }));
+
+    const yaml = dumpHelmAwareYaml({ env: range });
+    expect(yaml).toContain('{{ range $index, $item := .Values.envKeys }}');
+    expect(yaml).toContain('name: {{ $item }}');
+    expect(yaml).toContain('value: {{ ((index $.Values.env $item) | quote) }}');
+  });
+
+  it('returns a HelmMapRange marker and preserves typed key/value callback paths', () => {
+    const v = valuesRef<Values>();
+    const range = v.env.rangeEntries((key, value) => ({
+      name: key,
+      value: value.quote(),
+    }));
+
+    expect(isHelmMapRange(range)).toBe(true);
+
+    const yaml = dumpHelmAwareYaml({ env: range });
+    expect(yaml).toContain('{{ range $key, $value := $.Values.env }}');
+    expect(yaml).toContain('name: {{ $key }}');
+    expect(yaml).toContain('value: {{ ($value | quote) }}');
     expect(yaml).toContain('{{ end }}');
   });
 

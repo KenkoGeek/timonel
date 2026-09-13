@@ -118,6 +118,7 @@ export {
   isHelmCondition,
   isHelmFieldConditional,
   isHelmRange,
+  isHelmMapRange,
   isHelmWith,
   serializeHelmValue,
   serializeHelmCondition,
@@ -127,6 +128,7 @@ export {
   type HelmCondition,
   type HelmFieldConditional,
   type HelmRange,
+  type HelmMapRange,
   type HelmWith,
   type HelmHelpers,
 } from './lib/utils/valuesRef.js';

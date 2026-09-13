@@ -13,12 +13,14 @@ import {
   isHelmValue,
   isHelmFieldConditional,
   isHelmRange,
+  isHelmMapRange,
   isHelmWith,
   createHelmValueProxy,
   type HelmValueRef,
   type HelmCondition,
   type HelmFieldConditional,
   type HelmRange,
+  type HelmMapRange,
   type HelmWith,
 } from './valuesRef.js';
 
@@ -406,6 +408,21 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
     const contentStr = dumpHelmAwareYaml(processedContent).trim();
     return createHelmExpression(
       `{{ range $index, $item := ${sourcePath} }}\n${contentStr}\n{{ end }}`,
+    );
+  }
+
+  // Handle HelmMapRange (from valuesRef v.rangeEntries())
+  if (isHelmMapRange(obj)) {
+    const range = obj as HelmMapRange<unknown>;
+    const sourcePath = range.source.__path;
+    const keyProxy = createHelmValueProxy<string>('$key');
+    const valueProxy = createHelmValueProxy<unknown>('$value');
+    const content = range.callback(keyProxy, valueProxy);
+    const rangeItems = Array.isArray(content) ? content : [content];
+    const processedContent = preprocessHelmConstructs(rangeItems);
+    const contentStr = dumpHelmAwareYaml(processedContent).trim();
+    return createHelmExpression(
+      `{{ range $key, $value := ${sourcePath} }}\n${contentStr}\n{{ end }}`,
     );
   }
 

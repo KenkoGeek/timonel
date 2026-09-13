@@ -174,6 +174,8 @@ interface Values {
     name: string;
     value: string;
   }>;
+  envByName: Record<string, string>;
+  selectedEnvKey: string;
 }
 
 const v = valuesRef<Values>();
@@ -188,10 +190,20 @@ const env = v.env.range((item) => ({
   value: item.value,
 }));
 
+const selectedEnv = v.envByName.index(v.selectedEnvKey);
+const hasSelectedEnv = v.envByName.hasKey(v.selectedEnvKey);
+const envEntries = v.envByName.rangeEntries((key, value) => ({
+  name: key,
+  value: value.quote(),
+}));
+
 const replicasField = v.replicas.if(v.autoscaling.enabled.not(), v.replicas);
 ```
 
-The compiler rejects value paths that do not exist in `Values`.
+The compiler rejects value paths that do not exist in `Values`. String-keyed maps also support
+`rangeEntries()`, typed `index()`, and `hasKey()` with either literal keys or `HelmValueRef<string>`
+keys. Dynamic map lookups are anchored to Helm's root context, so they remain valid inside
+`range()` and `with()` scopes.
 
 ### Reserved values keys
 
