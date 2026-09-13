@@ -1,5 +1,13 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -138,5 +146,51 @@ describe('UmbrellaRutter dependency-only subcharts', () => {
     await expect(umbrella.write(outDir)).rejects.toThrow(
       'Vendored subchart source must be an existing directory',
     );
+  });
+
+  it('rejects vendored sources that overlap the generated destination', async () => {
+    const projectDir = makeTempDir('timonel-vendored-overlap-');
+    const outDir = join(projectDir, 'dist');
+    mkdirSync(outDir, { recursive: true });
+
+    const umbrella = new UmbrellaRutter({
+      meta: { name: 'overlap-parent', version: '1.0.0' },
+      subcharts: [
+        {
+          name: 'project-copy',
+          version: '1.0.0',
+          sourceDirectory: projectDir,
+        },
+      ],
+    });
+
+    await expect(umbrella.write(outDir)).rejects.toThrow(
+      'Vendored subchart source and destination must not overlap',
+    );
+    expect(existsSync(join(outDir, 'charts', 'project-copy'))).toBe(false);
+  });
+
+  it('cleans a partial vendored destination when copying fails', async () => {
+    const sourceDir = makeTempDir('timonel-vendored-failure-source-');
+    const outDir = makeTempDir('timonel-vendored-failure-out-');
+    writeFileSync(
+      join(sourceDir, 'Chart.yaml'),
+      'apiVersion: v2\nname: broken-vendor\nversion: 1.0.0\n',
+    );
+    symlinkSync(join(sourceDir, 'Chart.yaml'), join(sourceDir, 'linked-chart.yaml'));
+
+    const umbrella = new UmbrellaRutter({
+      meta: { name: 'failure-parent', version: '1.0.0' },
+      subcharts: [
+        {
+          name: 'broken-vendor',
+          version: '1.0.0',
+          sourceDirectory: sourceDir,
+        },
+      ],
+    });
+
+    await expect(umbrella.write(outDir)).rejects.toThrow('cannot contain symbolic links');
+    expect(existsSync(join(outDir, 'charts', 'broken-vendor'))).toBe(false);
   });
 });

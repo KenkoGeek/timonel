@@ -3,8 +3,16 @@
  * @since 2.8.0+
  */
 
-import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'fs';
+import { join, resolve, sep } from 'path';
 
 import type { HelmChartMeta } from './helmChartWriter.js';
 import type { Rutter } from './rutter.js';
@@ -178,12 +186,27 @@ export class UmbrellaRutter {
       );
     }
 
+    const resolvedSource = resolve(source);
+    const resolvedDestination = resolve(destinationDirectory);
+    const sourceContainsDestination =
+      resolvedDestination === resolvedSource ||
+      resolvedDestination.startsWith(`${resolvedSource}${sep}`);
+    const destinationContainsSource = resolvedSource.startsWith(`${resolvedDestination}${sep}`);
+    if (sourceContainsDestination || destinationContainsSource) {
+      throw new Error('Vendored subchart source and destination must not overlap');
+    }
+
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Destination path validated by chartsDir containment.
     if (existsSync(destinationDirectory)) {
       throw new Error(`Vendored subchart destination already exists: ${destinationDirectory}`);
     }
 
-    this.copyDirectoryTree(source, destinationDirectory);
+    try {
+      this.copyDirectoryTree(source, destinationDirectory);
+    } catch (error) {
+      rmSync(destinationDirectory, { recursive: true, force: true });
+      throw error;
+    }
   }
 
   /** Copy one directory tree deterministically while rejecting symlink escapes. */
