@@ -2,7 +2,7 @@
  * @fileoverview Regression tests for HelmChartWriter asset handling.
  * @since 2.12.2
  */
-import { mkdtempSync, rmSync, existsSync } from 'fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -55,5 +55,19 @@ describe('HelmChartWriter asset identifier handling', () => {
     });
 
     expect(existsSync(join(workDir, 'templates', 'config', 'maps', 'settings.yaml'))).toBe(true);
+  });
+
+  it('keeps vendored chart dependencies packageable', () => {
+    HelmChartWriter.write({
+      outDir: workDir,
+      meta: { name: 'test-chart', version: '0.0.0' },
+      defaultValues: {},
+      envValues: {},
+      assets: [],
+    });
+
+    const helmIgnore = readFileSync(join(workDir, '.helmignore'), 'utf8');
+    expect(helmIgnore).not.toMatch(/^charts\/$/m);
+    expect(helmIgnore).not.toMatch(/^\*\.tgz$/m);
   });
 });

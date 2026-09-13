@@ -381,9 +381,7 @@ export class HelmChartWriter {
         '*.tmp',
         '*.orig',
         '',
-        '# Chart dependencies and packages',
-        'charts/',
-        '*.tgz',
+        '# Helm dependencies under charts/ are part of the packaged chart and must not be ignored.',
         '',
       ].join('\n');
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- Chart writer needs dynamic paths
