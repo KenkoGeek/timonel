@@ -119,15 +119,16 @@ const chart = new Rutter({
 
 Useful methods include:
 
-| API                       | Purpose                                                   |
-| ------------------------- | --------------------------------------------------------- |
-| `getChart()`              | Access the real cdk8s `Chart` for native typed constructs |
-| `write(outDir)`           | Synthesize and write the complete Helm chart              |
-| `toSynthArray()`          | Asynchronously synthesize Helm assets                     |
-| `getMeta()`               | Read chart metadata                                       |
-| `getDefaultValues()`      | Read default values                                       |
-| `getEnvValues()`          | Read environment-specific values                          |
-| `addManifest(object, id)` | Object fallback for custom resources                      |
+| API                                  | Purpose                                                   |
+| ------------------------------------ | --------------------------------------------------------- |
+| `getChart()`                         | Access the real cdk8s `Chart` for native typed constructs |
+| `bindHelmValue(resource, path, ref)` | Bind ValuesRef to a primitive field on a typed construct  |
+| `write(outDir)`                      | Synthesize and write the complete Helm chart              |
+| `toSynthArray()`                     | Asynchronously synthesize Helm assets                     |
+| `getMeta()`                          | Read chart metadata                                       |
+| `getDefaultValues()`                 | Read default values                                       |
+| `getEnvValues()`                     | Read environment-specific values                          |
+| `addManifest(object, id)`            | Object fallback for custom resources                      |
 
 `toSynthArraySync()` remains for compatibility and is deprecated. It cannot be used with a policy
 engine.
@@ -152,6 +153,42 @@ new kplus.ConfigMap(chart.getChart(), 'Config', {
   data: { mode: 'production' },
 });
 ```
+
+### Helm values in primitive construct fields
+
+Some cdk8s/cdk8s-plus properties accept only concrete TypeScript primitives even though the final
+Helm template must stay values-driven. Build the resource with the native typed construct, then bind
+the Helm value to the synthesized field:
+
+```typescript
+import * as kplus from 'cdk8s-plus-33';
+import { Rutter, valuesRef } from 'timonel';
+
+interface Values {
+  replicaCount: number;
+  image: { repository: string };
+}
+
+const v = valuesRef<Values>();
+const chart = new Rutter({
+  meta: { name: 'orders', version: '1.0.0' },
+  defaultValues: {
+    replicaCount: 2,
+    image: { repository: 'ghcr.io/example/orders' },
+  },
+});
+
+const deployment = new kplus.Deployment(chart.getChart(), 'Application', {
+  replicas: 1,
+  containers: [{ name: 'orders', image: 'placeholder' }],
+});
+
+chart.bindHelmValue(deployment, '/spec/replicas', v.replicaCount);
+chart.bindHelmValue(deployment, '/spec/template/spec/containers/0/image', v.image.repository);
+```
+
+`bindHelmValue()` uses cdk8s JSON patching internally after the typed construct has defined the
+resource shape. Callers do not need casts, `any`, or manifest fallbacks.
 
 ## Type-safe Helm values
 

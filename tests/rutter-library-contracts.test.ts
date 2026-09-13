@@ -3,6 +3,7 @@ import * as kplus from 'cdk8s-plus-33';
 import { describe, expect, it } from 'vitest';
 
 import { Rutter } from '../src/lib/rutter.js';
+import { valuesRef } from '../src/lib/utils/valuesRef.js';
 
 describe('Rutter public library contracts', () => {
   it('always returns a Promise from toSynthArray()', async () => {
@@ -59,5 +60,61 @@ stringData:
     expect(assets).toHaveLength(1);
     expect(assets[0]?.yaml).toContain('kind: ConfigMap');
     expect(assets[0]?.yaml).toContain('mode: typed');
+  });
+
+  it('binds typed Helm values into primitive cdk8s-plus fields without manifest fallbacks', async () => {
+    interface Values {
+      replicaCount: number;
+      image: { repository: string };
+      service: { port: number };
+    }
+
+    const values = valuesRef<Values>();
+    const rutter = new Rutter({
+      meta: { name: 'helm-bindings', version: '1.0.0' },
+      defaultValues: {
+        replicaCount: 2,
+        image: { repository: 'nginx' },
+        service: { port: 8080 },
+      },
+    });
+
+    const deployment = new kplus.Deployment(rutter.getChart(), 'Application', {
+      metadata: { name: 'helm-bindings' },
+      replicas: 1,
+      containers: [{ name: 'app', image: 'placeholder', portNumber: 8080 }],
+    });
+
+    rutter.bindHelmValue(deployment, '/spec/replicas', values.replicaCount);
+    rutter.bindHelmValue(
+      deployment,
+      '/spec/template/spec/containers/0/image',
+      values.image.repository,
+    );
+    rutter.bindHelmValue(
+      deployment,
+      '/spec/template/spec/containers/0/ports/0/containerPort',
+      values.service.port,
+    );
+
+    const [asset] = await rutter.toSynthArray();
+
+    expect(asset?.yaml).toContain('replicas: {{ .Values.replicaCount }}');
+    expect(asset?.yaml).toContain('image: {{ .Values.image.repository }}');
+    expect(asset?.yaml).toContain('containerPort: {{ .Values.service.port }}');
+  });
+
+  it('rejects non-absolute Helm binding paths', () => {
+    const values = valuesRef<{ replicas: number }>();
+    const rutter = new Rutter({
+      meta: { name: 'invalid-binding', version: '1.0.0' },
+    });
+    const deployment = new kplus.Deployment(rutter.getChart(), 'Application', {
+      containers: [{ name: 'app', image: 'nginx' }],
+    });
+
+    expect(() => rutter.bindHelmValue(deployment, 'spec/replicas', values.replicas)).toThrow(
+      'absolute JSON pointer',
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { ApiObject, App, Chart, Testing } from 'cdk8s';
+import { ApiObject, App, Chart, JsonPatch, Testing } from 'cdk8s';
 import type { ChartProps } from 'cdk8s';
 import type { Ingress, ServiceAccount } from 'cdk8s-plus-33';
 import type { Construct } from 'constructs';
@@ -26,6 +26,7 @@ import { dumpHelmAwareYaml, preprocessHelmConstructs } from './utils/helmYamlSer
 import { generateHelpersTemplate } from './utils/helmHelpers.js';
 import type { HelperDefinition } from './utils/helmHelpers.js';
 import type { PolicyEngine, PolicyResult } from './policy/index.js';
+import { serializeHelmValue, type HelmValueRef } from './utils/valuesRef.js';
 
 /**
  * Constants for error messages
@@ -662,7 +663,6 @@ ${yamlContent.trim()}
         return apiObject.node.id;
       });
   }
-
   /**
    * Returns the underlying cdk8s Chart so consumers can attach fully typed
    * cdk8s/cdk8s-plus constructs directly to Timonel's synthesis tree.
@@ -671,6 +671,28 @@ ${yamlContent.trim()}
    */
   getChart(): Chart {
     return this.chart;
+  }
+
+  /**
+   * Replaces a synthesized scalar field on a typed cdk8s/cdk8s-plus construct with a ValuesRef.
+   *
+   * This keeps resource creation on the typed construct path while allowing Helm values to drive
+   * primitive properties whose upstream TypeScript contracts accept only concrete strings,
+   * numbers, or booleans. The JSON pointer targets the generated Kubernetes object, not a raw
+   * manifest supplied by the caller.
+   *
+   * @param resource Typed cdk8s/cdk8s-plus construct containing an ApiObject.
+   * @param jsonPointer RFC 6901 JSON pointer to the scalar field to replace.
+   * @param value Typed Helm value reference rendered into the target field.
+   * @throws Error when the pointer is not absolute or the target construct has no ApiObject.
+   */
+  bindHelmValue<T>(resource: Construct, jsonPointer: string, value: HelmValueRef<T>): void {
+    if (!jsonPointer.startsWith('/')) {
+      throw new Error('Helm value binding path must be an absolute JSON pointer');
+    }
+
+    const apiObject = ApiObject.of(resource);
+    apiObject.addJsonPatch(JsonPatch.replace(jsonPointer, serializeHelmValue(value)));
   }
 
   /**
