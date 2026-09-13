@@ -1204,10 +1204,9 @@ export function validateHelmYaml(yaml: string): HelmValidationResult {
   // Detect all Helm expressions with types and positions
   const expressions = parseHelmExpressions(yaml);
 
-  // Global check for unbalanced braces
-  const openBraces = (yaml.match(/\{\{/g) || []).length;
-  const closeBraces = (yaml.match(/\}\}/g) || []).length;
-  if (openBraces !== closeBraces) {
+  // Global check for malformed Helm action delimiters. Reuse the linear scanner semantics so
+  // delimiter-like text inside quoted/raw Helm strings is not miscounted as a closing action.
+  if (hasUnbalancedHelmDelimiters(yaml)) {
     errors.push({
       type: 'syntax',
       message: 'Unbalanced Helm template braces detected in file',
@@ -1262,6 +1261,30 @@ export function validateHelmYaml(yaml: string): HelmValidationResult {
       complexity,
     },
   };
+}
+
+/**
+ * Detect malformed Helm action delimiters without counting delimiter-like text inside Helm strings.
+ * @param content YAML/template content to inspect.
+ * @returns True when a Helm opener or closer cannot be paired using Helm-aware scanning rules.
+ */
+function hasUnbalancedHelmDelimiters(content: string): boolean {
+  let cursor = 0;
+
+  while (cursor < content.length) {
+    const open = content.indexOf('{{', cursor);
+    const close = content.indexOf('}}', cursor);
+
+    if (open === -1) return close !== -1;
+    if (close !== -1 && close < open) return true;
+
+    const matchedClose = findHelmExpressionClose(content, open);
+    if (matchedClose === -1) return true;
+
+    cursor = matchedClose + 2;
+  }
+
+  return false;
 }
 
 /** Internal representation used by the linear Helm expression scanner. */
