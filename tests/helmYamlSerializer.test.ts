@@ -100,6 +100,21 @@ describe('Helm YAML Serializer', () => {
       expect(parsed[1]?.expression).toBe(quoted);
     });
 
+    it('should validate delimiter-like text inside Helm string literals', () => {
+      const raw = validateHelmYaml('{{`literal }} text`}}');
+      const quoted = validateHelmYaml('{{ printf "literal }} text" }}');
+
+      expect(raw.isValid).toBe(true);
+      expect(raw.errors).toHaveLength(0);
+      expect(quoted.isValid).toBe(true);
+      expect(quoted.errors).toHaveLength(0);
+    });
+
+    it('should still reject unmatched Helm action delimiters', () => {
+      expect(validateHelmYaml('{{ .Values.name').isValid).toBe(false);
+      expect(validateHelmYaml('}}').isValid).toBe(false);
+    });
+
     it('should parse multiline Helm expressions and keep deprecated-function warnings', () => {
       const yaml = '{{ template "chart.name"\n.Values }}';
       const parsed = parseHelmExpressions(yaml);
