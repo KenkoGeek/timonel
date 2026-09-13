@@ -1,4 +1,6 @@
-import { valuesRef, type HelmValueRef } from '../../dist/index.js';
+import * as kplus from 'cdk8s-plus-33';
+
+import { Rutter, valuesRef, type HelmValueRef } from '../../dist/index.js';
 
 interface Values {
   enabled: boolean;
@@ -51,6 +53,16 @@ void withBlock;
 void reservedRootValue;
 void reservedDefaultValue;
 void reservedRangeValue;
+
+const conditionalChart = new Rutter({
+  meta: { name: 'conditional-consumer', version: '1.0.0' },
+});
+const conditionalAccount = new kplus.ServiceAccount(conditionalChart.getChart(), 'Account');
+conditionalChart.when(v.enabled, conditionalAccount);
+conditionalChart.when(v.enabled.not(), conditionalAccount);
+
+// @ts-expect-error when() only accepts boolean ValuesRef values or HelmCondition instances.
+conditionalChart.when(v.replicaCount, conditionalAccount);
 
 // @ts-expect-error Root helper names are reserved; use at('release') for .Values.release.
 const invalidRootRelease: HelmValueRef<{ name: string }> = v.release;

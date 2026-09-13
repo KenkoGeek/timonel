@@ -8,6 +8,7 @@ import { include } from './helm.js';
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
 import { createLogger, type TimonelLogger } from './utils/logger.js';
+import { isHelmCondition, type HelmCondition, type HelmValueRef } from './utils/valuesRef.js';
 import type {
   AWSALBIngressSpec,
   AWSEBSStorageClassSpec,
@@ -53,6 +54,7 @@ export class Rutter {
   private readonly meta: ChartMetadata;
   private readonly props: RutterProps;
   private readonly logger: TimonelLogger;
+  private readonly resourceConditions = new Map<string, string>();
 
   constructor(props: RutterProps) {
     this.defaultValues = props.defaultValues ?? {};
@@ -644,10 +646,10 @@ ${yamlContent.trim()}
   }
 
   /**
-   * Returns stable logical identifiers for all synthesized ApiObjects, including
+   * Returns stable identifiers and construct paths for synthesized ApiObjects, including
    * those nested inside cdk8s-plus resources.
    */
-  private getSynthesizedApiObjectIds(): string[] {
+  private getSynthesizedApiObjectDescriptors(): Array<{ id: string; path: string }> {
     return this.chart.node
       .findAll()
       .filter(
@@ -656,10 +658,11 @@ ${yamlContent.trim()}
       )
       .map((apiObject) => {
         const owner = apiObject.node.scope;
-        if (apiObject.node.id === 'Resource' && owner && owner !== this.chart) {
-          return owner.node.id;
-        }
-        return apiObject.node.id;
+        const id =
+          apiObject.node.id === 'Resource' && owner && owner !== this.chart
+            ? owner.node.id
+            : apiObject.node.id;
+        return { id, path: apiObject.node.path };
       });
   }
 
@@ -671,6 +674,30 @@ ${yamlContent.trim()}
    */
   getChart(): Chart {
     return this.chart;
+  }
+
+  /**
+   * Conditionally renders a complete typed cdk8s/cdk8s-plus resource with Helm.
+   *
+   * @param condition ValuesRef boolean reference or composed Helm condition.
+   * @param resource Typed construct containing the ApiObject to gate.
+   */
+  when(condition: HelmValueRef<boolean> | HelmCondition, resource: Construct): void {
+    const apiObject = ApiObject.of(resource);
+    if (apiObject.chart !== this.chart) {
+      throw new Error('Conditional resource must belong to this Rutter chart');
+    }
+
+    const expression = isHelmCondition(condition) ? condition.__condition : condition.__path;
+    this.resourceConditions.set(apiObject.node.path, expression);
+  }
+
+  /** Apply a registered whole-resource condition to synthesized YAML. */
+  private applyResourceCondition(yaml: string, descriptor?: { path: string }): string {
+    if (!descriptor) return yaml;
+    const condition = this.resourceConditions.get(descriptor.path);
+    if (!condition) return yaml;
+    return `{{- if ${condition} }}\n${yaml}\n{{- end }}`;
   }
 
   /**
@@ -729,7 +756,7 @@ ${yamlContent.trim()}
 
     // Get ApiObject IDs before synthesis, including ApiObjects nested inside
     // cdk8s-plus constructs while excluding compatibility placeholders.
-    const apiObjectIds = this.getSynthesizedApiObjectIds();
+    const apiObjectDescriptors = this.getSynthesizedApiObjectDescriptors();
 
     // Use cdk8s Testing.synth to obtain manifest objects, but filter out placeholders
     const allManifestObjs = Testing.synth(this.chart) as unknown[];
@@ -745,7 +772,7 @@ ${yamlContent.trim()}
     this.logger.info('Processing manifest objects', {
       chartName: this.meta.name,
       manifestCount: manifestObjs.length,
-      apiObjectCount: apiObjectIds.length,
+      apiObjectCount: apiObjectDescriptors.length,
       operation: 'manifest_processing',
     });
 
@@ -838,7 +865,11 @@ ${yamlContent.trim()}
     if (this.props.singleManifestFile) {
       // Combine all resources into single manifest
       const combinedYaml = enriched
-        .map((obj) => dumpHelmAwareYaml(obj).trim())
+        .map((obj, index) => {
+          // eslint-disable-next-line security/detect-object-injection -- index aligns synthesized objects with construct descriptors
+          const descriptor = apiObjectDescriptors[index];
+          return this.applyResourceCondition(dumpHelmAwareYaml(obj).trim(), descriptor);
+        })
         .filter(Boolean)
         .join('\n---\n');
 
@@ -847,11 +878,11 @@ ${yamlContent.trim()}
     } else {
       // Create separate files for each resource (default behavior)
       enriched.forEach((obj, index) => {
-        // eslint-disable-next-line security/detect-object-injection
-        const apiObjectId = apiObjectIds[index];
-        const manifestId = apiObjectId || `manifest-${index + 1}`;
+        // eslint-disable-next-line security/detect-object-injection -- index aligns synthesized objects with construct descriptors
+        const descriptor = apiObjectDescriptors[index];
+        const manifestId = descriptor?.id || `manifest-${index + 1}`;
 
-        const yaml = dumpHelmAwareYaml(obj).trim();
+        const yaml = this.applyResourceCondition(dumpHelmAwareYaml(obj).trim(), descriptor);
         if (yaml) {
           // Use descriptive name from ApiObject ID if available, otherwise fallback to generic name
           synthAssets.push({ id: manifestId, yaml, target: 'templates' });
@@ -903,7 +934,7 @@ ${yamlContent.trim()}
 
     // Get ApiObject IDs before synthesis, including ApiObjects nested inside
     // cdk8s-plus constructs while excluding compatibility placeholders.
-    const apiObjectIds = this.getSynthesizedApiObjectIds();
+    const apiObjectDescriptors = this.getSynthesizedApiObjectDescriptors();
 
     // Use cdk8s Testing.synth to obtain manifest objects, but filter out placeholders
     const allManifestObjs = Testing.synth(this.chart) as unknown[];
@@ -919,7 +950,7 @@ ${yamlContent.trim()}
     this.logger.info('Processing manifest objects synchronously', {
       chartName: this.meta.name,
       manifestCount: manifestObjs.length,
-      apiObjectCount: apiObjectIds.length,
+      apiObjectCount: apiObjectDescriptors.length,
       operation: 'manifest_processing_sync',
     });
 
@@ -958,7 +989,11 @@ ${yamlContent.trim()}
     if (this.props.singleManifestFile) {
       // Combine all resources into single manifest
       const combinedYaml = enriched
-        .map((obj) => dumpHelmAwareYaml(obj).trim())
+        .map((obj, index) => {
+          // eslint-disable-next-line security/detect-object-injection -- index aligns synthesized objects with construct descriptors
+          const descriptor = apiObjectDescriptors[index];
+          return this.applyResourceCondition(dumpHelmAwareYaml(obj).trim(), descriptor);
+        })
         .filter(Boolean)
         .join('\n---\n');
 
@@ -967,11 +1002,11 @@ ${yamlContent.trim()}
     } else {
       // Create separate files for each resource (default behavior)
       enriched.forEach((obj, index) => {
-        // eslint-disable-next-line security/detect-object-injection
-        const apiObjectId = apiObjectIds[index];
-        const manifestId = apiObjectId || `manifest-${index + 1}`;
+        // eslint-disable-next-line security/detect-object-injection -- index aligns synthesized objects with construct descriptors
+        const descriptor = apiObjectDescriptors[index];
+        const manifestId = descriptor?.id || `manifest-${index + 1}`;
 
-        const yaml = dumpHelmAwareYaml(obj).trim();
+        const yaml = this.applyResourceCondition(dumpHelmAwareYaml(obj).trim(), descriptor);
         if (yaml) {
           // Use descriptive name from ApiObject ID if available, otherwise fallback to generic name
           synthAssets.push({ id: manifestId, yaml, target: 'templates' });

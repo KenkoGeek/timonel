@@ -119,15 +119,16 @@ const chart = new Rutter({
 
 Useful methods include:
 
-| API                       | Purpose                                                   |
-| ------------------------- | --------------------------------------------------------- |
-| `getChart()`              | Access the real cdk8s `Chart` for native typed constructs |
-| `write(outDir)`           | Synthesize and write the complete Helm chart              |
-| `toSynthArray()`          | Asynchronously synthesize Helm assets                     |
-| `getMeta()`               | Read chart metadata                                       |
-| `getDefaultValues()`      | Read default values                                       |
-| `getEnvValues()`          | Read environment-specific values                          |
-| `addManifest(object, id)` | Object fallback for custom resources                      |
+| API                         | Purpose                                                   |
+| --------------------------- | --------------------------------------------------------- |
+| `getChart()`                | Access the real cdk8s `Chart` for native typed constructs |
+| `when(condition, resource)` | Conditionally render a complete typed resource            |
+| `write(outDir)`             | Synthesize and write the complete Helm chart              |
+| `toSynthArray()`            | Asynchronously synthesize Helm assets                     |
+| `getMeta()`                 | Read chart metadata                                       |
+| `getDefaultValues()`        | Read default values                                       |
+| `getEnvValues()`            | Read environment-specific values                          |
+| `addManifest(object, id)`   | Object fallback for custom resources                      |
 
 `toSynthArraySync()` remains for compatibility and is deprecated. It cannot be used with a policy
 engine.
@@ -152,6 +153,31 @@ new kplus.ConfigMap(chart.getChart(), 'Config', {
   data: { mode: 'production' },
 });
 ```
+
+### Conditional typed resources
+
+Gate a complete cdk8s/cdk8s-plus resource with a typed Helm values condition without switching to a
+manifest fallback:
+
+```typescript
+import * as kplus from 'cdk8s-plus-33';
+import { Rutter, valuesRef } from 'timonel';
+
+const v = valuesRef<{ restart: { enabled: boolean } }>();
+const chart = new Rutter({
+  meta: { name: 'orders', version: '1.0.0' },
+  defaultValues: { restart: { enabled: true } },
+});
+
+const account = new kplus.ServiceAccount(chart.getChart(), 'RestartAccount', {
+  metadata: { name: 'restart-manager' },
+});
+
+chart.when(v.restart.enabled, account);
+```
+
+`when()` wraps the synthesized resource with a Helm `if` block while keeping the resource itself on
+the typed construct path.
 
 ## Type-safe Helm values
 
