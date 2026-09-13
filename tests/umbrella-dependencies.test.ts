@@ -170,6 +170,30 @@ describe('UmbrellaRutter dependency-only subcharts', () => {
     expect(existsSync(join(outDir, 'charts', 'project-copy'))).toBe(false);
   });
 
+  it('rejects overlap hidden behind a symlinked output path', async () => {
+    const projectDir = makeTempDir('timonel-vendored-symlink-source-');
+    const aliasRoot = makeTempDir('timonel-vendored-symlink-alias-');
+    const projectAlias = join(aliasRoot, 'project-alias');
+    symlinkSync(projectDir, projectAlias, 'dir');
+    const outDir = join(projectAlias, 'dist');
+
+    const umbrella = new UmbrellaRutter({
+      meta: { name: 'symlink-overlap-parent', version: '1.0.0' },
+      subcharts: [
+        {
+          name: 'project-copy',
+          version: '1.0.0',
+          sourceDirectory: projectDir,
+        },
+      ],
+    });
+
+    await expect(umbrella.write(outDir)).rejects.toThrow(
+      'Vendored subchart source and destination must not overlap',
+    );
+    expect(existsSync(join(outDir, 'charts', 'project-copy'))).toBe(false);
+  });
+
   it('cleans a partial vendored destination when copying fails', async () => {
     const sourceDir = makeTempDir('timonel-vendored-failure-source-');
     const outDir = makeTempDir('timonel-vendored-failure-out-');

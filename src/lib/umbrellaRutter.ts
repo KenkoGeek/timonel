@@ -2,17 +2,17 @@
  * @fileoverview UmbrellaRutter class for managing Helm umbrella charts with multiple subcharts
  * @since 2.8.0+
  */
-
 import {
   copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
   readdirSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'fs';
-import { join, resolve, sep } from 'path';
+import { basename, dirname, join, sep } from 'path';
 
 import type { HelmChartMeta } from './helmChartWriter.js';
 import type { Rutter } from './rutter.js';
@@ -186,12 +186,17 @@ export class UmbrellaRutter {
       );
     }
 
-    const resolvedSource = resolve(source);
-    const resolvedDestination = resolve(destinationDirectory);
+    // Canonicalize existing path components before containment checks so symlinked
+    // parent aliases cannot hide a physical source/destination overlap.
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Source was validated and must exist above.
+    const canonicalSource = realpathSync(source);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Destination parent is created and validated by write().
+    const canonicalDestinationParent = realpathSync(dirname(destinationDirectory));
+    const canonicalDestination = join(canonicalDestinationParent, basename(destinationDirectory));
     const sourceContainsDestination =
-      resolvedDestination === resolvedSource ||
-      resolvedDestination.startsWith(`${resolvedSource}${sep}`);
-    const destinationContainsSource = resolvedSource.startsWith(`${resolvedDestination}${sep}`);
+      canonicalDestination === canonicalSource ||
+      canonicalDestination.startsWith(`${canonicalSource}${sep}`);
+    const destinationContainsSource = canonicalSource.startsWith(`${canonicalDestination}${sep}`);
     if (sourceContainsDestination || destinationContainsSource) {
       throw new Error('Vendored subchart source and destination must not overlap');
     }
