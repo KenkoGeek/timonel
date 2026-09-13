@@ -668,6 +668,50 @@ function normalizeChartFileDestination(destination: string): string {
   return segments.join('/');
 }
 
+/** Validate parent destinations and existing filesystem entries for one chart file. */
+function validateChartFileParents(
+  outDir: string,
+  destination: string,
+  destinations: ReadonlySet<string>,
+): void {
+  const segments = destination.split('/');
+  for (let index = 1; index < segments.length; index += 1) {
+    const parentDestination = segments.slice(0, index).join('/');
+    if (destinations.has(parentDestination)) {
+      throw new Error(`Chart file destination conflicts with a parent file: ${destination}`);
+    }
+
+    const parentPath = SecurityUtils.validatePath(path.join(outDir, parentDestination), outDir);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    if (!fs.existsSync(parentPath)) continue;
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+    const parentStats = fs.lstatSync(parentPath);
+    if (parentStats.isSymbolicLink()) {
+      throw new Error(`Chart file destination traverses a symbolic link: ${destination}`);
+    }
+    if (!parentStats.isDirectory()) {
+      throw new Error(`Chart file destination parent is not a directory: ${destination}`);
+    }
+  }
+}
+
+/** Build a validated filesystem write plan for one chart file. */
+function createChartFileWritePlan(
+  outDir: string,
+  asset: ChartFileAsset,
+  destinations: ReadonlySet<string>,
+): ChartFileAsset & { absolutePath: string } {
+  validateChartFileParents(outDir, asset.destination, destinations);
+
+  const absolutePath = SecurityUtils.validatePath(path.join(outDir, asset.destination), outDir);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
+  if (fs.existsSync(absolutePath)) {
+    throw new Error(`Chart file destination already exists: ${asset.destination}`);
+  }
+  return { ...asset, absolutePath };
+}
+
 /** Write deterministic arbitrary chart files while preventing generated-file collisions. */
 function writeChartFiles(outDir: string, chartFiles: readonly ChartFileAsset[]): void {
   const normalizedAssets = chartFiles
@@ -676,21 +720,17 @@ function writeChartFiles(outDir: string, chartFiles: readonly ChartFileAsset[]):
   const destinations = new Set<string>();
   const writePlans: Array<ChartFileAsset & { absolutePath: string }> = [];
 
-  // Validate the complete batch before writing any caller-provided file so duplicate,
-  // traversal, or collision errors never leave a partially written extra-file set.
   for (const asset of normalizedAssets) {
     if (destinations.has(asset.destination)) {
       throw new Error(`Duplicate chart file destination: ${asset.destination}`);
     }
     destinations.add(asset.destination);
+  }
 
-    const absolutePath = SecurityUtils.validatePath(path.join(outDir, asset.destination), outDir);
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by SecurityUtils
-    if (fs.existsSync(absolutePath)) {
-      throw new Error(`Chart file destination already exists: ${asset.destination}`);
-    }
-
-    writePlans.push({ ...asset, absolutePath });
+  // Validate the complete batch before writing any caller-provided file so duplicate,
+  // traversal, prefix-conflict, symlink, or collision errors never leave a partial extra-file set.
+  for (const asset of normalizedAssets) {
+    writePlans.push(createChartFileWritePlan(outDir, asset, destinations));
   }
 
   for (const plan of writePlans) {

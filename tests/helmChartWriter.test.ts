@@ -2,7 +2,7 @@
  * @fileoverview Regression tests for HelmChartWriter asset handling.
  * @since 2.12.2
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -111,5 +111,41 @@ describe('HelmChartWriter asset identifier handling', () => {
         chartFiles: [{ destination: 'Chart.yaml', content: 'overwrite' }],
       }),
     ).toThrow('already exists');
+  });
+
+  it('rejects chart-file prefix conflicts before writing any caller file', () => {
+    expect(() =>
+      HelmChartWriter.write({
+        outDir: workDir,
+        meta: { name: 'test-chart', version: '0.0.0' },
+        assets: [],
+        chartFiles: [
+          { destination: 'files/a', content: 'parent-file' },
+          { destination: 'files/a/b.json', content: 'child-file' },
+        ],
+      }),
+    ).toThrow('conflicts with a parent file');
+
+    expect(existsSync(join(workDir, 'files', 'a'))).toBe(false);
+  });
+
+  it('rejects chart-file destinations whose existing parent is a symbolic link', () => {
+    const externalDir = mkdtempSync(join(tmpdir(), 'timonel-assets-external-'));
+    try {
+      symlinkSync(externalDir, join(workDir, 'files'), 'dir');
+
+      expect(() =>
+        HelmChartWriter.write({
+          outDir: workDir,
+          meta: { name: 'test-chart', version: '0.0.0' },
+          assets: [],
+          chartFiles: [{ destination: 'files/outside.json', content: 'blocked' }],
+        }),
+      ).toThrow('traverses a symbolic link');
+
+      expect(existsSync(join(externalDir, 'outside.json'))).toBe(false);
+    } finally {
+      rmSync(externalDir, { recursive: true, force: true });
+    }
   });
 });
