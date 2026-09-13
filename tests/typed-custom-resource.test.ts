@@ -60,6 +60,26 @@ describe('TypedCustomResource', () => {
     expect(asset?.yaml).toContain('interval: {{ .Values.monitoring.interval }}');
   });
 
+  it('rejects reserved root fields supplied through an untyped runtime boundary', () => {
+    const rutter = new Rutter({ meta: { name: 'reserved-crd', version: '1.0.0' } });
+    const malformedProps = {
+      apiVersion: 'monitoring.coreos.com/v1',
+      kind: 'ServiceMonitor',
+      body: {
+        metadata: { name: 'body-owned-metadata' },
+        spec: {},
+      },
+    };
+
+    expect(() =>
+      Reflect.construct(TypedCustomResource, [
+        rutter.getChart(),
+        'ReservedMetadata',
+        malformedProps,
+      ]),
+    ).toThrow('Typed custom resource body cannot define reserved key: metadata');
+  });
+
   it('synthesizes cdk8s-import style ApiObject subclasses attached to the Rutter chart', async () => {
     const rutter = new Rutter({ meta: { name: 'imported-crd', version: '1.0.0' } });
     new ImportedWidget(rutter.getChart(), 'ImportedWidget');

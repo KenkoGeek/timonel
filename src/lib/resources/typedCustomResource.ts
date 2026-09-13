@@ -48,6 +48,12 @@ export class TypedCustomResource<TBody extends object> extends ApiObject {
 
   constructor(scope: Construct, id: string, props: TypedCustomResourceProps<TBody>) {
     const { apiVersion, kind, metadata, body } = props;
+    for (const reservedKey of ['apiVersion', 'kind', 'metadata'] as const) {
+      if (Object.prototype.hasOwnProperty.call(body, reservedKey)) {
+        throw new Error(`Typed custom resource body cannot define reserved key: ${reservedKey}`);
+      }
+    }
+
     super(scope, id, {
       ...body,
       apiVersion,
