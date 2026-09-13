@@ -1,4 +1,4 @@
-import { valuesRef, type HelmValueRef } from '../../dist/index.js';
+import { serializeHelmValue, valuesRef, type HelmValueRef } from '../../dist/index.js';
 
 interface Values {
   enabled: boolean;
@@ -43,6 +43,11 @@ const reservedRootValue: HelmValueRef<{ name: string }> = v.at('release');
 const reservedDefaultValue: HelmValueRef<string> = v.settings.at('default');
 const reservedRangeValue: HelmValueRef<string[]> = v.settings.at('range');
 
+const crossReferenceDefault = v.image.tag.default(v.chart.name);
+const formattedReference = v.printf('%s:%s', v.image.repository, v.chart.name);
+const serializedReference = serializeHelmValue(v.image.tag);
+const comparedReferences = v.image.tag.eq(v.chart.name);
+
 void replicas;
 void imageTag;
 void disabled;
@@ -51,6 +56,10 @@ void withBlock;
 void reservedRootValue;
 void reservedDefaultValue;
 void reservedRangeValue;
+void crossReferenceDefault;
+void formattedReference;
+void serializedReference;
+void comparedReferences;
 
 // @ts-expect-error Root helper names are reserved; use at('release') for .Values.release.
 const invalidRootRelease: HelmValueRef<{ name: string }> = v.release;
