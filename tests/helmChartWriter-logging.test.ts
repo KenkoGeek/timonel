@@ -15,26 +15,52 @@ afterAll(() => {
 });
 
 describe('HelmChartWriter default logger lifecycle', () => {
-  it('does not accumulate process exit listeners across batch writes', async () => {
+  it('creates the fallback logger lazily and reuses it across batch writes', async () => {
     process.env.NODE_ENV = 'development';
     vi.resetModules();
+
+    const { TimonelLogger } = await import('../src/lib/utils/logger.js');
+    const beforeWriterImport = process.listenerCount('exit');
     const { HelmChartWriter } = await import('../src/lib/helmChartWriter.js');
 
-    const before = process.listenerCount('exit');
+    expect(process.listenerCount('exit')).toBe(beforeWriterImport);
+
     const directories: string[] = [];
+    const customLogger = new TimonelLogger({ silent: true, prettyPrint: false });
 
     try {
-      for (let index = 0; index < 15; index += 1) {
-        const outDir = mkdtempSync(join(tmpdir(), 'timonel-listener-'));
+      const customOutDir = mkdtempSync(join(tmpdir(), 'timonel-listener-custom-'));
+      directories.push(customOutDir);
+      HelmChartWriter.write({
+        outDir: customOutDir,
+        meta: { name: 'custom-logger', version: '0.0.0' },
+        assets: [],
+        logger: customLogger,
+      });
+      expect(process.listenerCount('exit')).toBe(beforeWriterImport);
+
+      const firstOutDir = mkdtempSync(join(tmpdir(), 'timonel-listener-default-'));
+      directories.push(firstOutDir);
+      HelmChartWriter.write({
+        outDir: firstOutDir,
+        meta: { name: 'default-0', version: '0.0.0' },
+        assets: [],
+      });
+
+      const afterFirstDefaultWrite = process.listenerCount('exit');
+      expect(afterFirstDefaultWrite).toBeGreaterThanOrEqual(beforeWriterImport);
+
+      for (let index = 1; index < 15; index += 1) {
+        const outDir = mkdtempSync(join(tmpdir(), 'timonel-listener-default-'));
         directories.push(outDir);
         HelmChartWriter.write({
           outDir,
-          meta: { name: `batch-${index}`, version: '0.0.0' },
+          meta: { name: `default-${index}`, version: '0.0.0' },
           assets: [],
         });
       }
 
-      expect(process.listenerCount('exit')).toBe(before);
+      expect(process.listenerCount('exit')).toBe(afterFirstDefaultWrite);
     } finally {
       for (const directory of directories) {
         rmSync(directory, { recursive: true, force: true });

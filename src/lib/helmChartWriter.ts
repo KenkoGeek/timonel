@@ -11,7 +11,13 @@ import { dumpHelmAwareYaml, postProcessFieldConditionals } from './utils/helmYam
 import type { HelperDefinition as ExternalHelperDefinition } from './utils/helmHelpers/types.js';
 import { createLogger, type TimonelLogger } from './utils/logger.js';
 
-const defaultHelmChartWriterLogger = createLogger('helm-chart-writer');
+let defaultHelmChartWriterLogger: TimonelLogger | undefined;
+
+/** Lazily create the fallback logger so custom-logger consumers do not start a transport. */
+function getDefaultHelmChartWriterLogger(): TimonelLogger {
+  defaultHelmChartWriterLogger ??= createLogger('helm-chart-writer');
+  return defaultHelmChartWriterLogger;
+}
 
 /**
  * Helm template helper definition shared across helper modules.
@@ -162,7 +168,7 @@ export class HelmChartWriter {
       logger: customLogger,
     } = opts;
 
-    const logger = customLogger ?? defaultHelmChartWriterLogger;
+    const logger = customLogger ?? getDefaultHelmChartWriterLogger();
     const timer = logger.time('helm_chart_write');
 
     logger.info('Starting Helm chart write operation', {
