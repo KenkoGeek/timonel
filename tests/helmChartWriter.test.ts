@@ -68,6 +68,6 @@ describe('HelmChartWriter asset identifier handling', () => {
 
     const helmIgnore = readFileSync(join(workDir, '.helmignore'), 'utf8');
     expect(helmIgnore).not.toMatch(/^charts\/$/m);
-    expect(helmIgnore).not.toMatch(/^\*\.tgz$/m);
+    expect(helmIgnore).toMatch(/^\*\.tgz$/m);
   });
 });
