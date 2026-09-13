@@ -1264,13 +1264,7 @@ export function validateHelmYaml(yaml: string): HelmValidationResult {
   };
 }
 
-/**
- * Internal helper to parse Helm expressions with line and column positions.
- * Supports advanced expression types and range matching.
- * @param content YAML string content.
- * @returns List of detected Helm expressions with positional info.
- * @since 2.11.0
- */
+/** Internal representation used by the linear Helm expression scanner. */
 interface ScannedHelmExpression {
   type: HelmExpressionType;
   expression: string;
@@ -1282,6 +1276,13 @@ interface ScannedHelmExpression {
   endCol: number;
 }
 
+/**
+ * Parse Helm expressions with one-based line and column positions.
+ * Supports comments, raw/quoted delimiters, multiline actions, and typed expression classification.
+ * @param content YAML/template content to inspect.
+ * @returns List of detected Helm expressions with positional information.
+ * @since 2.11.0
+ */
 export function parseHelmExpressions(content: string): Array<{
   type: HelmExpressionType;
   expression: string;
