@@ -9,6 +9,7 @@ interface Values {
   items: Array<{ name: string; value: string }>;
   envKeys: string[];
   env: Record<string, string>;
+  nestedEnv: Record<string, Record<string, string>>;
   dynamicKey: string;
   database: {
     host: string;
@@ -107,6 +108,25 @@ describe('ValuesRef runtime contract', () => {
     expect(yaml).toContain('name: {{ $key }}');
     expect(yaml).toContain('value: {{ ($value | quote) }}');
     expect(yaml).toContain('{{ end }}');
+  });
+
+  it('uses distinct variables for nested map ranges and preserves outer captures', () => {
+    const v = valuesRef<Values>();
+    const range = v.nestedEnv.rangeEntries((outerKey, innerMap) => ({
+      group: outerKey,
+      entries: innerMap.rangeEntries((innerKey, innerValue) => ({
+        group: outerKey,
+        name: innerKey,
+        value: innerValue,
+      })),
+    }));
+
+    const yaml = dumpHelmAwareYaml({ groups: range });
+    expect(yaml).toContain('{{ range $key, $value := $.Values.nestedEnv }}');
+    expect(yaml).toContain('{{ range $key1, $value1 := $value }}');
+    expect(yaml).toContain('group: {{ $key }}');
+    expect(yaml).toContain('name: {{ $key1 }}');
+    expect(yaml).toContain('value: {{ $value1 }}');
   });
 
   it('returns a HelmWith marker and preserves scoped nested paths', () => {
