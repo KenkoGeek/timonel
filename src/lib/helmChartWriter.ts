@@ -381,8 +381,7 @@ export class HelmChartWriter {
         '*.tmp',
         '*.orig',
         '',
-        '# Chart dependencies and packages',
-        'charts/',
+        '# Ignore packaged root archives while retaining vendored dependencies under charts/.',
         '*.tgz',
         '',
       ].join('\n');
