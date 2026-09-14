@@ -15,6 +15,8 @@ interface Values {
     host: string;
     port: number;
   };
+  env: Record<string, string>;
+  dynamicKey: string;
   default: string;
   release: {
     name: string;
@@ -39,6 +41,12 @@ const withBlock = v.database.with((database) => ({
   host: database.host,
   port: database.port,
 }));
+const envValue: HelmValueRef<string> = v.env.index(v.dynamicKey);
+const envExists = v.env.hasKey(v.dynamicKey);
+const envEntries = v.env.rangeEntries((key, value) => ({
+  name: key,
+  value: value.quote(),
+}));
 const reservedRootValue: HelmValueRef<{ name: string }> = v.at('release');
 const reservedDefaultValue: HelmValueRef<string> = v.settings.at('default');
 const reservedRangeValue: HelmValueRef<string[]> = v.settings.at('range');
@@ -53,6 +61,9 @@ void imageTag;
 void disabled;
 void range;
 void withBlock;
+void envValue;
+void envExists;
+void envEntries;
 void reservedRootValue;
 void reservedDefaultValue;
 void reservedRangeValue;
@@ -82,3 +93,19 @@ v.items.range((item) => {
   // @ts-expect-error Array callback items must preserve the element shape.
   return item.missing;
 });
+
+v.env.rangeEntries((key, value) => {
+  const typedKey: HelmValueRef<string> = key;
+  const typedValue: HelmValueRef<string> = value;
+  void typedKey;
+  return typedValue;
+});
+
+// @ts-expect-error Dynamic map lookup keys must be string references.
+void v.env.index(v.replicaCount);
+
+// @ts-expect-error Dynamic hasKey keys must be string references.
+void v.env.hasKey(v.replicaCount);
+
+// @ts-expect-error Map-only iteration must reject scalar values.
+void v.replicaCount.rangeEntries((_key, value) => value);

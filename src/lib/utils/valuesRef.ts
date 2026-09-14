@@ -11,6 +11,7 @@ const HELM_VALUE_SYMBOL = Symbol('HelmValue');
 
 type HelmScalar = string | number | boolean;
 type ArrayElement<T> = T extends readonly (infer U)[] ? U : never;
+type MapValue<T> = T extends Readonly<Record<string, infer V>> ? V : never;
 type StringKeyOf<T> = Extract<keyof T, string>;
 type RuntimeReservedValueKey = 'toJSON' | 'toString' | 'valueOf';
 type HelmValueReservedKey = Extract<keyof HelmValue<unknown>, string> | RuntimeReservedValueKey;
@@ -106,9 +107,13 @@ export interface HelmValue<T = unknown> extends HelmValueReference {
 
   /** Test the Helm runtime kind of the referenced value. */
   kindIs(kind: 'string' | 'slice' | 'map' | 'bool' | 'int' | 'float'): HelmCondition;
-  /** Test whether the referenced map contains a key. */
-  hasKey(key: string): HelmCondition;
-
+  /** Test whether the referenced map contains a literal or dynamic key. */
+  hasKey(key: string | HelmValueRef<string>): HelmCondition;
+  /** Dynamically index a map using Helm `index`. */
+  index(
+    this: T extends Readonly<Record<string, unknown>> ? HelmValue<T> : never,
+    key: string | HelmValueRef<string>,
+  ): HelmValueRef<MapValue<T>>;
   /** Serialize the referenced value with Helm `toYaml`. */
   toYaml(): HelmValueRef<string>;
   /** Serialize the referenced value with Helm `toJson`. */
@@ -146,6 +151,15 @@ export interface HelmValue<T = unknown> extends HelmValueReference {
   range<V>(
     callback: (item: HelmValueRef<ArrayElement<T>>, index: HelmValueRef<number>) => V,
   ): HelmRange<V, ArrayElement<T>>;
+
+  /**
+   * Create a typed Helm `range` block over a string-keyed map value.
+   * @param callback - Callback receiving typed key and value proxies
+   */
+  rangeEntries<V>(
+    this: T extends Readonly<Record<string, unknown>> ? HelmValue<T> : never,
+    callback: (key: HelmValueRef<string>, value: HelmValueRef<MapValue<T>>) => V,
+  ): HelmMapRange<V, MapValue<T>>;
 
   /**
    * Create a Helm `with` block scoped to the referenced value.
@@ -190,6 +204,16 @@ export interface HelmRange<T, TItem = unknown> {
   source: HelmValueRef<readonly TItem[]>;
   /** Callback used by the serializer with scoped item/index proxies. */
   callback: (item: HelmValueRef<TItem>, index: HelmValueRef<number>) => T;
+}
+
+/** Represents a typed Helm map `range` block. */
+export interface HelmMapRange<T, TValue = unknown> {
+  /** Runtime marker for serializer detection. */
+  __helmMapRange: true;
+  /** Map value being iterated. */
+  source: HelmValueRef<Readonly<Record<string, TValue>>>;
+  /** Callback used by the serializer with scoped key/value proxies. */
+  callback: (key: HelmValueRef<string>, value: HelmValueRef<TValue>) => T;
 }
 
 /** Represents a typed Helm `with` block. */
@@ -259,6 +283,11 @@ function serializeValue(value: HelmValueReference | HelmScalar): string {
 /** Append a property segment while preserving scoped `.` semantics. */
 function appendPropertyPath(path: string, property: string): string {
   return path === '.' ? `.${property}` : `${path}.${property}`;
+}
+
+/** Keep `.Values` references anchored to Helm's root context across range/with scopes. */
+function rootStablePath(path: string): string {
+  return path === '.Values' || path.startsWith('.Values.') ? `$${path}` : path;
 }
 
 /** Create a validated, composable Helm condition marker. */
@@ -385,7 +414,19 @@ export function createHelmValueProxy<T>(path: string): HelmValueRef<T> {
         case 'kindIs':
           return (kind: string) => createCondition(`kindIs ${helmStringLiteral(kind)} ${path}`);
         case 'hasKey':
-          return (key: string) => createCondition(`hasKey ${path} ${helmStringLiteral(key)}`);
+          return (key: string | HelmValueRef<string>) => {
+            const keyExpression =
+              typeof key === 'string' ? helmStringLiteral(key) : rootStablePath(key.__path);
+            return createCondition(`hasKey ${rootStablePath(path)} ${keyExpression}`);
+          };
+        case 'index':
+          return (key: string | HelmValueRef<string>) => {
+            const keyExpression =
+              typeof key === 'string' ? helmStringLiteral(key) : rootStablePath(key.__path);
+            return createHelmValueProxy<MapValue<T>>(
+              `(index ${rootStablePath(path)} ${keyExpression})`,
+            );
+          };
         case 'toYaml':
           return () => createHelmValueProxy<string>(`${path} | toYaml`);
         case 'toJson':
@@ -430,6 +471,16 @@ export function createHelmValueProxy<T>(path: string): HelmValueRef<T> {
           ): HelmRange<V, ArrayElement<T>> => ({
             __helmRange: true,
             source: createHelmValueProxy<readonly ArrayElement<T>[]>(path),
+            callback,
+          });
+        case 'rangeEntries':
+          return <V>(
+            callback: (key: HelmValueRef<string>, value: HelmValueRef<MapValue<T>>) => V,
+          ): HelmMapRange<V, MapValue<T>> => ({
+            __helmMapRange: true,
+            source: createHelmValueProxy<Readonly<Record<string, MapValue<T>>>>(
+              rootStablePath(path),
+            ),
             callback,
           });
         case 'with':
@@ -547,9 +598,14 @@ export function isHelmFieldConditional(value: unknown): value is HelmFieldCondit
   return typeof value === 'object' && value !== null && '__helmFieldConditional' in value;
 }
 
-/** Check if a value is a range block. */
+/** Check if a value is an array range block. */
 export function isHelmRange(value: unknown): value is HelmRange<unknown, unknown> {
   return typeof value === 'object' && value !== null && '__helmRange' in value;
+}
+
+/** Check if a value is a map range block. */
+export function isHelmMapRange(value: unknown): value is HelmMapRange<unknown, unknown> {
+  return typeof value === 'object' && value !== null && '__helmMapRange' in value;
 }
 
 /** Check if a value is a with block. */
