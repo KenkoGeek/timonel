@@ -5,6 +5,7 @@ import { join } from 'path';
 import { App } from 'cdk8s';
 import * as kplus from 'cdk8s-plus-33';
 import { afterEach, describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 
 import { Rutter } from '../src/lib/rutter.js';
 
@@ -51,6 +52,55 @@ stringData:
     expect(assets[0]?.id).toBe('wanted-secret');
     expect(assets[0]?.yaml).toContain('kind: Secret');
     expect(assets[0]?.yaml).not.toContain('kind: ConfigMap');
+  });
+
+  it('writes the full Helm chart metadata surface through Rutter', async () => {
+    const outDir = mkdtempSync(join(tmpdir(), 'timonel-rutter-meta-'));
+    const rutter = new Rutter({
+      meta: {
+        name: 'metadata-chart',
+        version: '1.2.3',
+        appVersion: '2026.09.13',
+        type: 'application',
+        kubeVersion: '>=1.30.0-0',
+        icon: 'https://example.com/icon.svg',
+        dependencies: [
+          {
+            name: 'redis',
+            version: '20.0.0',
+            repository: 'https://charts.example.com',
+            condition: 'redis.enabled',
+          },
+        ],
+      },
+    });
+
+    try {
+      await rutter.write(outDir);
+      const chartYaml = parse(readFileSync(join(outDir, 'Chart.yaml'), 'utf8')) as Record<
+        string,
+        unknown
+      >;
+
+      expect(chartYaml).toMatchObject({
+        name: 'metadata-chart',
+        version: '1.2.3',
+        appVersion: '2026.09.13',
+        type: 'application',
+        kubeVersion: '>=1.30.0-0',
+        icon: 'https://example.com/icon.svg',
+        dependencies: [
+          {
+            name: 'redis',
+            version: '20.0.0',
+            repository: 'https://charts.example.com',
+            condition: 'redis.enabled',
+          },
+        ],
+      });
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
   });
 
   it('uses the supplied construct scope and exposes the real cdk8s chart', async () => {

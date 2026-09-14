@@ -148,4 +148,18 @@ describe('HelmChartWriter asset identifier handling', () => {
       rmSync(externalDir, { recursive: true, force: true });
     }
   });
+
+  it('keeps vendored chart dependencies packageable', () => {
+    HelmChartWriter.write({
+      outDir: workDir,
+      meta: { name: 'test-chart', version: '0.0.0' },
+      defaultValues: {},
+      envValues: {},
+      assets: [],
+    });
+
+    const helmIgnore = readFileSync(join(workDir, '.helmignore'), 'utf8');
+    expect(helmIgnore).not.toMatch(/^charts\/$/m);
+    expect(helmIgnore).toMatch(/^\*\.tgz$/m);
+  });
 });
