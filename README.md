@@ -30,7 +30,9 @@ Timonel is intentionally **typed-first**. Use Kubernetes resource APIs in this o
 4. raw YAML only as a legacy escape hatch.
 
 The raw-string `addManifest()` overload and `addTemplateManifest()` are deprecated and planned for
-removal in the next major release.
+removal in the next major release. Helm helpers remain available for names, labels, computed values,
+and reusable fragments, but Timonel rejects helpers that embed complete Kubernetes manifests so
+resources cannot bypass the typed cdk8s/cdk8s-plus path through `_helpers.tpl`.
 
 ## Requirements
 

@@ -18,6 +18,7 @@ import { ENV_HELPERS } from './envHelpers.js';
 import { GITOPS_HELPERS } from './gitopsHelpers.js';
 import { OBSERVABILITY_HELPERS } from './observabilityHelpers.js';
 import { VALIDATION_HELPERS } from './validationHelpers.js';
+import { assertTypedHelperTemplate } from './validation.js';
 
 /**
  * Performance-optimized helper management using Map for O(1) lookups
@@ -110,14 +111,15 @@ export function getHelpersByOptions(options: HelperOptions): HelperDefinition[] 
  */
 export function formatNewHelpers(helpers: HelperDefinition[]): string {
   return helpers
-    .map(
-      (helper) => `{{/*
+    .map((helper) => {
+      assertTypedHelperTemplate(helper.template, helper.name);
+      return `{{/*
 ${helper.name}
 */}}
 {{- define "${helper.name}" -}}
 ${helper.template}
-{{- end }}`,
-    )
+{{- end }}`;
+    })
     .join('\n\n');
 }
 
@@ -175,6 +177,7 @@ export function getCachedNewHelpersTemplate(
  * @since 2.11.0
  */
 export function createNewHelper(name: string, template: string): HelperDefinition {
+  assertTypedHelperTemplate(template, name);
   return { name, template };
 }
 

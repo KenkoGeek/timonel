@@ -46,6 +46,10 @@ Do not introduce new public APIs whose normal usage requires callers to pass arb
 `addTemplateManifest(string, ...)` is a legacy escape hatch. New code MUST NOT depend on it when the
 same resource can be represented with a typed construct or typed object.
 
+Helm helpers are not a manifest escape hatch. `HelperDefinition`, `createHelper()`, `createNewHelper()`,
+and `helpersTpl` MUST NOT contain complete Kubernetes resources. Resource-like helper templates are
+rejected so resource generation stays on typed cdk8s/cdk8s-plus paths.
+
 The long-term direction is to deprecate and remove raw-string manifest APIs in a future major
 release after typed replacements cover legitimate use cases.
 

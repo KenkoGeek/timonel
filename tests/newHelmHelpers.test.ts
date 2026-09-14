@@ -224,15 +224,18 @@ describe('New Helm Helpers', () => {
       expect(gitBranch?.template).toContain('.Values.git.branch');
     });
 
-    it('should have observability helpers', () => {
+    it('keeps observability fragments but excludes manifest-producing helpers', () => {
       const serviceMonitor = OBSERVABILITY_HELPERS.find(
         (h) => h.name === 'monitoring.serviceMonitor',
       );
+      const prometheusRule = OBSERVABILITY_HELPERS.find(
+        (h) => h.name === 'monitoring.prometheusRule',
+      );
       const healthProbes = OBSERVABILITY_HELPERS.find((h) => h.name === 'health.probes');
 
-      expect(serviceMonitor).toBeDefined();
+      expect(serviceMonitor).toBeUndefined();
+      expect(prometheusRule).toBeUndefined();
       expect(healthProbes).toBeDefined();
-      expect(serviceMonitor?.template).toContain('ServiceMonitor');
       expect(healthProbes?.template).toContain('livenessProbe');
     });
 

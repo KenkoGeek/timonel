@@ -93,5 +93,31 @@ describe('Helm Helpers Utils', () => {
       const helper = createHelper('my.helper', 'content');
       expect(helper).toEqual({ name: 'my.helper', template: 'content' });
     });
+
+    it('rejects helpers that embed Kubernetes manifests', () => {
+      expect(() =>
+        createHelper(
+          'deployment.raw',
+          `{{- if .Values.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: raw
+spec: {}
+{{- end }}`,
+        ),
+      ).toThrow('cannot contain a Kubernetes manifest');
+    });
+
+    it('allows YAML-shaped helper fragments that are not resources', () => {
+      expect(() =>
+        createHelper(
+          'labels.standard',
+          `app.kubernetes.io/name: {{ .Chart.Name }}
+app.kubernetes.io/instance: {{ .Release.Name }}`,
+        ),
+      ).not.toThrow();
+    });
   });
 });

@@ -10,6 +10,7 @@ import { SecurityUtils } from './security.js';
 import { createLogger, type TimonelLogger } from './utils/logger.js';
 import { dumpHelmAwareYaml, postProcessFieldConditionals } from './utils/helmYamlSerializer.js';
 import type { HelperDefinition as ExternalHelperDefinition } from './utils/helmHelpers/types.js';
+import { assertTypedHelperTemplate } from './utils/helmHelpers/validation.js';
 
 /**
  * Helm template helper definition shared across helper modules.
@@ -302,12 +303,14 @@ export class HelmChartWriter {
 
     let content = '';
     if (typeof helpersTpl === 'string') {
+      assertTypedHelperTemplate(helpersTpl);
       content = helpersTpl.endsWith('\n') ? helpersTpl : helpersTpl + '\n';
     } else if (Array.isArray(helpersTpl)) {
       content = helpersTpl
-        .map((h) =>
-          [`{{- define "${h.name}" -}}`, h.template.trimEnd(), '{{- end }}', ''].join('\n'),
-        )
+        .map((h) => {
+          assertTypedHelperTemplate(h.template, h.name);
+          return [`{{- define "${h.name}" -}}`, h.template.trimEnd(), '{{- end }}', ''].join('\n');
+        })
         .join('\n');
     }
     const helpersPath = SecurityUtils.validatePath(

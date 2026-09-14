@@ -12,6 +12,7 @@ import {
   getNewHelpersByCategory,
 } from './helmHelpers/index.js';
 import type { HelperDefinition } from './helmHelpers/types.js';
+import { assertTypedHelperTemplate } from './helmHelpers/validation.js';
 
 export type { HelperDefinition } from './helmHelpers/types.js';
 
@@ -321,6 +322,7 @@ export function formatHelpers(helpers: HelperDefinition[]): string {
       if (!helper.template || typeof helper.template !== 'string') {
         throw new Error(`Helper '${helper.name}' must have a valid template property`);
       }
+      assertTypedHelperTemplate(helper.template, helper.name);
       return `{{/*
 ${helper.name}
 */}}
@@ -483,6 +485,7 @@ export function getHelpersByCategory(
  * @since 2.8.4+
  */
 export function createHelper(name: string, template: string): HelperDefinition {
+  assertTypedHelperTemplate(template, name);
   return { name, template };
 }
 
