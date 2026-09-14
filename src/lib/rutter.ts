@@ -4,7 +4,12 @@ import type { Ingress, ServiceAccount } from 'cdk8s-plus-33';
 import type { Construct } from 'constructs';
 
 import { include } from './helm.js';
-import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
+import {
+  HelmChartWriter,
+  type ChartFileAsset,
+  type HelmChartMeta,
+  type SynthAsset,
+} from './helmChartWriter.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
 import { createLogger, type TimonelLogger } from './utils/logger.js';
 import {
@@ -48,6 +53,7 @@ export class Rutter {
   private static readonly HELPER_NAME = 'chart.name';
 
   // CDK8s infrastructure
+  private readonly chartFiles: ChartFileAsset[];
   private readonly awsResources: AWSResources;
   private readonly chart: Chart;
   private readonly defaultValues: Record<string, unknown>;
@@ -61,6 +67,7 @@ export class Rutter {
   constructor(props: RutterProps) {
     this.defaultValues = props.defaultValues ?? {};
     this.envValues = props.envValues ?? {};
+    this.chartFiles = [...(props.chartFiles ?? [])];
     this.meta = props.meta;
     this.props = props;
     this.logger = props.logger ?? createLogger('rutter');
@@ -469,6 +476,21 @@ export class Rutter {
   }
 
   /**
+   * Adds an arbitrary non-manifest file to the generated Helm chart.
+   *
+   * The destination is chart-relative and is validated by `HelmChartWriter`
+   * during `write()`. Existing generated files cannot be overwritten.
+   */
+  addChartFile(asset: ChartFileAsset): void {
+    this.chartFiles.push(asset);
+  }
+
+  /** Return the chart-file assets configured for this chart. */
+  getChartFiles(): readonly ChartFileAsset[] {
+    return [...this.chartFiles];
+  }
+
+  /**
    * Converts the chart to SynthAsset array for HelmChartWriter
    * @returns Array of synthesized assets
    *
@@ -834,6 +856,7 @@ ${helper.template}
       defaultValues: this.defaultValues,
       envValues: this.envValues,
       assets: synthAssets,
+      chartFiles: this.chartFiles,
       helpersTpl: helpersContent,
       logger: this.logger,
     });
@@ -852,28 +875,10 @@ ${helper.template}
 /**
  * Helm chart metadata accepted by `Rutter`.
  *
- * `name` and `version` are required because they are emitted into `Chart.yaml`.
+ * Rutter deliberately shares the `HelmChartWriter` metadata contract so charts
+ * keep the same `Chart.yaml` surface regardless of which high-level API writes them.
  */
-export interface ChartMetadata {
-  /** Human-readable Helm chart description. */
-  description?: string;
-  /** Project or product home page URL. */
-  home?: string;
-  /** Search keywords emitted into chart metadata. */
-  keywords?: string[];
-  /** Helm chart maintainer records. */
-  maintainers?: Array<{
-    email?: string;
-    name: string;
-    url?: string;
-  }>;
-  /** Helm chart name. */
-  name: string;
-  /** Source repository or documentation URLs. */
-  sources?: string[];
-  /** Helm chart semantic version. */
-  version: string;
-}
+export type ChartMetadata = HelmChartMeta;
 
 /**
  * Configuration for a `Rutter` chart.
@@ -881,6 +886,8 @@ export interface ChartMetadata {
 export interface RutterProps {
   /** Additional cdk8s Chart properties applied to the generated chart. */
   chartProps?: ChartProps;
+  /** Arbitrary non-manifest files packaged at chart-relative destinations. */
+  chartFiles?: readonly ChartFileAsset[];
   /** Cloud provider for default helpers. */
   cloudProvider?: 'aws';
   /** Default values emitted to `values.yaml`. */

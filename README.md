@@ -130,9 +130,36 @@ Useful methods include:
 | `getMeta()`                               | Read chart metadata                                       |
 | `getDefaultValues()`                      | Read default values                                       |
 | `getEnvValues()`                          | Read environment-specific values                          |
+| `addChartFile(asset)`                     | Package an arbitrary non-manifest chart file              |
+| `getChartFiles()`                         | Read configured non-manifest chart files                  |
 
 `toSynthArraySync()` remains for compatibility and is deprecated. It cannot be used with a policy
 engine.
+
+### Packaged chart files
+
+Use `chartFiles` or `addChartFile()` for non-manifest files that must ship inside the Helm chart,
+such as JSON consumed through `.Files.Get`, scripts, dashboards, or binary assets:
+
+```typescript
+const chart = new Rutter({
+  meta: { name: 'orders', version: '1.0.0' },
+  chartFiles: [
+    {
+      destination: 'files/service-inputs.json',
+      content: JSON.stringify({ queue: 'orders' }),
+    },
+  ],
+});
+
+chart.addChartFile({
+  destination: 'files/apply.mjs',
+  content: 'export default true;\n',
+});
+```
+
+Destinations are chart-relative, traversal is rejected, and generated chart files such as
+`Chart.yaml` cannot be overwritten. `Uint8Array` content is supported for binary files.
 
 ### Existing construct tree
 
@@ -201,6 +228,8 @@ interface Values {
     name: string;
     value: string;
   }>;
+  envByName: Record<string, string>;
+  selectedEnvKey: string;
 }
 
 const v = valuesRef<Values>();
@@ -215,10 +244,20 @@ const env = v.env.range((item) => ({
   value: item.value,
 }));
 
+const selectedEnv = v.envByName.index(v.selectedEnvKey);
+const hasSelectedEnv = v.envByName.hasKey(v.selectedEnvKey);
+const envEntries = v.envByName.rangeEntries((key, value) => ({
+  name: key,
+  value: value.quote(),
+}));
+
 const replicasField = v.replicas.if(v.autoscaling.enabled.not(), v.replicas);
 ```
 
-The compiler rejects value paths that do not exist in `Values`.
+The compiler rejects value paths that do not exist in `Values`. String-keyed maps also support
+`rangeEntries()`, typed `index()`, and `hasKey()` with either literal keys or `HelmValueRef<string>`
+keys. Dynamic map lookups are anchored to Helm's root context, so they remain valid inside
+`range()` and `with()` scopes.
 
 ### Reserved values keys
 
@@ -287,7 +326,8 @@ logic. Prefer typed constructs and Timonel's Helm-value helpers where they fit.
 
 ## Umbrella charts
 
-`UmbrellaRutter` combines multiple `Rutter` instances as Helm dependencies:
+`UmbrellaRutter` combines generated Timonel subcharts, remote Helm dependencies, and
+already-vendored local charts:
 
 ```typescript
 import * as kplus from 'cdk8s-plus-33';
@@ -312,12 +352,28 @@ const umbrella = new UmbrellaRutter({
   },
   subcharts: [
     { name: 'catalog', version: '1.0.0', rutter: serviceChart('catalog') },
-    { name: 'orders', version: '1.0.0', rutter: serviceChart('orders') },
+    {
+      name: 'ingress-nginx',
+      version: '4.15.1',
+      repository: 'https://kubernetes.github.io/ingress-nginx',
+      condition: 'ingress-nginx.enabled',
+    },
+    {
+      name: 'fluent-bit',
+      version: '1.2.3',
+      sourceDirectory: './vendor/fluent-bit',
+      condition: 'fluent-bit.enabled',
+    },
   ],
 });
 
 await umbrella.write('./dist/commerce');
 ```
+
+Entries with `rutter` are generated into `charts/`. Remote dependency-only entries are written only
+to the parent `Chart.yaml` for Helm dependency tooling. Entries with `sourceDirectory` are copied
+verbatim into `charts/<name>` without Timonel regenerating the third-party chart; symbolic links are
+rejected during the copy to avoid packaging paths outside the vendored source tree.
 
 The CLI also supports dependency and inline umbrella synthesis modes.
 

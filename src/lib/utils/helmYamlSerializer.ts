@@ -13,12 +13,14 @@ import {
   isHelmValue,
   isHelmFieldConditional,
   isHelmRange,
+  isHelmMapRange,
   isHelmWith,
   createHelmValueProxy,
   type HelmValueRef,
   type HelmCondition,
   type HelmFieldConditional,
   type HelmRange,
+  type HelmMapRange,
   type HelmWith,
 } from './valuesRef.js';
 
@@ -381,7 +383,7 @@ function serializeHelmContent(content: unknown): string {
  * This allows the yaml library to serialize them correctly
  */
 // eslint-disable-next-line sonarjs/cognitive-complexity -- Complex preprocessing logic
-export function preprocessHelmConstructs(obj: unknown): unknown {
+export function preprocessHelmConstructs(obj: unknown, mapRangeDepth = 0): unknown {
   // Handle HelmValue (from valuesRef)
   if (isHelmValue(obj)) {
     const value = obj as HelmValueRef<unknown>;
@@ -402,10 +404,28 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
     const indexProxy = createHelmValueProxy<number>('$index');
     const content = range.callback(itemProxy, indexProxy);
     const rangeItems = Array.isArray(content) ? content : [content];
-    const processedContent = preprocessHelmConstructs(rangeItems);
+    const processedContent = preprocessHelmConstructs(rangeItems, mapRangeDepth);
     const contentStr = dumpHelmAwareYaml(processedContent).trim();
     return createHelmExpression(
       `{{ range $index, $item := ${sourcePath} }}\n${contentStr}\n{{ end }}`,
+    );
+  }
+
+  // Handle HelmMapRange (from valuesRef v.rangeEntries())
+  if (isHelmMapRange(obj)) {
+    const range = obj as HelmMapRange<unknown>;
+    const sourcePath = range.source.__path;
+    const variableSuffix = mapRangeDepth === 0 ? '' : String(mapRangeDepth);
+    const keyName = `$key${variableSuffix}`;
+    const valueName = `$value${variableSuffix}`;
+    const keyProxy = createHelmValueProxy<string>(keyName);
+    const valueProxy = createHelmValueProxy<unknown>(valueName);
+    const content = range.callback(keyProxy, valueProxy);
+    const rangeItems = Array.isArray(content) ? content : [content];
+    const processedContent = preprocessHelmConstructs(rangeItems, mapRangeDepth + 1);
+    const contentStr = dumpHelmAwareYaml(processedContent).trim();
+    return createHelmExpression(
+      `{{ range ${keyName}, ${valueName} := ${sourcePath} }}\n${contentStr}\n{{ end }}`,
     );
   }
 
@@ -441,7 +461,7 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
 
   // Handle arrays
   if (Array.isArray(obj)) {
-    return obj.map((item) => preprocessHelmConstructs(item));
+    return obj.map((item) => preprocessHelmConstructs(item, mapRangeDepth));
   }
 
   // Handle objects
@@ -473,7 +493,7 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
         if (isHelmExpression(content)) {
           contentStr = content.value;
         } else {
-          const processedContent = preprocessHelmConstructs(content);
+          const processedContent = preprocessHelmConstructs(content, mapRangeDepth);
           contentStr = dumpHelmAwareYaml(processedContent).trim();
         }
 
@@ -502,7 +522,7 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
         // This is the case for helmIfSimple() or helmIf() with undefined else
         if (!isInline && (ifData.else === undefined || !('else' in ifData))) {
           // Serialize the then value to get its string representation
-          const preprocessedThen = preprocessHelmConstructs(ifData.then);
+          const preprocessedThen = preprocessHelmConstructs(ifData.then, mapRangeDepth);
           const serializedThen = (() => {
             if (isHelmExpression(preprocessedThen)) {
               const valueStr = preprocessedThen.value.trim();
@@ -592,7 +612,7 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
       if (isHelmConstruct(value) && value.type === 'fieldConditional') {
         const fieldData = value.data as { fieldKey: string; condition: string; then: unknown };
         // Serialize the then value
-        const preprocessedThen = preprocessHelmConstructs(fieldData.then);
+        const preprocessedThen = preprocessHelmConstructs(fieldData.then, mapRangeDepth);
         const thenValueStr = isHelmExpression(preprocessedThen)
           ? preprocessedThen.value
           : typeof preprocessedThen === 'string'
@@ -606,7 +626,7 @@ export function preprocessHelmConstructs(obj: unknown): unknown {
         continue;
       }
       // eslint-disable-next-line security/detect-object-injection -- Safe: iterating over own entries
-      result[key] = preprocessHelmConstructs(value);
+      result[key] = preprocessHelmConstructs(value, mapRangeDepth);
     }
 
     return result;

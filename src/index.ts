@@ -32,6 +32,8 @@ export {
   type PrometheusRuleSpec,
 } from './lib/resources/monitoring.js';
 
+export type { ChartFileAsset } from './lib/helmChartWriter.js';
+
 // Templates
 
 // Types
@@ -133,15 +135,18 @@ export {
   isHelmCondition,
   isHelmFieldConditional,
   isHelmRange,
+  isHelmMapRange,
   isHelmWith,
   serializeHelmValue,
   serializeHelmCondition,
   type HelmValue,
   type HelmValueRef,
+  type HelmValueReference,
   type ValuesRef,
   type HelmCondition,
   type HelmFieldConditional,
   type HelmRange,
+  type HelmMapRange,
   type HelmWith,
   type HelmHelpers,
 } from './lib/utils/valuesRef.js';

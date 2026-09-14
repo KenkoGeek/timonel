@@ -1,6 +1,6 @@
 import * as kplus from 'cdk8s-plus-33';
 
-import { Rutter, valuesRef, type HelmValueRef } from '../../dist/index.js';
+import { Rutter, serializeHelmValue, valuesRef, type HelmValueRef } from '../../dist/index.js';
 
 interface Values {
   enabled: boolean;
@@ -17,6 +17,8 @@ interface Values {
     host: string;
     port: number;
   };
+  env: Record<string, string>;
+  dynamicKey: string;
   default: string;
   release: {
     name: string;
@@ -41,18 +43,36 @@ const withBlock = v.database.with((database) => ({
   host: database.host,
   port: database.port,
 }));
+const envValue: HelmValueRef<string> = v.env.index(v.dynamicKey);
+const envExists = v.env.hasKey(v.dynamicKey);
+const envEntries = v.env.rangeEntries((key, value) => ({
+  name: key,
+  value: value.quote(),
+}));
 const reservedRootValue: HelmValueRef<{ name: string }> = v.at('release');
 const reservedDefaultValue: HelmValueRef<string> = v.settings.at('default');
 const reservedRangeValue: HelmValueRef<string[]> = v.settings.at('range');
+
+const crossReferenceDefault = v.image.tag.default(v.chart.name);
+const formattedReference = v.printf('%s:%s', v.image.repository, v.chart.name);
+const serializedReference = serializeHelmValue(v.image.tag);
+const comparedReferences = v.image.tag.eq(v.chart.name);
 
 void replicas;
 void imageTag;
 void disabled;
 void range;
 void withBlock;
+void envValue;
+void envExists;
+void envEntries;
 void reservedRootValue;
 void reservedDefaultValue;
 void reservedRangeValue;
+void crossReferenceDefault;
+void formattedReference;
+void serializedReference;
+void comparedReferences;
 
 const conditionalChart = new Rutter({
   meta: { name: 'conditional-consumer', version: '1.0.0' },
@@ -85,3 +105,19 @@ v.items.range((item) => {
   // @ts-expect-error Array callback items must preserve the element shape.
   return item.missing;
 });
+
+v.env.rangeEntries((key, value) => {
+  const typedKey: HelmValueRef<string> = key;
+  const typedValue: HelmValueRef<string> = value;
+  void typedKey;
+  return typedValue;
+});
+
+// @ts-expect-error Dynamic map lookup keys must be string references.
+void v.env.index(v.replicaCount);
+
+// @ts-expect-error Dynamic hasKey keys must be string references.
+void v.env.hasKey(v.replicaCount);
+
+// @ts-expect-error Map-only iteration must reject scalar values.
+void v.replicaCount.rangeEntries((_key, value) => value);
