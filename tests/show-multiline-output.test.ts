@@ -4,6 +4,8 @@ import { describe, it, expect } from 'vitest';
 import { Rutter } from '../src/lib/rutter';
 import { createHelmExpression } from '../src/lib/utils/helmControlStructures';
 
+import { addTestManifest } from './testUtils.js';
+
 describe('Multiline Verification - Show Actual Output', (): void => {
   it('should show IF multiline output', async (): Promise<void> => {
     const app = new App();
@@ -14,7 +16,8 @@ describe('Multiline Verification - Show Actual Output', (): void => {
     });
 
     // Migrated from legacy helmIf to createHelmExpression (type-safe)
-    rutter.addManifest(
+    addTestManifest(
+      rutter,
       {
         apiVersion: 'v1',
         kind: 'ConfigMap',
@@ -54,7 +57,8 @@ describe('Multiline Verification - Show Actual Output', (): void => {
     });
 
     // Migrated from legacy helmWith to createHelmExpression (type-safe)
-    rutter.addManifest(
+    addTestManifest(
+      rutter,
       {
         apiVersion: 'v1',
         kind: 'ConfigMap',
@@ -94,7 +98,8 @@ describe('Multiline Verification - Show Actual Output', (): void => {
     });
 
     // Migrated from legacy helmRange to createHelmExpression (type-safe)
-    rutter.addManifest(
+    addTestManifest(
+      rutter,
       {
         apiVersion: 'v1',
         kind: 'ConfigMap',
@@ -134,7 +139,8 @@ describe('Multiline Verification - Show Actual Output', (): void => {
     });
 
     // Migrated from legacy nested helmIf to createHelmExpression (type-safe)
-    rutter.addManifest(
+    addTestManifest(
+      rutter,
       {
         apiVersion: 'networking.k8s.io/v1',
         kind: 'Ingress',

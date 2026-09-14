@@ -17,6 +17,8 @@ import type { PolicyPlugin, PolicyViolation } from '../src/lib/policy/types.js';
 import { Rutter } from '../src/lib/rutter.js';
 import type { ChartMetadata } from '../src/lib/rutter.js';
 
+import { addTestManifest } from './testUtils.js';
+
 describe('Performance Benchmarking Tests', () => {
   let engine: PolicyEngine;
   let tempDir: string;
@@ -549,7 +551,8 @@ describe('Performance Benchmarking Tests', () => {
 
       // Add multiple manifests
       for (let i = 0; i < 30; i++) {
-        rutter.addManifest(
+        addTestManifest(
+          rutter,
           {
             apiVersion: 'apps/v1',
             kind: 'Deployment',

@@ -62,6 +62,7 @@
     "test:coverage": "vitest run --coverage --exclude tests/performance-benchmarks.test.ts",
     "doc:coverage": "tsx scripts/project-doc-coverage.ts",
     "doc:coverage:validate": "tsx scripts/validate-doc-coverage.ts",
+    "validate:typed-chart": "tsx scripts/validate-typed-complex-chart.ts .tmp/typed-complex-chart && helm lint .tmp/typed-complex-chart && helm template typed-complex .tmp/typed-complex-chart > /dev/null && rm -rf .tmp/typed-complex-chart",
     "ci:check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm build && pnpm typecheck:consumer",
     "release": "semantic-release",
     "release:dry": "semantic-release --dry-run",

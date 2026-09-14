@@ -21,6 +21,8 @@ import type {
 } from '../src/lib/policy/types.js';
 import { createLogger } from '../src/lib/utils/logger.js';
 
+import { addTestManifest } from './testUtils.js';
+
 describe('Policy Engine Integration Tests', () => {
   let engine: PolicyEngine;
   let mockLogger: {
@@ -511,7 +513,8 @@ describe('Policy Engine Integration Tests', () => {
       });
 
       // Add some manifests to Rutter
-      rutter.addManifest(
+      addTestManifest(
+        rutter,
         {
           apiVersion: 'apps/v1',
           kind: 'Deployment',
@@ -597,7 +600,8 @@ describe('Policy Engine Integration Tests', () => {
         logger: mockLogger,
       });
 
-      rutter.addManifest(
+      addTestManifest(
+        rutter,
         {
           apiVersion: 'v1',
           kind: 'ConfigMap',
@@ -655,7 +659,8 @@ describe('Policy Engine Integration Tests', () => {
         logger: mockLogger,
       });
 
-      rutter.addManifest(
+      addTestManifest(
+        rutter,
         {
           apiVersion: 'v1',
           kind: 'Service',
@@ -701,7 +706,8 @@ describe('Policy Engine Integration Tests', () => {
         // No policyEngine provided
       });
 
-      rutter.addManifest(
+      addTestManifest(
+        rutter,
         {
           apiVersion: 'v1',
           kind: 'Pod',

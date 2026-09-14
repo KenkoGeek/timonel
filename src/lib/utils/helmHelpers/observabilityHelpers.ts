@@ -16,67 +16,6 @@ import type { HelperDefinition } from './types.js';
  */
 export const OBSERVABILITY_HELPERS: HelperDefinition[] = [
   {
-    name: 'monitoring.serviceMonitor',
-    template: `{{- if and .Values.serviceMonitor.enabled .Values.metrics.enabled -}}
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: {{ include "chart.fullname" . }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "chart.labels" . | nindent 4 }}
-    {{- with .Values.serviceMonitor.labels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-  {{- with .Values.serviceMonitor.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-spec:
-  selector:
-    matchLabels:
-      {{- include "chart.selectorLabels" . | nindent 6 }}
-      {{- with .Values.serviceMonitor.selector }}
-      {{- toYaml . | nindent 6 }}
-      {{- end }}
-  endpoints:
-    - port: {{ .Values.metrics.port | default "metrics" }}
-      path: {{ .Values.metrics.path | default "/metrics" }}
-      interval: {{ .Values.serviceMonitor.interval | default "30s" }}
-      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout | default "10s" }}
-      {{- with .Values.serviceMonitor.metricRelabelings }}
-      metricRelabelings:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.serviceMonitor.relabelings }}
-      relabelings:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-{{- end }}`,
-  },
-  {
-    name: 'monitoring.prometheusRule',
-    template: `{{- if .Values.prometheusRule.enabled -}}
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata:
-  name: {{ include "chart.fullname" . }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "chart.labels" . | nindent 4 }}
-    {{- with .Values.prometheusRule.labels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-spec:
-  groups:
-    - name: {{ include "chart.fullname" . }}
-      rules:
-        {{- with .Values.prometheusRule.rules }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-{{- end }}`,
-  },
-  {
     name: 'tracing.jaegerConfig',
     template: `{{- if .Values.tracing.enabled -}}
 JAEGER_AGENT_HOST: {{ .Values.tracing.jaeger.agent.host | default "jaeger-agent" }}

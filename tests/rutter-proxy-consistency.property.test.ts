@@ -18,6 +18,8 @@ import { PolicyEngine } from '../src/lib/policy/policyEngine.js';
 import type { ChartMetadata } from '../src/lib/rutter.js';
 import type { PolicyPlugin, ValidationContext, PolicyViolation } from '../src/lib/policy/types.js';
 
+import { addTestManifest } from './testUtils.js';
+
 /**
  * Property-based test configuration
  */
@@ -72,7 +74,8 @@ describe('Rutter Proxy Method Consistency Property Tests', (): void => {
         });
 
         // Add a simple manifest to ensure we have something to synthesize
-        rutter.addManifest(
+        addTestManifest(
+          rutter,
           {
             apiVersion: 'v1',
             kind: 'ConfigMap',
@@ -121,7 +124,8 @@ describe('Rutter Proxy Method Consistency Property Tests', (): void => {
         });
 
         // Add a simple manifest to ensure we have something to synthesize
-        rutter.addManifest(
+        addTestManifest(
+          rutter,
           {
             apiVersion: 'v1',
             kind: 'ConfigMap',
@@ -173,7 +177,8 @@ describe('Rutter Proxy Method Consistency Property Tests', (): void => {
         // Add multiple manifests to test with varying complexity
         const manifestCount = Math.floor((iteration / PROPERTY_TEST_ITERATIONS) * 5) + 1;
         for (let i = 0; i < manifestCount; i++) {
-          rutter.addManifest(
+          addTestManifest(
+            rutter,
             {
               apiVersion: 'v1',
               kind: 'ConfigMap',
@@ -215,7 +220,8 @@ describe('Rutter Proxy Method Consistency Property Tests', (): void => {
         });
 
         // Add a simple manifest
-        rutter.addManifest(
+        addTestManifest(
+          rutter,
           {
             apiVersion: 'v1',
             kind: 'ConfigMap',
@@ -297,7 +303,8 @@ async function setupRandomRutterConfiguration(iteration: number, seed: number) {
 function addRandomManifests(rutter: Rutter, seed: number, iteration: number): void {
   const manifestCount = Math.floor(seed * 3) + 1;
   for (let i = 0; i < manifestCount; i++) {
-    rutter.addManifest(
+    addTestManifest(
+      rutter,
       {
         apiVersion: 'v1',
         kind: 'ConfigMap',

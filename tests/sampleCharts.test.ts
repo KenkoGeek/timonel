@@ -8,6 +8,8 @@ import { Rutter } from '../src/lib/rutter.js';
 import { createUmbrella } from '../src/lib/umbrella.js';
 import type { UmbrellaRutter } from '../src/lib/umbrellaRutter.js';
 
+import { addTestManifest } from './testUtils.js';
+
 function createWebServiceChart(name: string, image: string, port: number): Rutter {
   const rutter = new Rutter({
     meta: {
@@ -27,7 +29,8 @@ function createWebServiceChart(name: string, image: string, port: number): Rutte
     },
   });
 
-  rutter.addManifest(
+  addTestManifest(
+    rutter,
     {
       apiVersion: 'apps/v1',
       kind: 'Deployment',
@@ -65,7 +68,8 @@ function createWebServiceChart(name: string, image: string, port: number): Rutte
     `${name}-deployment`,
   );
 
-  rutter.addManifest(
+  addTestManifest(
+    rutter,
     {
       apiVersion: 'v1',
       kind: 'Service',

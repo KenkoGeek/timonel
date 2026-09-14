@@ -39,10 +39,10 @@ const missingRemoteVersion: RemoteSubchartSpec = {
 };
 void missingRemoteVersion;
 
-// @ts-expect-error Generated subcharts cannot also declare a vendored source directory.
 const mixedGeneratedVendored: GeneratedSubchartSpec = {
   name: 'mixed',
   rutter: generatedRutter,
+  // @ts-expect-error Generated subcharts cannot also declare a vendored source directory.
   sourceDirectory: './vendor/mixed',
 };
 void mixedGeneratedVendored;

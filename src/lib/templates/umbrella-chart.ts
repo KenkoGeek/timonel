@@ -26,7 +26,7 @@ interface HelmChart extends Chart {
  */
 export function generateUmbrellaChart(name: string): string {
   return `import { App } from 'cdk8s';
-import { Rutter, helmInclude, helmIf, helmWith, createHelmExpression as helm } from 'timonel';
+import { Rutter, TypedCustomResource, valuesRef } from 'timonel';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { parse, stringify } from 'yaml';
@@ -88,17 +88,20 @@ export async function synth(outDir: string, options?: SynthOptions) {
     },
   });
 
-  umbrella.addConditionalManifest(
+  const values = valuesRef<{ createNamespace: boolean }>();
+  const namespace = new TypedCustomResource<Record<string, never>>(
+    umbrella.getChart(),
+    'Namespace',
     {
       apiVersion: 'v1',
       kind: 'Namespace',
       metadata: {
         name: '{{ .Values.namespace | default .Release.Namespace }}',
       },
+      body: {},
     },
-    'createNamespace',
-    'namespace',
   );
+  umbrella.when(values.createNamespace, namespace);
 
   await umbrella.write(outDir);
 
@@ -346,16 +349,24 @@ export class UmbrellaChartTemplate extends Chart {
   ) {
     const chartObj = subchart.chart as Record<string, unknown>;
     if (chartObj.constructor && chartObj.constructor.name !== 'Object') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FlexibleSubchart method
-      (flexibleSubchart as any).addConstruct(subchart.chart);
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FlexibleSubchart method
-      (flexibleSubchart as any).addManifest(subchart.chart);
+      const addConstruct = (
+        flexibleSubchart as unknown as {
+          addConstruct(construct: unknown): void;
+        }
+      ).addConstruct.bind(flexibleSubchart);
+      addConstruct(subchart.chart);
+      return;
     }
+
+    throw new Error(
+      `Subchart '${subchart.name}' must be a typed cdk8s construct or chart; plain manifest objects are not supported`,
+    );
   }
 
   private _isRutterInstance(instance: unknown): boolean {
-    return !!(instance && typeof (instance as Record<string, unknown>).addManifest === 'function');
+    if (!instance || typeof instance !== 'object') return false;
+    const candidate = instance as Record<string, unknown>;
+    return typeof candidate.getChart === 'function' && typeof candidate.write === 'function';
   }
 
   private _isChartInstance(instance: unknown): boolean {
@@ -625,15 +636,14 @@ export class UmbrellaChartTemplate extends Chart {
           }
         }
       } else if (subchart.chart && typeof subchart.chart === 'object') {
-        // If it's an object, try to use it as a construct or manifest
         if (subchart.chart.constructor && subchart.chart.constructor.name !== 'Object') {
-          // It's a cdk8s construct, add it to the flexible subchart
           flexibleSubchart.addConstruct(subchart.chart);
+          flexibleSubchart.writeHelmChart(subchartDir);
         } else {
-          // It's a manifest object, add it as a manifest
-          flexibleSubchart.addManifest(subchart.chart);
+          throw new Error(
+            `Subchart '${subchart.name}' must be a typed cdk8s construct or chart; plain manifest objects are not supported`,
+          );
         }
-        flexibleSubchart.writeHelmChart(subchartDir);
       } else {
         // Use the flexible subchart as fallback
         flexibleSubchart.writeHelmChart(subchartDir);

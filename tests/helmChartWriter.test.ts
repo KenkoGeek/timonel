@@ -57,6 +57,23 @@ describe('HelmChartWriter asset identifier handling', () => {
     expect(existsSync(join(workDir, 'templates', 'config', 'maps', 'settings.yaml'))).toBe(true);
   });
 
+  it('rejects raw helpersTpl strings that embed Kubernetes resources', () => {
+    expect(() =>
+      HelmChartWriter.write({
+        outDir: workDir,
+        meta: { name: 'test-chart', version: '0.0.0' },
+        assets: [],
+        helpersTpl: `{{- define "deployment.raw" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: raw
+spec: {}
+{{- end }}`,
+      }),
+    ).toThrow('cannot contain a Kubernetes manifest');
+  });
+
   it('writes arbitrary text and binary chart files without changing filenames', () => {
     HelmChartWriter.write({
       outDir: workDir,

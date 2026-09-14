@@ -43,19 +43,18 @@ Do not duplicate an existing typed upstream abstraction without a documented rea
 
 Do not introduce new public APIs whose normal usage requires callers to pass arbitrary YAML strings.
 
-`addTemplateManifest(string, ...)` is a legacy escape hatch. New code MUST NOT depend on it when the
-same resource can be represented with a typed construct or typed object.
+Raw manifest ingestion is not part of the public chart-building API. `Rutter` MUST NOT expose
+`addManifest()`, `addTemplateManifest()`, `addConditionalManifest()`, or raw synthesized asset
+injection. Standard Kubernetes resources belong on cdk8s/cdk8s-plus constructs; CRDs belong on a
+generated typed construct or `TypedCustomResource<TBody>`.
 
-The long-term direction is to deprecate and remove raw-string manifest APIs in a future major
-release after typed replacements cover legitimate use cases.
+Helm helpers are not a manifest escape hatch. `HelperDefinition`, `createHelper()`, `createNewHelper()`,
+and `helpersTpl` MUST NOT contain complete Kubernetes resources. Resource-like helper templates are
+rejected so resource generation stays on typed cdk8s/cdk8s-plus paths.
 
-If raw YAML support must temporarily remain:
-
-- mark it clearly as an escape hatch;
-- validate inputs and paths;
-- never synthesize hidden or placeholder Kubernetes resources into user output;
-- test the exact rendered chart;
-- document why no typed alternative exists.
+Whole-resource Helm conditions MUST use `Rutter.when()`. Scalar Helm values that upstream constructs
+model as concrete primitives SHOULD use `Rutter.bindHelmValue()` rather than replacing the resource
+with raw YAML.
 
 ### 2.3 No fake type safety
 
