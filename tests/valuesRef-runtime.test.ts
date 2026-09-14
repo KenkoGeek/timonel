@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { dumpHelmAwareYaml } from '../src/lib/utils/helmYamlSerializer.js';
-import { isHelmRange, isHelmWith, valuesRef } from '../src/lib/utils/valuesRef.js';
+import {
+  isHelmRange,
+  isHelmWith,
+  serializeHelmValue,
+  valuesRef,
+} from '../src/lib/utils/valuesRef.js';
 
 interface Values {
   enabled: boolean;
@@ -48,6 +53,21 @@ describe('ValuesRef runtime contract', () => {
     expect(v.settings.at('with').enabled.__path).toBe('.Values.settings.with.enabled');
 
     expect(v.default('fallback').__path).toBe('.Values | default "fallback"');
+  });
+
+  it('composes typed references across arbitrary-reference helper inputs', () => {
+    const v = valuesRef<Values>();
+
+    expect(v.database.host.default(v.chart.name).__path).toBe(
+      '.Values.database.host | default .Chart.Name',
+    );
+    expect(v.printf('%s:%s', v.database.host, v.chart.name).__path).toBe(
+      '(printf "%s:%s" .Values.database.host .Chart.Name)',
+    );
+    expect(v.database.host.eq(v.chart.name).__condition).toBe(
+      'eq .Values.database.host .Chart.Name',
+    );
+    expect(serializeHelmValue(v.database.host)).toBe('{{ .Values.database.host }}');
   });
 
   it('returns a HelmRange marker and preserves typed callback paths', () => {
