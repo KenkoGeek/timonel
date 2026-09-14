@@ -12,6 +12,7 @@ import {
   KUBERNETES_HELPERS,
   AWS_HELPERS,
 } from '../src/lib/utils/helmHelpers.js';
+import { assertTypedHelperTemplate } from '../src/lib/utils/helmHelpers/validation.js';
 
 describe('Helm Helpers Utils', () => {
   describe('getDefaultHelpers', () => {
@@ -118,6 +119,56 @@ spec: {}
 app.kubernetes.io/instance: {{ .Release.Name }}`,
         ),
       ).not.toThrow();
+    });
+
+    it('validates each define independently in combined helpers content', () => {
+      const helpersTpl = `{{- define "fragment.api" -}}
+apiVersion: fragment-value
+{{- end }}
+{{- define "fragment.kind" -}}
+kind: fragment-value
+{{- end }}
+{{- define "fragment.metadata" -}}
+metadata: fragment-value
+{{- end }}`;
+
+      expect(() => assertTypedHelperTemplate(helpersTpl)).not.toThrow();
+    });
+
+    it('rejects resource keys hidden behind constant Helm expressions', () => {
+      expect(() =>
+        createHelper(
+          'deployment.dynamic-key',
+          `{{- $key := "apiVersion" -}}
+{{ $key }}: apps/v1
+kind: Deployment
+metadata:
+  name: raw`,
+        ),
+      ).toThrow('cannot contain a Kubernetes manifest');
+
+      expect(() =>
+        assertTypedHelperTemplate(`{{- define "deployment.printf-key" -}}
+{{ printf "%s%s" "api" "Version" }}: apps/v1
+kind: Deployment
+metadata:
+  name: raw
+{{- end }}`),
+      ).toThrow('cannot contain a Kubernetes manifest');
+    });
+
+    it('does not treat comments from separate helpers as resource markers', () => {
+      const helpersTpl = `{{/* apiVersion: should not count */}}
+{{- define "safe.kind" -}}
+# kind: comment only
+value: {{ .Values.kind }}
+{{- end }}
+{{- define "safe.metadata" -}}
+# metadata: comment only
+name: {{ .Chart.Name }}
+{{- end }}`;
+
+      expect(() => assertTypedHelperTemplate(helpersTpl)).not.toThrow();
     });
   });
 });
