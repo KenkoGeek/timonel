@@ -1,7 +1,16 @@
 {
   "branches": ["main"],
   "plugins": [
-    "@semantic-release/commit-analyzer",
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "releaseRules": [
+          { "type": "fix", "scope": "release", "release": false },
+          { "type": "ci", "scope": "release", "release": false },
+          { "type": "chore", "scope": "release", "release": false }
+        ]
+      }
+    ],
     "@semantic-release/release-notes-generator",
     "@semantic-release/changelog",
     "@semantic-release/npm",
@@ -15,13 +24,7 @@
     [
       "@semantic-release/git",
       {
-        "assets": [
-          "package.json",
-          "CHANGELOG.md",
-          "examples/aws-game-2048/package.json",
-          "examples/wordpress/package.json",
-          "examples/wordpress-umbrella/package.json"
-        ],
+        "assets": ["package.json", "CHANGELOG.md"],
         "message": "chore(release): ${nextRelease.version} [skip ci]\\n\\n${nextRelease.notes}"
       }
     ]
