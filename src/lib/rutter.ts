@@ -5,7 +5,7 @@ import type { Construct } from 'constructs';
 import { parse } from 'yaml';
 
 import { include } from './helm.js';
-import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
+import { HelmChartWriter, type HelmChartMeta, type SynthAsset } from './helmChartWriter.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
 import { createLogger, type TimonelLogger } from './utils/logger.js';
 import type {
@@ -1109,28 +1109,10 @@ ${helper.template}
 /**
  * Helm chart metadata accepted by `Rutter`.
  *
- * `name` and `version` are required because they are emitted into `Chart.yaml`.
+ * Rutter deliberately shares the `HelmChartWriter` metadata contract so charts
+ * keep the same `Chart.yaml` surface regardless of which high-level API writes them.
  */
-export interface ChartMetadata {
-  /** Human-readable Helm chart description. */
-  description?: string;
-  /** Project or product home page URL. */
-  home?: string;
-  /** Search keywords emitted into chart metadata. */
-  keywords?: string[];
-  /** Helm chart maintainer records. */
-  maintainers?: Array<{
-    email?: string;
-    name: string;
-    url?: string;
-  }>;
-  /** Helm chart name. */
-  name: string;
-  /** Source repository or documentation URLs. */
-  sources?: string[];
-  /** Helm chart semantic version. */
-  version: string;
-}
+export type ChartMetadata = HelmChartMeta;
 
 /**
  * Configuration for a `Rutter` chart.
