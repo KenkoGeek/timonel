@@ -27,6 +27,28 @@ interface DefinedScopes {
   readonly ranges: Array<[number, number]>;
 }
 
+interface HelmAction {
+  readonly action: string;
+  readonly start: number;
+  readonly end: number;
+}
+
+/** Scan Helm actions in linear time without regex backtracking. */
+function helmActions(source: string): HelmAction[] {
+  const actions: HelmAction[] = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const start = source.indexOf('{{', cursor);
+    if (start < 0) break;
+    const close = source.indexOf('}}', start + 2);
+    if (close < 0) break;
+    const raw = source.slice(start + 2, close);
+    actions.push({ action: raw.replace(/^-/, '').replace(/-$/, '').trim(), start, end: close + 2 });
+    cursor = close + 2;
+  }
+  return actions;
+}
+
 /** Extract quoted string literals from a Helm action. */
 function quotedStrings(action: string): string[] {
   const values: string[] = [];
@@ -61,7 +83,18 @@ function resolveConstantAction(action: string, variables: Map<string, string>): 
 
 /** Strip comments that must not contribute resource markers. */
 function stripComments(template: string): string {
-  return template.replace(/{{-?\s*\/\*[\s\S]*?\*\/\s*-?}}/g, '').replace(/^\s*#.*$/gm, '');
+  let result = '';
+  let cursor = 0;
+  for (const token of helmActions(template)) {
+    result += template.slice(cursor, token.start);
+    if (!token.action.startsWith('/*')) result += template.slice(token.start, token.end);
+    cursor = token.end;
+  }
+  result += template.slice(cursor);
+  return result
+    .split('\n')
+    .filter((line) => !line.trimStart().startsWith('#'))
+    .join('\n');
 }
 
 /** Return a helper definition name when an action opens a `define` block. */
@@ -83,16 +116,15 @@ function addScope(scopes: HelperScope[], name: string | undefined, body: string)
 function collectDefinedScopes(template: string): DefinedScopes {
   const scopes: HelperScope[] = [];
   const ranges: Array<[number, number]> = [];
-  const actionPattern = /{{-?\s*([\s\S]*?)\s*-?}}/g;
   let depth = 0;
   let bodyStart = -1;
   let rangeStart = -1;
   let name: string | undefined;
 
-  for (const match of template.matchAll(actionPattern)) {
-    const action = (match[1] ?? '').trim();
-    const matchStart = match.index ?? 0;
-    const matchEnd = matchStart + match[0].length;
+  for (const token of helmActions(template)) {
+    const action = token.action;
+    const matchStart = token.start;
+    const matchEnd = token.end;
 
     if (depth === 0) {
       const nextName = defineName(action);
@@ -146,9 +178,8 @@ function splitHelperScopes(template: string): HelperScope[] {
 /** Collect constant string variables declared by Helm actions. */
 function collectConstantVariables(source: string): Map<string, string> {
   const variables = new Map<string, string>();
-  const actionPattern = /{{-?\s*([\s\S]*?)\s*-?}}/g;
-  for (const match of source.matchAll(actionPattern)) {
-    const action = (match[1] ?? '').trim();
+  for (const token of helmActions(source)) {
+    const action = token.action;
     const assignment = action.match(/^\$([A-Za-z_][A-Za-z0-9_]*)\s*(?::=|=)\s*(.+)$/);
     const variableName = assignment?.[1];
     const expression = assignment?.[2];
@@ -161,9 +192,8 @@ function collectConstantVariables(source: string): Map<string, string> {
 
 /** Add resource markers that appear literally inside emitted Helm strings. */
 function collectActionStringKeys(source: string, keys: Set<ResourceKey>): void {
-  const actionPattern = /{{-?\s*([\s\S]*?)\s*-?}}/g;
-  for (const match of source.matchAll(actionPattern)) {
-    for (const literal of quotedStrings(match[1] ?? '')) {
+  for (const token of helmActions(source)) {
+    for (const literal of quotedStrings(token.action)) {
       for (const key of RESOURCE_KEYS) {
         if (resourceKeyLinePattern(key).test(literal)) keys.add(key);
       }
@@ -183,9 +213,11 @@ function collectDynamicYamlKeys(
   variables: Map<string, string>,
   keys: Set<ResourceKey>,
 ): void {
-  const pattern = /{{-?\s*([^{}]*?)\s*-?}}\s*:/g;
-  for (const match of source.matchAll(pattern)) {
-    const resolved = resolveConstantAction(match[1] ?? '', variables);
+  for (const token of helmActions(source)) {
+    let cursor = token.end;
+    while (cursor < source.length && /\s/.test(source.charAt(cursor))) cursor += 1;
+    if (source.charAt(cursor) !== ':') continue;
+    const resolved = resolveConstantAction(token.action, variables);
     if (RESOURCE_KEYS.includes(resolved as ResourceKey)) keys.add(resolved as ResourceKey);
   }
 }
