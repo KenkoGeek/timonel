@@ -15,6 +15,13 @@ type MapValue<T> = T extends Readonly<Record<string, infer V>> ? V : never;
 type StringKeyOf<T> = Extract<keyof T, string>;
 type RuntimeReservedValueKey = 'toJSON' | 'toString' | 'valueOf';
 type HelmValueReservedKey = Extract<keyof HelmValue<unknown>, string> | RuntimeReservedValueKey;
+/** Minimal structural contract shared by every typed Helm value reference. */
+export interface HelmValueReference {
+  /** Internal runtime marker used by Timonel serializers. */
+  [HELM_VALUE_SYMBOL]: true;
+  /** Helm expression path represented by this reference. */
+  __path: string;
+}
 
 /**
  * A Helm value reference with mapped properties that mirror the supplied
@@ -36,7 +43,7 @@ export type HelmValueRef<T> = HelmValue<T> &
  * Instances are runtime proxies. The generic type preserves the shape of the referenced value
  * while helper methods compose Helm/Sprig expressions.
  */
-export interface HelmValue<T = unknown> {
+export interface HelmValue<T = unknown> extends HelmValueReference {
   /** Internal runtime marker used by Timonel serializers. */
   [HELM_VALUE_SYMBOL]: true;
   /** Internal Helm expression path represented by this proxy. */
@@ -52,17 +59,17 @@ export interface HelmValue<T = unknown> {
   at<K extends StringKeyOf<T>>(key: K): HelmValueRef<T[K]>;
 
   /** Compare the value for equality. */
-  eq(value: HelmValueRef<unknown> | HelmScalar): HelmCondition;
+  eq(value: HelmValueReference | HelmScalar): HelmCondition;
   /** Compare the value for inequality. */
-  ne(value: HelmValueRef<unknown> | HelmScalar): HelmCondition;
+  ne(value: HelmValueReference | HelmScalar): HelmCondition;
   /** Compare whether the value is greater than another numeric value/reference. */
-  gt(value: HelmValueRef<unknown> | number): HelmCondition;
+  gt(value: HelmValueReference | number): HelmCondition;
   /** Compare whether the value is greater than or equal to another numeric value/reference. */
-  ge(value: HelmValueRef<unknown> | number): HelmCondition;
+  ge(value: HelmValueReference | number): HelmCondition;
   /** Compare whether the value is less than another numeric value/reference. */
-  lt(value: HelmValueRef<unknown> | number): HelmCondition;
+  lt(value: HelmValueReference | number): HelmCondition;
   /** Compare whether the value is less than or equal to another numeric value/reference. */
-  le(value: HelmValueRef<unknown> | number): HelmCondition;
+  le(value: HelmValueReference | number): HelmCondition;
 
   /** Negate the truthiness of the referenced Helm value. */
   not(): HelmCondition;
@@ -72,7 +79,7 @@ export interface HelmValue<T = unknown> {
   or(other: HelmCondition): HelmCondition;
 
   /** Apply Helm `default` while preserving the referenced value type. */
-  default(defaultValue: HelmValueRef<unknown> | HelmScalar): HelmValueRef<T>;
+  default(defaultValue: HelmValueReference | HelmScalar): HelmValueRef<T>;
   /** Pipe the value through `quote`. */
   quote(): HelmValueRef<string>;
   /** Pipe the value through `upper`. */
@@ -123,7 +130,7 @@ export interface HelmValue<T = unknown> {
    * @param condition - Helm condition or value whose truthiness controls inclusion
    * @param thenValue - Value emitted when the condition succeeds
    */
-  if<V>(condition: HelmCondition | HelmValueRef<unknown>, thenValue: V): HelmFieldConditional<V>;
+  if<V>(condition: HelmCondition | HelmValueReference, thenValue: V): HelmFieldConditional<V>;
 
   /**
    * Build a Helm ternary expression.
@@ -131,11 +138,11 @@ export interface HelmValue<T = unknown> {
    * @param thenValue - Value returned when the condition is true
    * @param elseValue - Value returned when the condition is false
    */
-  ifElse<V extends HelmValueRef<unknown> | HelmScalar>(
+  ifElse<V extends HelmValueReference | HelmScalar>(
     condition: HelmCondition,
     thenValue: V,
     elseValue: V,
-  ): HelmValueRef<V extends HelmValueRef<infer U> ? U : V>;
+  ): HelmValueRef<V extends HelmValue<infer U> ? U : V>;
 
   /**
    * Create a typed Helm `range` block over an array value.
@@ -222,11 +229,11 @@ export interface HelmWith<T, TContext = unknown> {
 /** Helper context for Helm built-ins exposed on the root `ValuesRef`. */
 export interface HelmHelpers {
   /** Render Helm `include` for a named template and context. */
-  include(templateName: string, context?: '.' | HelmValueRef<unknown>): HelmValueRef<string>;
+  include(templateName: string, context?: '.' | HelmValueReference): HelmValueRef<string>;
   /** Render Helm `printf` with typed value references or scalar arguments. */
   printf(
     format: string,
-    ...args: Array<HelmValueRef<unknown> | string | number>
+    ...args: Array<HelmValueReference | string | number>
   ): HelmValueRef<string>;
   /** References to Helm `.Release` built-ins. */
   release: {
@@ -266,7 +273,7 @@ function helmStringLiteral(value: string): string {
 }
 
 /** Convert a typed Helm reference or scalar into a Helm expression argument. */
-function serializeValue(value: HelmValueRef<unknown> | HelmScalar): string {
+function serializeValue(value: HelmValueReference | HelmScalar): string {
   if (isHelmValue(value)) {
     return value.__path;
   }
@@ -346,22 +353,22 @@ export function createHelmValueProxy<T>(path: string): HelmValueRef<T> {
           return <K extends StringKeyOf<T>>(key: K) =>
             createHelmValueProxy<T[K]>(appendPropertyPath(path, key));
         case 'eq':
-          return (value: HelmValueRef<unknown> | HelmScalar) =>
+          return (value: HelmValueReference | HelmScalar) =>
             createCondition(`eq ${path} ${serializeValue(value)}`);
         case 'ne':
-          return (value: HelmValueRef<unknown> | HelmScalar) =>
+          return (value: HelmValueReference | HelmScalar) =>
             createCondition(`ne ${path} ${serializeValue(value)}`);
         case 'gt':
-          return (value: HelmValueRef<unknown> | number) =>
+          return (value: HelmValueReference | number) =>
             createCondition(`gt ${path} ${serializeValue(value)}`);
         case 'ge':
-          return (value: HelmValueRef<unknown> | number) =>
+          return (value: HelmValueReference | number) =>
             createCondition(`ge ${path} ${serializeValue(value)}`);
         case 'lt':
-          return (value: HelmValueRef<unknown> | number) =>
+          return (value: HelmValueReference | number) =>
             createCondition(`lt ${path} ${serializeValue(value)}`);
         case 'le':
-          return (value: HelmValueRef<unknown> | number) =>
+          return (value: HelmValueReference | number) =>
             createCondition(`le ${path} ${serializeValue(value)}`);
         case 'not':
           return () => createCondition(`not ${path}`);
@@ -370,7 +377,7 @@ export function createHelmValueProxy<T>(path: string): HelmValueRef<T> {
         case 'or':
           return (other: HelmCondition) => createCondition(`or ${path} (${other.__condition})`);
         case 'default':
-          return (defaultValue: HelmValueRef<unknown> | HelmScalar) =>
+          return (defaultValue: HelmValueReference | HelmScalar) =>
             createHelmValueProxy<T>(`${path} | default ${serializeValue(defaultValue)}`);
         case 'quote':
           return () => createHelmValueProxy<string>(`(${path} | quote)`);
@@ -432,7 +439,7 @@ export function createHelmValueProxy<T>(path: string): HelmValueRef<T> {
           return () => createHelmExpression(`{{ ${path} }}`);
         case 'if':
           return <V>(
-            condition: HelmCondition | HelmValueRef<unknown>,
+            condition: HelmCondition | HelmValueReference,
             thenValue: V,
           ): HelmFieldConditional<V> => {
             const helmCondition = isHelmCondition(condition)
@@ -450,7 +457,7 @@ export function createHelmValueProxy<T>(path: string): HelmValueRef<T> {
             };
           };
         case 'ifElse':
-          return <V extends HelmValueRef<unknown> | HelmScalar>(
+          return <V extends HelmValueReference | HelmScalar>(
             condition: HelmCondition,
             thenValue: V,
             elseValue: V,
@@ -517,12 +524,12 @@ export function valuesRef<T extends object>(): ValuesRef<T> {
 
   const helpers: HelmHelpers = {
     /** Implement the root Helm `include` helper. */
-    include(templateName: string, context: '.' | HelmValueRef<unknown> = '.') {
+    include(templateName: string, context: '.' | HelmValueReference = '.') {
       const ctx = context === '.' ? '.' : context.__path;
       return createHelmValueProxy<string>(`(include ${helmStringLiteral(templateName)} ${ctx})`);
     },
     /** Implement the root Helm `printf` helper. */
-    printf(format: string, ...args: Array<HelmValueRef<unknown> | string | number>) {
+    printf(format: string, ...args: Array<HelmValueReference | string | number>) {
       const argsStr = args.map((arg) => serializeValue(arg)).join(' ');
       const suffix = argsStr ? ` ${argsStr}` : '';
       return createHelmValueProxy<string>(`(printf ${helmStringLiteral(format)}${suffix})`);
@@ -572,7 +579,7 @@ export function valuesRef<T extends object>(): ValuesRef<T> {
 }
 
 /** Check if a value is a Helm value proxy. */
-export function isHelmValue(value: unknown): value is HelmValueRef<unknown> {
+export function isHelmValue(value: unknown): value is HelmValueReference {
   return typeof value === 'object' && value !== null && HELM_VALUE_SYMBOL in value;
 }
 
@@ -607,7 +614,7 @@ export function isHelmWith(value: unknown): value is HelmWith<unknown, unknown> 
 }
 
 /** Serialize a Helm value reference to template syntax. */
-export function serializeHelmValue(value: HelmValueRef<unknown>): string {
+export function serializeHelmValue(value: HelmValueReference): string {
   return `{{ ${value.__path} }}`;
 }
 
