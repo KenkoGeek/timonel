@@ -30,4 +30,10 @@ export function createUmbrella(props: UmbrellaRutterProps): UmbrellaRutter {
 }
 
 // Re-export types for convenience
-export type { UmbrellaRutterProps, SubchartSpec } from './umbrellaRutter.js';
+export type {
+  GeneratedSubchartSpec,
+  RemoteSubchartSpec,
+  SubchartSpec,
+  UmbrellaRutterProps,
+  VendoredSubchartSpec,
+} from './umbrellaRutter.js';
