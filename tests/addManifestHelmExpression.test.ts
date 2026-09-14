@@ -6,6 +6,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { helmInclude, Rutter } from '../src/index.js';
 
+import { addTestManifest } from './testUtils.js';
+
 describe('addManifest with HelmExpression', () => {
   let workDir: string;
 
@@ -26,7 +28,8 @@ describe('addManifest with HelmExpression', () => {
     });
 
     expect(() =>
-      rutter.addManifest(
+      addTestManifest(
+        rutter,
         {
           apiVersion: 'v1',
           kind: 'ServiceAccount',

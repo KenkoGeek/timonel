@@ -5,6 +5,8 @@ import { Rutter } from '../src/lib/rutter';
 import { createHelmExpression } from '../src/lib/utils/helmControlStructures';
 import { dumpHelmAwareYaml } from '../src/lib/utils/helmYamlSerializer';
 
+import { addTestManifest } from './testUtils.js';
+
 describe('Complex Helm Scenarios', (): void => {
   // Helper to generate YAML for a single manifest
   function generateYaml(manifest: unknown): string {
@@ -21,7 +23,7 @@ describe('Complex Helm Scenarios', (): void => {
     // @ts-expect-error - accessing private property for testing
     rutter.chart = mockChart;
 
-    const apiObj = rutter.addManifest(manifest as Record<string, unknown>, 'test-manifest');
+    const apiObj = addTestManifest(rutter, manifest as Record<string, unknown>, 'test-manifest');
 
     // Suppress unused variable warning - apiObj is intentionally unused in this helper
     void apiObj;

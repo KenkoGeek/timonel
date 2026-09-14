@@ -23,16 +23,15 @@ synthesis, Helm validation, deployment, and umbrella-chart workflows.
 Timonel is intentionally **typed-first**. Use Kubernetes resource APIs in this order:
 
 1. `cdk8s-plus-33` when it already provides the resource abstraction;
-2. cdk8s `ApiObject` or a focused typed Timonel abstraction when a higher-level construct does not
-   fit;
-3. object-form `Rutter.addManifest()` for CRDs or custom resources without a suitable typed
-   construct;
-4. raw YAML only as a legacy escape hatch.
+2. generated cdk8s CRD constructs when an upstream schema is available;
+3. `TypedCustomResource<TBody>` or another focused typed Timonel abstraction when no generated
+   construct fits.
 
-The raw-string `addManifest()` overload and `addTemplateManifest()` are deprecated and planned for
-removal in the next major release. Helm helpers remain available for names, labels, computed values,
-and reusable fragments, but Timonel rejects helpers that embed complete Kubernetes manifests so
-resources cannot bypass the typed cdk8s/cdk8s-plus path through `_helpers.tpl`.
+`Rutter` does not expose raw manifest ingestion APIs. `addManifest()`, `addTemplateManifest()`,
+`addConditionalManifest()`, and raw synthesized-asset injection are intentionally absent. Helm
+helpers remain available for names, labels, computed values, and reusable fragments, but Timonel
+rejects helpers that embed complete Kubernetes manifests so resources cannot bypass the typed
+cdk8s/cdk8s-plus path through `_helpers.tpl`.
 
 ## Requirements
 
@@ -121,15 +120,16 @@ const chart = new Rutter({
 
 Useful methods include:
 
-| API                       | Purpose                                                   |
-| ------------------------- | --------------------------------------------------------- |
-| `getChart()`              | Access the real cdk8s `Chart` for native typed constructs |
-| `write(outDir)`           | Synthesize and write the complete Helm chart              |
-| `toSynthArray()`          | Asynchronously synthesize Helm assets                     |
-| `getMeta()`               | Read chart metadata                                       |
-| `getDefaultValues()`      | Read default values                                       |
-| `getEnvValues()`          | Read environment-specific values                          |
-| `addManifest(object, id)` | Object fallback for custom resources                      |
+| API                                       | Purpose                                                   |
+| ----------------------------------------- | --------------------------------------------------------- |
+| `getChart()`                              | Access the real cdk8s `Chart` for native typed constructs |
+| `when(condition, resource)`               | Conditionally render a complete typed resource            |
+| `bindHelmValue(resource, pointer, value)` | Bind a typed Helm value to a synthesized scalar field     |
+| `write(outDir)`                           | Synthesize and write the complete Helm chart              |
+| `toSynthArray()`                          | Asynchronously synthesize Helm assets                     |
+| `getMeta()`                               | Read chart metadata                                       |
+| `getDefaultValues()`                      | Read default values                                       |
+| `getEnvValues()`                          | Read environment-specific values                          |
 
 `toSynthArraySync()` remains for compatibility and is deprecated. It cannot be used with a policy
 engine.
@@ -154,6 +154,31 @@ new kplus.ConfigMap(chart.getChart(), 'Config', {
   data: { mode: 'production' },
 });
 ```
+
+### Conditional typed resources
+
+Gate a complete cdk8s/cdk8s-plus resource with a typed Helm values condition without switching to a
+manifest fallback:
+
+```typescript
+import * as kplus from 'cdk8s-plus-33';
+import { Rutter, valuesRef } from 'timonel';
+
+const v = valuesRef<{ restart: { enabled: boolean } }>();
+const chart = new Rutter({
+  meta: { name: 'orders', version: '1.0.0' },
+  defaultValues: { restart: { enabled: true } },
+});
+
+const account = new kplus.ServiceAccount(chart.getChart(), 'RestartAccount', {
+  metadata: { name: 'restart-manager' },
+});
+
+chart.when(v.restart.enabled, account);
+```
+
+`when()` wraps the synthesized resource with a Helm `if` block while keeping the resource itself on
+the typed construct path.
 
 ## Type-safe Helm values
 
@@ -217,24 +242,45 @@ const defaultSetting = v.settings.at('default');
 
 ## Custom resources
 
-Use object-form `addManifest()` when no appropriate typed construct is available:
+When cdk8s-plus does not expose an extension API, keep normal construct usage with
+`TypedCustomResource<TBody>` rather than falling back to a manifest body:
 
 ```typescript
-chart.addManifest(
-  {
-    apiVersion: 'monitoring.coreos.com/v1',
-    kind: 'ServiceMonitor',
-    metadata: { name: 'orders' },
+import { TypedCustomResource, valuesRef, type HelmExpression } from 'timonel';
+
+interface ServiceMonitorBody {
+  spec: {
+    selector: { matchLabels: Record<string, string> };
+    endpoints: Array<{ port: string; interval: string | HelmExpression }>;
+  };
+}
+
+const v = valuesRef<{ monitoring: { interval: string } }>();
+
+new TypedCustomResource<ServiceMonitorBody>(chart.getChart(), 'OrdersServiceMonitor', {
+  apiVersion: 'monitoring.coreos.com/v1',
+  kind: 'ServiceMonitor',
+  metadata: { name: 'orders' },
+  body: {
     spec: {
-      selector: {
-        matchLabels: { app: 'orders' },
-      },
-      endpoints: [{ port: 'http' }],
+      selector: { matchLabels: { app: 'orders' } },
+      endpoints: [{ port: 'http', interval: v.monitoring.interval.toExpression() }],
     },
   },
-  'OrdersServiceMonitor',
-);
+});
 ```
+
+The generic body is preserved in the published declarations, so invalid CRD fields fail consumer
+compilation. It also supports APIs with non-`spec` top-level fields, such as OpenShift SCC, by
+modeling those fields in `TBody`.
+
+For CRDs generated with `cdk8s import`, instantiate the generated construct directly under
+`chart.getChart()`. Timonel discovers the resulting `ApiObject` during normal synthesis with no
+adapter. Prefer generated CRD classes when an upstream schema is available; use
+`TypedCustomResource<TBody>` when you own or maintain the TypeScript contract.
+
+Prometheus Operator resources that previously existed as manifest-producing helpers now have typed
+`ServiceMonitor` and `PrometheusRule` constructs exported by Timonel.
 
 Do not switch a standard Kubernetes resource to raw YAML merely because one field contains Helm
 logic. Prefer typed constructs and Timonel's Helm-value helpers where they fit.

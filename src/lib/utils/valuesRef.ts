@@ -551,7 +551,7 @@ export function isHelmWith(value: unknown): value is HelmWith<unknown, unknown> 
 }
 
 /** Serialize a Helm value reference to template syntax. */
-export function serializeHelmValue(value: HelmValueRef<unknown>): string {
+export function serializeHelmValue<T>(value: HelmValueRef<T>): string {
   return `{{ ${value.__path} }}`;
 }
 

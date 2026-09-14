@@ -9,5 +9,5 @@
     "skipLibCheck": false,
     "types": ["node"]
   },
-  "include": ["values-ref.consumer.ts"]
+  "include": ["*.consumer.ts"]
 }

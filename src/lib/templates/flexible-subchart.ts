@@ -18,7 +18,6 @@ import { generateHelpersTemplate } from '../utils/helmHelpers.js';
  */
 export class FlexibleSubchart extends Chart {
   private _constructs: unknown[] = [];
-  private _manifests: unknown[] = [];
 
   constructor(
     scope: Chart,
@@ -28,7 +27,6 @@ export class FlexibleSubchart extends Chart {
       version?: string;
       description?: string;
       construct?: unknown;
-      manifest?: unknown;
       [key: string]: unknown;
     },
   ) {
@@ -48,17 +46,6 @@ export class FlexibleSubchart extends Chart {
   }
 
   /**
-   * Add any manifest (for addManifest compatibility)
-   * @param manifest - Any manifest object
-   * @param id - Unique identifier
-   */
-  addManifest(manifest: unknown, id?: string) {
-    if (manifest) {
-      this._manifests.push({ manifest, id: id || `manifest-${this._manifests.length}` });
-    }
-  }
-
-  /**
    * Configure the subchart with any provided construct or manifest
    * @private
    */
@@ -68,11 +55,6 @@ export class FlexibleSubchart extends Chart {
       this.addConstruct(this.config.construct);
     }
 
-    // Add any provided manifest
-    if (this.config.manifest) {
-      this.addManifest(this.config.manifest);
-    }
-
     // Add any additional properties as constructs
     Object.entries(this.config).forEach(([key, value]) => {
       if (
@@ -80,7 +62,6 @@ export class FlexibleSubchart extends Chart {
         key !== 'version' &&
         key !== 'description' &&
         key !== 'construct' &&
-        key !== 'manifest' &&
         value
       ) {
         this.addConstruct(value, key);
@@ -156,67 +137,11 @@ export class FlexibleSubchart extends Chart {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
     writeFileSync(helpersTplPath, helpersTpl);
 
-    // Generate templates for manifests
-    this._manifests.forEach((item) => {
-      if (item && typeof item === 'object' && 'manifest' in item && 'id' in item) {
-        const { manifest, id } = item as { manifest: unknown; id: string };
-        if (manifest && typeof manifest === 'object') {
-          const templateContent = this._generateManifestTemplate(manifest, id);
-          const manifestPath = SecurityUtils.validatePath(
-            join(templatesDir, `${id}.yaml`),
-            process.cwd(),
-            { allowAbsolute: true },
-          );
-          // eslint-disable-next-line security/detect-non-literal-fs-filename -- validated path
-          writeFileSync(manifestPath, templateContent);
-        }
-      }
-    });
-
     console.log(`Created flexible Helm chart for subchart: ${this.config.name}`);
   }
 
-  /**
-   * Generate Helm template for a manifest
-   * @param manifest - The manifest object
-   * @param id - Template identifier
-   * @returns Generated template content
-   * @private
-   */
-  private _generateManifestTemplate(manifest: unknown, id: string): string {
-    // Convert the manifest to a Helm template
-    if (typeof manifest !== 'object' || manifest === null) {
-      return dumpHelmAwareYaml({});
-    }
-
-    const manifestObj = manifest as Record<string, unknown>;
-    const template = {
-      apiVersion: manifestObj.apiVersion || 'v1',
-      kind: manifestObj.kind || 'Manifest',
-      metadata: {
-        name: `{{ include "${id}.fullname" . }}`,
-        labels: `{{ include "${id}.labels" . }}`,
-        ...((manifestObj.metadata as Record<string, unknown>) || {}),
-      },
-      spec: manifestObj.spec || {},
-      ...manifestObj,
-    };
-
-    return dumpHelmAwareYaml(template);
-  }
-
-  /**
-   * Get all constructs added to this subchart
-   */
   getConstructs() {
     return this._constructs;
-  }
-
-  /**
-   * Get all manifests added to this subchart
-   */
-  getManifests() {
-    return this._manifests;
   }
 }
 
@@ -241,100 +166,57 @@ export function createFlexibleSubchart(
 }
 
 /**
- * Generate a simple subchart template using Rutter addManifest()
+/**
+ * Generate a typed subchart template using cdk8s-plus resources and ValuesRef bindings.
  * @param name Subchart name
- * @returns Template string for chart.ts with simple Rutter implementation
+ * @returns Template string for chart.ts
  * @since 2.11.0
  */
 export function generateFlexibleSubchartTemplate(name: string): string {
   return `import { App } from 'cdk8s';
-import { Rutter, helmInclude, helmIf, helmWith, createHelmExpression as helm } from 'timonel';
+import * as kplus from 'cdk8s-plus-33';
+import { Rutter, valuesRef } from 'timonel';
 
-/**
- * Creates a new chart with type-safe Helm helpers
- * @returns Rutter instance for Helm chart generation
- * @since 2.11.0
- */
+interface Values {
+  enabled: boolean;
+  replicas: number;
+}
+
 export default function createChart() {
   const app = new App({ outdir: 'dist' });
-  
+  const values = valuesRef<Values>();
   const rutter = new Rutter({
-    meta: { 
-      name: '${name}', 
+    meta: {
+      name: '${name}',
       version: '1.0.0',
-      description: '${name} subchart'
+      description: '${name} subchart',
     },
     scope: app,
     defaultValues: {
-      appName: '${name}',
-      image: {
-        repository: 'nginx',
-        tag: 'latest'
-      },
-      port: 80,
+      enabled: true,
       replicas: 1,
     },
   });
 
-  // Add Deployment with type-safe helpers
-  rutter.addManifest({
-    apiVersion: 'apps/v1',
-    kind: 'Deployment',
-    metadata: { 
-      name: helmInclude('chart.fullname', '.'),
-      labels: helmInclude('chart.labels', '.', { pipe: 'nindent 4' })
-    },
-    spec: {
-      replicas: helmIf('.Values.autoscaling.enabled', '{{ .Values.replicas }}', '1'),
-      selector: {
-        matchLabels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 6' })
+  const deployment = new kplus.Deployment(rutter.getChart(), 'Deployment', {
+    metadata: { name: '${name}' },
+    replicas: 1,
+    containers: [
+      {
+        name: '${name}',
+        image: 'nginx:latest',
+        portNumber: 80,
       },
-      template: {
-        metadata: {
-          labels: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 8' }),
-          annotations: helmWith('.Values.podAnnotations', helm('{{- toYaml . | nindent 8 }}'))
-        },
-        spec: {
-          containers: [{
-            name: '${name}',
-            image: helm('{{ .Values.image.repository }}:{{ .Values.image.tag }}'),
-            ports: [{
-              containerPort: helm('{{ .Values.port }}')
-            }],
-            env: [
-              { name: 'APP_NAME', value: helm('{{ .Values.appName }}') },
-              { name: 'PORT', value: helm('{{ .Values.port | toString }}') }
-            ]
-          }]
-        }
-      }
-    }
-  }, 'deployment');
+    ],
+  });
+  deployment.exposeViaService();
 
-  // Add Service with type-safe helpers
-  rutter.addManifest({
-    apiVersion: 'v1',
-    kind: 'Service',
-    metadata: {
-      name: helmInclude('chart.fullname', '.'),
-      labels: helmInclude('chart.labels', '.', { pipe: 'nindent 4' })
-    },
-    spec: {
-      type: 'ClusterIP',
-      ports: [{
-        port: helm('{{ .Values.port }}'),
-        targetPort: helm('{{ .Values.port }}'),
-        protocol: 'TCP',
-        name: 'http'
-      }],
-      selector: helmInclude('chart.selectorLabels', '.', { pipe: 'nindent 4' })
-    }
-  }, 'service');
+  rutter.bindHelmValue(deployment, '/spec/replicas', values.replicas);
+  rutter.when(values.enabled, deployment);
 
   return rutter;
 }
 
-// Auto-execute when run directly
 if (import.meta.url === new URL(import.meta.url).href) {
   (async () => {
     const chart = createChart();

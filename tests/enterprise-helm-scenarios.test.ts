@@ -2,11 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { App } from 'cdk8s';
 
 import { Rutter } from '../src/lib/rutter';
+import { valuesRef } from '../src/lib/utils/valuesRef';
 import {
   helmInclude,
   helmFragment,
   createHelmExpression,
 } from '../src/lib/utils/helmControlStructures';
+
+import { addTestManifest } from './testUtils.js';
 
 describe('Enterprise Helm Scenarios from Enterprise Chart', (): void => {
   it('should handle complex conditional annotations (AWS vs Azure vs GCP)', async (): Promise<void> => {
@@ -18,7 +21,8 @@ describe('Enterprise Helm Scenarios from Enterprise Chart', (): void => {
     });
 
     // Migrated from legacy helmIf to createHelmExpression (type-safe)
-    rutter.addManifest(
+    addTestManifest(
+      rutter,
       {
         apiVersion: 'networking.k8s.io/v1',
         kind: 'Ingress',
@@ -70,7 +74,8 @@ describe('Enterprise Helm Scenarios from Enterprise Chart', (): void => {
     });
 
     // Migrated from legacy helmIf, helmRange to createHelmExpression (type-safe)
-    rutter.addManifest(
+    addTestManifest(
+      rutter,
       {
         apiVersion: 'apps/v1',
         kind: 'Deployment',
@@ -135,7 +140,8 @@ describe('Enterprise Helm Scenarios from Enterprise Chart', (): void => {
     });
 
     // Migrated from legacy helmWith to createHelmExpression (type-safe)
-    rutter.addManifest(
+    addTestManifest(
+      rutter,
       {
         apiVersion: 'v1',
         kind: 'Pod',
@@ -176,8 +182,9 @@ describe('Enterprise Helm Scenarios from Enterprise Chart', (): void => {
       chartProps: { disableResourceNameHashes: true },
     });
 
-    // Migrated from legacy helmRange to createHelmExpression (type-safe)
-    rutter.addConditionalManifest(
+    // Whole-resource condition stays typed through ValuesRef + Rutter.when().
+    const secret = addTestManifest(
+      rutter,
       {
         apiVersion: 'v1',
         kind: 'Secret',
@@ -190,13 +197,14 @@ describe('Enterprise Helm Scenarios from Enterprise Chart', (): void => {
         ),
       },
       'secrets',
-      'secrets',
     );
+    const values = valuesRef<{ secretsEnabled: boolean }>();
+    rutter.when(values.secretsEnabled, secret);
 
     const assets = await rutter.toSynthArray();
     const yaml = assets[0].yaml;
 
-    expect(yaml).toContain('{{- if .Values.secrets }}');
+    expect(yaml).toContain('{{- if .Values.secretsEnabled }}');
     // New format: Helm expressions are unquoted YAML blocks
     expect(yaml).toContain('stringData:');
     expect(yaml).toContain('{{- range $key, $value := .Values.secrets }}');
@@ -212,7 +220,8 @@ describe('Enterprise Helm Scenarios from Enterprise Chart', (): void => {
     });
 
     // helmInclude is still valid (not legacy)
-    rutter.addManifest(
+    addTestManifest(
+      rutter,
       {
         apiVersion: 'v1',
         kind: 'Service',
@@ -243,7 +252,8 @@ describe('Enterprise Helm Scenarios from Enterprise Chart', (): void => {
     });
 
     // Migrated from legacy helmIf to createHelmExpression (type-safe)
-    rutter.addManifest(
+    addTestManifest(
+      rutter,
       {
         apiVersion: 'v1',
         kind: 'ConfigMap',

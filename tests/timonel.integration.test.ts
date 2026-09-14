@@ -14,6 +14,9 @@ import { Rutter } from '../src/lib/rutter.js';
 import { createUmbrella } from '../src/lib/umbrella.js';
 import type { SubchartSpec } from '../src/lib/umbrella.js';
 import { createHelper, formatHelpers } from '../src/lib/utils/helmHelpers.js';
+import { valuesRef } from '../src/lib/utils/valuesRef.js';
+
+import { addTestManifest } from './testUtils.js';
 
 /**
  * Fix generated Helm chart templates by adding missing helper functions using Timonel's helper library
@@ -299,13 +302,13 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
     for (const manifest of backendManifests) {
       // Generate a valid ID without special characters
       const manifestId = `backend-${manifest.kind?.toLowerCase()}-generated`;
-      backendChart.addManifest(manifest, manifestId);
+      addTestManifest(backendChart, manifest, manifestId);
     }
 
     // Backend service will be handled by k8plus deployment configuration
 
-    // Add conditional namespace manifest to backend chart
-    backendChart.addConditionalManifest(
+    const backendNamespace = addTestManifest(
+      backendChart,
       {
         apiVersion: 'v1',
         kind: 'Namespace',
@@ -317,8 +320,11 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
           },
         },
       },
-      'namespace.enabled',
       'namespace',
+    );
+    backendChart.when(
+      valuesRef<{ namespace: { enabled: boolean } }>().namespace.enabled,
+      backendNamespace,
     );
 
     // Create frontend chart with values
@@ -495,7 +501,7 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
     for (const manifest of frontendManifests) {
       // Generate a valid ID without special characters
       const manifestId = `frontend-${manifest.kind?.toLowerCase()}-generated`;
-      frontendChart.addManifest(manifest, manifestId);
+      addTestManifest(frontendChart, manifest, manifestId);
     }
 
     // Frontend service will be handled by cdk8s deployment configuration
@@ -526,8 +532,8 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
       defaultValues: {},
     });
 
-    // Add conditional namespace to umbrella chart
-    umbrellaChart.addConditionalManifest(
+    const namespace = addTestManifest(
+      umbrellaChart,
       {
         apiVersion: 'v1',
         kind: 'Namespace',
@@ -538,12 +544,16 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
           },
         },
       },
-      'namespace.enabled',
       'namespace',
     );
+    const umbrellaValues = valuesRef<{
+      namespace: { enabled: boolean };
+      ingress: { enabled: boolean };
+    }>();
+    umbrellaChart.when(umbrellaValues.namespace.enabled, namespace);
 
-    // Add conditional ingress to umbrella chart
-    umbrellaChart.addConditionalManifest(
+    const ingress = addTestManifest(
+      umbrellaChart,
       {
         apiVersion: 'networking.k8s.io/v1',
         kind: 'Ingress',
@@ -590,9 +600,9 @@ describe('Timonel - Simple Umbrella Integration Test', () => {
           ],
         },
       },
-      'ingress.enabled',
       'ingress',
     );
+    umbrellaChart.when(umbrellaValues.ingress.enabled, ingress);
 
     // Create umbrella chart
     const umbrella = createUmbrella({

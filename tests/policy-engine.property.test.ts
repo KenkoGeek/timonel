@@ -13,6 +13,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { PolicyEngine } from '../src/lib/policy/policyEngine.js';
 import type { PolicyPlugin, ValidationContext, PolicyViolation } from '../src/lib/policy/types.js';
 
+import { addTestManifest } from './testUtils.js';
+
 // Type for testing internal engine methods
 type PolicyEngineWithRegistry = PolicyEngine & {
   registry: {
@@ -1122,8 +1124,12 @@ describe('Policy Engine Property Tests', () => {
           data: { key: `value-${iteration}` },
         };
 
-        rutterWithoutPolicy.addManifest(manifestObject, `config-${iteration}`);
-        rutterExplicitlyWithoutPolicy.addManifest(manifestObject, `config-${iteration}-explicit`);
+        addTestManifest(rutterWithoutPolicy, manifestObject, `config-${iteration}`);
+        addTestManifest(
+          rutterExplicitlyWithoutPolicy,
+          manifestObject,
+          `config-${iteration}-explicit`,
+        );
 
         // Property: Both should generate charts successfully without policy validation
         let synthAssets1: unknown[];
@@ -1219,8 +1225,8 @@ describe('Policy Engine Property Tests', () => {
         ];
 
         manifests.forEach((manifest, index) => {
-          rutterWithoutPolicy.addManifest(manifest, `manifest-${iteration}-${index}`);
-          rutterWithUndefinedPolicy.addManifest(manifest, `manifest-${iteration}-${index}`);
+          addTestManifest(rutterWithoutPolicy, manifest, `manifest-${iteration}-${index}`);
+          addTestManifest(rutterWithUndefinedPolicy, manifest, `manifest-${iteration}-${index}`);
         });
 
         // Generate synth assets from both
@@ -1301,8 +1307,8 @@ describe('Policy Engine Property Tests', () => {
           spec: { containers: [{ name: 'app', image: 'nginx' }] },
         };
 
-        rutterWithoutPolicy.addManifest(manifest, `pod-${iteration}`);
-        rutterWithUndefinedPolicy.addManifest(manifest, `pod-${iteration}-undefined`);
+        addTestManifest(rutterWithoutPolicy, manifest, `pod-${iteration}`);
+        addTestManifest(rutterWithUndefinedPolicy, manifest, `pod-${iteration}-undefined`);
 
         // Property: Chart generation should succeed without calling policy validation
         const assets1 = await (
@@ -1391,18 +1397,17 @@ describe('Policy Engine Property Tests', () => {
         ];
 
         manifests.forEach((manifest, index) => {
-          rutter.addManifest(manifest, `manifest-${iteration}-${index}`);
+          addTestManifest(rutter, manifest, `manifest-${iteration}-${index}`);
         });
 
-        // Add conditional manifest
-        rutter.addConditionalManifest(
+        addTestManifest(
+          rutter,
           {
             apiVersion: 'v1',
             kind: 'Service',
             metadata: { name: `conditional-service-${iteration}` },
             spec: { ports: [{ port: 80 }] },
           },
-          'service.enabled',
           `conditional-service-${iteration}`,
         );
 
@@ -1458,7 +1463,8 @@ describe('Policy Engine Property Tests', () => {
         // Add multiple manifests to test performance
         const manifestCount = 50 + Math.floor(Math.random() * 50); // 50-100 manifests
         for (let i = 0; i < manifestCount; i++) {
-          rutter.addManifest(
+          addTestManifest(
+            rutter,
             {
               apiVersion: 'v1',
               kind: 'ConfigMap',

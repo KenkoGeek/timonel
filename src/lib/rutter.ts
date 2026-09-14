@@ -1,13 +1,18 @@
-import { ApiObject, App, Chart, Testing } from 'cdk8s';
+import { ApiObject, App, Chart, JsonPatch, Testing } from 'cdk8s';
 import type { ChartProps } from 'cdk8s';
 import type { Ingress, ServiceAccount } from 'cdk8s-plus-33';
 import type { Construct } from 'constructs';
-import { parse } from 'yaml';
 
 import { include } from './helm.js';
 import { HelmChartWriter, type SynthAsset } from './helmChartWriter.js';
 import { AWSResources } from './resources/cloud/aws/awsResources.js';
 import { createLogger, type TimonelLogger } from './utils/logger.js';
+import {
+  isHelmCondition,
+  serializeHelmValue,
+  type HelmCondition,
+  type HelmValueRef,
+} from './utils/valuesRef.js';
 import type {
   AWSALBIngressSpec,
   AWSEBSStorageClassSpec,
@@ -21,7 +26,6 @@ import type {
   KarpenterNodeClaimSpec,
   KarpenterNodePoolSpec,
 } from './resources/cloud/aws/karpenterResources.js';
-import { isHelmExpression, isHelmConstruct } from './utils/helmControlStructures.js';
 import { dumpHelmAwareYaml, preprocessHelmConstructs } from './utils/helmYamlSerializer.js';
 import { generateHelpersTemplate } from './utils/helmHelpers.js';
 import type { HelperDefinition } from './utils/helmHelpers.js';
@@ -44,7 +48,6 @@ export class Rutter {
   private static readonly HELPER_NAME = 'chart.name';
 
   // CDK8s infrastructure
-  private readonly assets: Array<{ id: string; yaml: string; target: string }> = [];
   private readonly awsResources: AWSResources;
   private readonly chart: Chart;
   private readonly defaultValues: Record<string, unknown>;
@@ -53,6 +56,7 @@ export class Rutter {
   private readonly meta: ChartMetadata;
   private readonly props: RutterProps;
   private readonly logger: TimonelLogger;
+  private readonly resourceConditions = new Map<string, string>();
 
   constructor(props: RutterProps) {
     this.defaultValues = props.defaultValues ?? {};
@@ -359,295 +363,11 @@ export class Rutter {
     return this.awsResources.addECRServiceAccount(spec);
   }
 
-  // Manifest Helpers
-  // Utility methods
   /**
-   * Adds an object-form Kubernetes manifest as a cdk8s ApiObject.
-   *
-   * Prefer native cdk8s/cdk8s-plus constructs attached to `getChart()` whenever an
-   * upstream typed construct exists. Use this object form primarily for CRDs or
-   * custom resources that do not yet have a suitable typed construct.
-   *
-   * @param yamlOrObject - Kubernetes manifest object, or deprecated raw YAML input
-   * @param id - Unique construct identifier
-   * @since 2.8.0+
-   */
-  addManifest(manifestObject: Record<string, unknown>, id: string): ApiObject;
-  /**
-   * @deprecated Raw YAML bypasses TypeScript resource typing. Prefer cdk8s/cdk8s-plus
-   * constructs through `getChart()` or pass a typed object to `addManifest()`.
-   */
-  addManifest(yaml: string, id: string): ApiObject;
-  /**
-   * Implements the object and deprecated raw-YAML overloads.
-   * @param yamlOrObject - Kubernetes manifest object or raw YAML compatibility input
-   * @param id - Unique cdk8s construct identifier
-   * @returns The created cdk8s ApiObject
-   */
-  addManifest(yamlOrObject: string | Record<string, unknown>, id: string): ApiObject {
-    let manifestObject: Record<string, unknown>;
-
-    if (typeof yamlOrObject === 'string') {
-      // Parse YAML string to object
-      try {
-        manifestObject = parse(yamlOrObject) as Record<string, unknown>;
-      } catch (error) {
-        const cause = error instanceof Error ? error : new Error(UNKNOWN_ERROR_MESSAGE);
-        const wrappedError = new Error(
-          `Invalid YAML provided to addManifest(): ${error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE}`,
-        );
-        (wrappedError as Error & { cause?: unknown }).cause = cause;
-        throw wrappedError;
-      }
-    } else if (typeof yamlOrObject === 'object' && yamlOrObject !== null) {
-      // Use object directly
-      manifestObject = yamlOrObject;
-    } else {
-      throw new Error('addManifest() requires either a YAML string or an object');
-    }
-
-    // Validate basic Kubernetes manifest structure
-    this.validateManifestStructure(manifestObject);
-
-    // IMPORTANT: Pre-process HelmConstructs BEFORE creating ApiObject
-    // This ensures that field-level conditionals are detected and transformed
-    // into __fieldConditionalTemplate_* fields that can be preserved during cdk8s serialization
-    const preprocessedManifest = preprocessHelmConstructs(manifestObject) as Record<
-      string,
-      unknown
-    >;
-
-    // Create CDK8S ApiObject from the manifest
-    // ApiObjectProps has an index signature [key: string]: any, which allows
-    // passing additional fields like data, stringData, spec, etc.
-    // We validate that required fields exist, then safely construct the props
-    const apiObjectProps = {
-      apiVersion: preprocessedManifest.apiVersion as string,
-      kind: preprocessedManifest.kind as string,
-      metadata: preprocessedManifest.metadata as Record<string, unknown>,
-      ...preprocessedManifest, // Spread remaining fields (spec, data, stringData, etc.)
-    };
-
-    return new ApiObject(this.chart, id, apiObjectProps);
-  }
-
-  /**
-   * Adds a template manifest to the chart with custom YAML content that preserves Helm expressions.
-   * This method allows you to provide raw YAML with Helm templates without serialization issues.
-   *
-   * @param yamlTemplate - The YAML template string with Helm expressions
-   * @param id - Unique identifier for the manifest
-   * @returns A compatibility placeholder that is excluded from synthesized output
-   * @deprecated Raw YAML templates bypass TypeScript resource typing. Prefer typed
-   * cdk8s/cdk8s-plus constructs through `getChart()` and ValuesRef for Helm values.
-   * This method is planned for removal in the next major release.
-   */
-  addTemplateManifest(yamlTemplate: string, id: string): ApiObject {
-    // Store the template as an asset that will be processed during write
-    const templateAsset = {
-      id,
-      yaml: yamlTemplate,
-      target: 'templates',
-    };
-
-    this.assets.push(templateAsset);
-
-    // Preserve the historical return type without leaking the compatibility
-    // placeholder into generated charts.
-    return new ApiObject(this.chart, `${id}-placeholder`, {
-      apiVersion: 'v1',
-      kind: 'ConfigMap',
-      metadata: {
-        name: id,
-        annotations: {
-          'timonel.sh/placeholder': 'true',
-          'timonel.sh/deprecated-raw-template': 'true',
-        },
-      },
-    });
-  }
-
-  /**
-   * Adds a Kubernetes manifest wrapped in a Helm conditional using programmatic template generation
-   *
-   * This method creates a manifest that will only be rendered if the specified
-   * condition evaluates to true. The condition is checked against .Values in Helm.
-   *
-   * **Key improvements in v2.9.2:**
-   * - Uses programmatic Helm template generation instead of JavaScript interpolation
-   * - Eliminates Handlebars dependency for conditional manifests
-   * - Leverages the include() function from helm.ts for proper Helm syntax
-   * - Provides better type safety and eliminates double interpolation issues
-   * - Maintains backward compatibility with existing condition syntax
-   *
-   * @param manifestObject - JavaScript object representing the Kubernetes manifest
-   * @param condition - Helm condition path (e.g., 'enabled', 'feature.enabled')
-   *                   Can also be a full Helm expression like '{{ .Values.enabled }}'
-   * @param id - Unique identifier for the manifest
-   * @returns ApiObject instance for CDK8S compatibility
-   *
-   * @example
-   * ```typescript
-   * // Simple boolean condition
-   * rutter.addConditionalManifest(
-   *   {
-   *     apiVersion: 'v1',
-   *     kind: 'Namespace',
-   *     metadata: { name: 'my-namespace' }
-   *   },
-   *   'createNamespace',
-   *   'namespace'
-   * );
-   *
-   * // Nested condition with complex logic
-   * rutter.addConditionalManifest(
-   *   {
-   *     apiVersion: 'v1',
-   *     kind: 'ConfigMap',
-   *     metadata: { name: 'app-config' },
-   *     data: {
-   *       config: '{{ .Values.config }}',
-   *       environment: '{{ .Values.environment }}'
-   *     }
-   *   },
-   *   'features.configMap.enabled',
-   *   'app-config'
-   * );
-   * ```
-   *
-   * @throws {Error} When condition is invalid or manifest structure is malformed
-   * @since 2.8.4
-   * @since 2.9.2 Enhanced with programmatic Helm template generation for better reliability
-   */
-  addConditionalManifest(
-    manifestObject: Record<string, unknown>,
-    condition: string,
-    id: string,
-  ): ApiObject {
-    // Validate condition path
-    if (!condition || typeof condition !== 'string') {
-      throw new Error('Condition must be a non-empty string');
-    }
-
-    // Validate basic Kubernetes manifest structure
-    this.validateManifestStructure(manifestObject);
-
-    // Handle condition - if it's already a Helm expression, use it directly
-    // Otherwise, treat it as a path and wrap it with .Values.
-    let helmCondition: string;
-    if (condition.startsWith('{{') && condition.endsWith('}}')) {
-      // Already a Helm expression, extract the inner part and use as-is
-      helmCondition = condition.slice(2, -2).trim();
-    } else {
-      // Plain path, wrap with .Values.
-      helmCondition = `.Values.${condition}`;
-    }
-
-    try {
-      // Convert the manifest to YAML with Helm-aware serialization
-      const yamlContent = dumpHelmAwareYaml(manifestObject, {
-        // Preserve formatting and minimize line wrapping
-        lineWidth: 0,
-      });
-
-      // Create programmatic Helm conditional template using proper syntax
-      // This eliminates JavaScript interpolation and uses native Helm templating
-      const conditionalYaml = `{{- if ${helmCondition} }}
-${yamlContent.trim()}
-{{- end }}`;
-
-      // Store the manifest as a conditional asset that will be processed during write
-      const conditionalAsset = {
-        id,
-        yaml: conditionalYaml,
-        target: 'templates',
-      };
-
-      this.assets.push(conditionalAsset);
-    } catch (error) {
-      const cause = error instanceof Error ? error : new Error(UNKNOWN_ERROR_MESSAGE);
-      const wrappedError = new Error(
-        `Failed to generate conditional template for manifest '${id}': ${error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE}`,
-      );
-      (wrappedError as Error & { cause?: unknown }).cause = cause;
-      throw wrappedError;
-    }
-
-    // Create a placeholder CDK8S ApiObject for consistency, but mark it as conditional
-    // so it doesn't get processed as a separate asset
-    return new ApiObject(this.chart, `${id}-placeholder`, {
-      apiVersion: manifestObject['apiVersion'] as string,
-      kind: manifestObject['kind'] as string,
-      metadata: {
-        ...((manifestObject['metadata'] as Record<string, unknown>) || {}),
-        annotations: {
-          ...(((manifestObject['metadata'] as Record<string, unknown>)?.['annotations'] as Record<
-            string,
-            unknown
-          >) || {}),
-          'timonel.sh/conditional': condition,
-          'timonel.sh/placeholder': 'true', // Mark as placeholder to exclude from synthesis
-        },
-      },
-      spec: manifestObject['spec'] as Record<string, unknown>,
-    });
-  }
-
-  /**
-   * Validates the structure of a Kubernetes manifest object
-   * @param manifest - The manifest object to validate
-   * @private
-   * @since 2.8.0+
-   */
-  private validateManifestStructure(manifest: Record<string, unknown>): void {
-    if (!manifest.apiVersion) {
-      this.logger.error('Validation failed: Missing apiVersion', {
-        operation: 'manifest_validation',
-        issue: 'missing_api_version',
-      });
-      throw new Error('Manifest must have an apiVersion');
-    }
-
-    if (!manifest.kind) {
-      this.logger.error('Validation failed: Missing kind', {
-        operation: 'manifest_validation',
-        issue: 'missing_kind',
-      });
-      throw new Error('Manifest must have a kind');
-    }
-
-    if (!manifest.metadata) {
-      this.logger.error('Validation failed: Missing metadata', {
-        operation: 'manifest_validation',
-        issue: 'missing_metadata',
-      });
-      throw new Error('Manifest must have metadata');
-    }
-
-    const metadata = manifest.metadata as Record<string, unknown>;
-    if (!metadata.name) {
-      this.logger.error('Validation failed: Missing metadata.name', {
-        operation: 'manifest_validation',
-        issue: 'missing_metadata_name',
-      });
-      throw new Error('Manifest metadata must have a name');
-    }
-
-    // Validate metadata.name - must be string, HelmExpression, or HelmConstruct
-    const name = (manifest['metadata'] as Record<string, unknown>)?.['name'];
-    if (typeof name !== 'string' && !isHelmExpression(name) && !isHelmConstruct(name)) {
-      const actualType = Array.isArray(name) ? 'array' : name === null ? 'null' : typeof name;
-      throw new Error(
-        `Manifest metadata.name must be a string, HelmExpression, or HelmConstruct. Got ${actualType}`,
-      );
-    }
-  }
-
-  /**
-   * Returns stable logical identifiers for all synthesized ApiObjects, including
+   * Returns stable identifiers and construct paths for synthesized ApiObjects, including
    * those nested inside cdk8s-plus resources.
    */
-  private getSynthesizedApiObjectIds(): string[] {
+  private getSynthesizedApiObjectDescriptors(): Array<{ id: string; path: string }> {
     return this.chart.node
       .findAll()
       .filter(
@@ -656,10 +376,11 @@ ${yamlContent.trim()}
       )
       .map((apiObject) => {
         const owner = apiObject.node.scope;
-        if (apiObject.node.id === 'Resource' && owner && owner !== this.chart) {
-          return owner.node.id;
-        }
-        return apiObject.node.id;
+        const id =
+          apiObject.node.id === 'Resource' && owner && owner !== this.chart
+            ? owner.node.id
+            : apiObject.node.id;
+        return { id, path: apiObject.node.path };
       });
   }
 
@@ -671,6 +392,50 @@ ${yamlContent.trim()}
    */
   getChart(): Chart {
     return this.chart;
+  }
+
+  /**
+   * Replaces a synthesized scalar field on a typed cdk8s/cdk8s-plus construct with a ValuesRef.
+   *
+   * @param resource Typed construct containing an ApiObject.
+   * @param jsonPointer RFC 6901 JSON pointer to the scalar field to replace.
+   * @param value Typed Helm value reference rendered into the target field.
+   */
+  bindHelmValue<T>(resource: Construct, jsonPointer: string, value: HelmValueRef<T>): void {
+    if (!jsonPointer.startsWith('/')) {
+      throw new Error('Helm value binding path must be an absolute JSON pointer');
+    }
+
+    const apiObject = ApiObject.of(resource);
+    if (apiObject.chart !== this.chart) {
+      throw new Error('Helm value binding resource must belong to this Rutter chart');
+    }
+
+    apiObject.addJsonPatch(JsonPatch.add(jsonPointer, serializeHelmValue(value)));
+  }
+
+  /**
+   * Conditionally renders a complete typed cdk8s/cdk8s-plus resource with Helm.
+   *
+   * @param condition ValuesRef boolean reference or composed Helm condition.
+   * @param resource Typed construct containing the ApiObject to gate.
+   */
+  when(condition: HelmValueRef<boolean> | HelmCondition, resource: Construct): void {
+    const apiObject = ApiObject.of(resource);
+    if (apiObject.chart !== this.chart) {
+      throw new Error('Conditional resource must belong to this Rutter chart');
+    }
+
+    const expression = isHelmCondition(condition) ? condition.__condition : condition.__path;
+    this.resourceConditions.set(apiObject.node.path, expression);
+  }
+
+  /** Apply a registered whole-resource condition to synthesized YAML. */
+  private applyResourceCondition(yaml: string, descriptor?: { path: string }): string {
+    if (!descriptor) return yaml;
+    const condition = this.resourceConditions.get(descriptor.path);
+    if (!condition) return yaml;
+    return `{{- if ${condition} }}\n${yaml}\n{{- end }}`;
   }
 
   /**
@@ -704,16 +469,6 @@ ${yamlContent.trim()}
   }
 
   /**
-   * Gets all assets (CRDs, etc.)
-   * @returns Array of assets
-   *
-   * @since 1.0.0
-   */
-  getAssets(): Array<{ id: string; yaml: string; target: string }> {
-    return [...this.assets];
-  }
-
-  /**
    * Converts the chart to SynthAsset array for HelmChartWriter
    * @returns Array of synthesized assets
    *
@@ -729,7 +484,7 @@ ${yamlContent.trim()}
 
     // Get ApiObject IDs before synthesis, including ApiObjects nested inside
     // cdk8s-plus constructs while excluding compatibility placeholders.
-    const apiObjectIds = this.getSynthesizedApiObjectIds();
+    const apiObjectDescriptors = this.getSynthesizedApiObjectDescriptors();
 
     // Use cdk8s Testing.synth to obtain manifest objects, but filter out placeholders
     const allManifestObjs = Testing.synth(this.chart) as unknown[];
@@ -745,7 +500,7 @@ ${yamlContent.trim()}
     this.logger.info('Processing manifest objects', {
       chartName: this.meta.name,
       manifestCount: manifestObjs.length,
-      apiObjectCount: apiObjectIds.length,
+      apiObjectCount: apiObjectDescriptors.length,
       operation: 'manifest_processing',
     });
 
@@ -838,7 +593,11 @@ ${yamlContent.trim()}
     if (this.props.singleManifestFile) {
       // Combine all resources into single manifest
       const combinedYaml = enriched
-        .map((obj) => dumpHelmAwareYaml(obj).trim())
+        .map((obj, index) => {
+          // eslint-disable-next-line security/detect-object-injection -- index aligns synthesized objects with construct descriptors
+          const descriptor = apiObjectDescriptors[index];
+          return this.applyResourceCondition(dumpHelmAwareYaml(obj).trim(), descriptor);
+        })
         .filter(Boolean)
         .join('\n---\n');
 
@@ -847,11 +606,11 @@ ${yamlContent.trim()}
     } else {
       // Create separate files for each resource (default behavior)
       enriched.forEach((obj, index) => {
-        // eslint-disable-next-line security/detect-object-injection
-        const apiObjectId = apiObjectIds[index];
-        const manifestId = apiObjectId || `manifest-${index + 1}`;
+        // eslint-disable-next-line security/detect-object-injection -- index aligns synthesized objects with construct descriptors
+        const descriptor = apiObjectDescriptors[index];
+        const manifestId = descriptor?.id || `manifest-${index + 1}`;
 
-        const yaml = dumpHelmAwareYaml(obj).trim();
+        const yaml = this.applyResourceCondition(dumpHelmAwareYaml(obj).trim(), descriptor);
         if (yaml) {
           // Use descriptive name from ApiObject ID if available, otherwise fallback to generic name
           synthAssets.push({ id: manifestId, yaml, target: 'templates' });
@@ -859,19 +618,9 @@ ${yamlContent.trim()}
       });
     }
 
-    // Add any additional assets (CRDs, etc.)
-    this.assets.forEach((asset) => {
-      synthAssets.push({
-        id: asset.id,
-        yaml: asset.yaml,
-        target: (asset.target as 'templates' | 'crds') || 'templates',
-      });
-    });
-
     this.logger.info('Chart synthesis completed', {
       chartName: this.meta.name,
       totalAssets: synthAssets.length,
-      additionalAssets: this.assets.length,
       operation: 'synthesis_complete',
     });
 
@@ -903,7 +652,7 @@ ${yamlContent.trim()}
 
     // Get ApiObject IDs before synthesis, including ApiObjects nested inside
     // cdk8s-plus constructs while excluding compatibility placeholders.
-    const apiObjectIds = this.getSynthesizedApiObjectIds();
+    const apiObjectDescriptors = this.getSynthesizedApiObjectDescriptors();
 
     // Use cdk8s Testing.synth to obtain manifest objects, but filter out placeholders
     const allManifestObjs = Testing.synth(this.chart) as unknown[];
@@ -919,7 +668,7 @@ ${yamlContent.trim()}
     this.logger.info('Processing manifest objects synchronously', {
       chartName: this.meta.name,
       manifestCount: manifestObjs.length,
-      apiObjectCount: apiObjectIds.length,
+      apiObjectCount: apiObjectDescriptors.length,
       operation: 'manifest_processing_sync',
     });
 
@@ -958,7 +707,11 @@ ${yamlContent.trim()}
     if (this.props.singleManifestFile) {
       // Combine all resources into single manifest
       const combinedYaml = enriched
-        .map((obj) => dumpHelmAwareYaml(obj).trim())
+        .map((obj, index) => {
+          // eslint-disable-next-line security/detect-object-injection -- index aligns synthesized objects with construct descriptors
+          const descriptor = apiObjectDescriptors[index];
+          return this.applyResourceCondition(dumpHelmAwareYaml(obj).trim(), descriptor);
+        })
         .filter(Boolean)
         .join('\n---\n');
 
@@ -967,11 +720,11 @@ ${yamlContent.trim()}
     } else {
       // Create separate files for each resource (default behavior)
       enriched.forEach((obj, index) => {
-        // eslint-disable-next-line security/detect-object-injection
-        const apiObjectId = apiObjectIds[index];
-        const manifestId = apiObjectId || `manifest-${index + 1}`;
+        // eslint-disable-next-line security/detect-object-injection -- index aligns synthesized objects with construct descriptors
+        const descriptor = apiObjectDescriptors[index];
+        const manifestId = descriptor?.id || `manifest-${index + 1}`;
 
-        const yaml = dumpHelmAwareYaml(obj).trim();
+        const yaml = this.applyResourceCondition(dumpHelmAwareYaml(obj).trim(), descriptor);
         if (yaml) {
           // Use descriptive name from ApiObject ID if available, otherwise fallback to generic name
           synthAssets.push({ id: manifestId, yaml, target: 'templates' });
@@ -979,19 +732,9 @@ ${yamlContent.trim()}
       });
     }
 
-    // Add any additional assets (CRDs, etc.)
-    this.assets.forEach((asset) => {
-      synthAssets.push({
-        id: asset.id,
-        yaml: asset.yaml,
-        target: (asset.target as 'templates' | 'crds') || 'templates',
-      });
-    });
-
     this.logger.info('Synchronous chart synthesis completed', {
       chartName: this.meta.name,
       totalAssets: synthAssets.length,
-      additionalAssets: this.assets.length,
       operation: 'synthesis_complete_sync',
     });
 

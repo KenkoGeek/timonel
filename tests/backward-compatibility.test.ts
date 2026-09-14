@@ -17,6 +17,8 @@ import { Rutter } from '../src/lib/rutter.js';
 import type { ChartMetadata } from '../src/lib/rutter.js';
 import { createLogger } from '../src/lib/utils/logger.js';
 
+import { addTestManifest } from './testUtils.js';
+
 describe('Backward Compatibility Tests', () => {
   let tempDir: string;
   let chartMeta: ChartMetadata;
@@ -74,9 +76,9 @@ describe('Backward Compatibility Tests', () => {
       const rutter = new Rutter({ meta: chartMeta });
 
       // Test that all existing methods are available and callable
-      expect(typeof rutter.addManifest).toBe('function');
-      expect(typeof rutter.addConditionalManifest).toBe('function');
-      expect(typeof rutter.addTemplateManifest).toBe('function');
+      expect('addManifest' in rutter).toBe(false);
+      expect('addConditionalManifest' in rutter).toBe(false);
+      expect('addTemplateManifest' in rutter).toBe(false);
       expect(typeof rutter.addAWSEBSStorageClass).toBe('function');
       expect(typeof rutter.addAWSEFSStorageClass).toBe('function');
       expect(typeof rutter.addAWSIRSAServiceAccount).toBe('function');
@@ -88,7 +90,7 @@ describe('Backward Compatibility Tests', () => {
       expect(typeof rutter.getMeta).toBe('function');
       expect(typeof rutter.getDefaultValues).toBe('function');
       expect(typeof rutter.getEnvValues).toBe('function');
-      expect(typeof rutter.getAssets).toBe('function');
+      expect('getAssets' in rutter).toBe(false);
     });
   });
 
@@ -106,7 +108,7 @@ describe('Backward Compatibility Tests', () => {
         meta: chartMeta,
         defaultValues: { enabled: true },
       });
-      rutterWithout.addManifest(manifest, 'config');
+      addTestManifest(rutterWithout, manifest, 'config');
 
       // Rutter with explicit undefined policyEngine
       const rutterWithUndefined = new Rutter({
@@ -114,7 +116,7 @@ describe('Backward Compatibility Tests', () => {
         defaultValues: { enabled: true },
         policyEngine: undefined,
       });
-      rutterWithUndefined.addManifest(manifest, 'config');
+      addTestManifest(rutterWithUndefined, manifest, 'config');
 
       // Generate synthesis assets
       const assetsWithout = await (
@@ -156,7 +158,7 @@ describe('Backward Compatibility Tests', () => {
         meta: chartMeta,
         defaultValues: { replicas: 3 },
       });
-      rutter.addManifest(manifest, 'deployment');
+      addTestManifest(rutter, manifest, 'deployment');
 
       // Write chart
       await rutter.write(tempDir);
@@ -200,7 +202,8 @@ describe('Backward Compatibility Tests', () => {
       });
 
       // Add multiple manifests
-      rutter.addManifest(
+      addTestManifest(
+        rutter,
         {
           apiVersion: 'v1',
           kind: 'Service',
@@ -210,7 +213,8 @@ describe('Backward Compatibility Tests', () => {
         'service',
       );
 
-      rutter.addManifest(
+      addTestManifest(
+        rutter,
         {
           apiVersion: 'v1',
           kind: 'ConfigMap',
@@ -220,14 +224,14 @@ describe('Backward Compatibility Tests', () => {
         'configmap',
       );
 
-      rutter.addConditionalManifest(
+      addTestManifest(
+        rutter,
         {
           apiVersion: 'networking.k8s.io/v1',
           kind: 'Ingress',
           metadata: { name: 'app-ingress' },
           spec: { rules: [] },
         },
-        'ingress.enabled',
         'ingress',
       );
 
@@ -261,7 +265,7 @@ describe('Backward Compatibility Tests', () => {
 
       // Add all manifests
       manifests.forEach((manifest, i) => {
-        rutter.addManifest(manifest, `config-${i}`);
+        addTestManifest(rutter, manifest, `config-${i}`);
       });
 
       // Measure synthesis time
@@ -287,7 +291,8 @@ describe('Backward Compatibility Tests', () => {
 
         // Add manifests to each
         for (let j = 0; j < 10; j++) {
-          rutter.addManifest(
+          addTestManifest(
+            rutter,
             {
               apiVersion: 'v1',
               kind: 'ConfigMap',
@@ -323,29 +328,18 @@ describe('Backward Compatibility Tests', () => {
   });
 
   describe('Error Handling Compatibility', () => {
-    it('should maintain existing error behavior without policy engine', async () => {
+    it('does not expose raw manifest parsing without policy engine', () => {
       const rutter = new Rutter({ meta: chartMeta });
 
-      // Test invalid manifest handling (should still throw)
-      expect(() => {
-        rutter.addManifest(
-          {
-            // Missing required fields
-            kind: 'ConfigMap',
-          } as Record<string, unknown>,
-          'invalid',
-        );
-      }).toThrow('Manifest must have an apiVersion');
-
-      // Test invalid YAML handling
-      expect(() => {
-        rutter.addManifest('invalid: yaml: content: [', 'invalid-yaml');
-      }).toThrow();
+      expect('addManifest' in rutter).toBe(false);
+      expect('addTemplateManifest' in rutter).toBe(false);
+      expect('addConditionalManifest' in rutter).toBe(false);
     });
 
     it('should handle write errors without policy engine interference', async () => {
       const rutter = new Rutter({ meta: chartMeta });
-      rutter.addManifest(
+      addTestManifest(
+        rutter,
         {
           apiVersion: 'v1',
           kind: 'ConfigMap',
