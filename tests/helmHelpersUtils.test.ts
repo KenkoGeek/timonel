@@ -157,6 +157,25 @@ metadata:
       ).toThrow('cannot contain a Kubernetes manifest');
     });
 
+    it('does not treat non-emitted action strings as resource markers', () => {
+      const helper = `{{- $api := "apiVersion: apps/v1" -}}
+{{- if eq .Values.expectedKind "kind: Deployment" -}}
+{{- fail "metadata: is required" -}}
+{{- end -}}
+value: safe`;
+
+      expect(() => createHelper('safe.validation', helper)).not.toThrow();
+    });
+
+    it('still rejects a complete manifest emitted as a constant action result', () => {
+      expect(() =>
+        createHelper(
+          'deployment.printed',
+          `{{ print "apiVersion: apps/v1\\nkind: Deployment\\nmetadata:\\n  name: raw" }}`,
+        ),
+      ).toThrow('cannot contain a Kubernetes manifest');
+    });
+
     it('does not treat comments from separate helpers as resource markers', () => {
       const helpersTpl = `{{/* apiVersion: should not count */}}
 {{- define "safe.kind" -}}

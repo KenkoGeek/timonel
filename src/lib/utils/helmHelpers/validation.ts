@@ -49,12 +49,34 @@ function helmActions(source: string): HelmAction[] {
   return actions;
 }
 
+/** Decode the common escape sequences accepted in double-quoted Helm/Go template strings. */
+function decodeQuotedString(value: string): string {
+  let result = '';
+  for (let index = 0; index < value.length; index += 1) {
+    const current = value.charAt(index);
+    if (current !== '\\' || index + 1 >= value.length) {
+      result += current;
+      continue;
+    }
+
+    const next = value.charAt(index + 1);
+    index += 1;
+    if (next === 'n') result += '\n';
+    else if (next === 'r') result += '\r';
+    else if (next === 't') result += '\t';
+    else if (next === '"') result += '"';
+    else if (next === '\\') result += '\\';
+    else result += next;
+  }
+  return result;
+}
+
 /** Extract quoted string literals from a Helm action. */
 function quotedStrings(action: string): string[] {
   const values: string[] = [];
   const pattern = /"((?:\\.|[^"\\])*)"|`([^`]*)`/g;
   for (const match of action.matchAll(pattern)) {
-    values.push((match[1] ?? match[2] ?? '').replace(/\\"/g, '"'));
+    values.push(match[1] !== undefined ? decodeQuotedString(match[1]) : (match[2] ?? ''));
   }
   return values;
 }
@@ -190,13 +212,17 @@ function collectConstantVariables(source: string): Map<string, string> {
   return variables;
 }
 
-/** Add resource markers that appear literally inside emitted Helm strings. */
-function collectActionStringKeys(source: string, keys: Set<ResourceKey>): void {
+/** Add resource markers emitted by actions whose result can be resolved statically. */
+function collectConstantActionOutputKeys(
+  source: string,
+  variables: Map<string, string>,
+  keys: Set<ResourceKey>,
+): void {
   for (const token of helmActions(source)) {
-    for (const literal of quotedStrings(token.action)) {
-      for (const key of RESOURCE_KEYS) {
-        if (resourceKeyLinePattern(key).test(literal)) keys.add(key);
-      }
+    const output = resolveConstantAction(token.action, variables);
+    if (output === undefined) continue;
+    for (const key of RESOURCE_KEYS) {
+      if (resourceKeyLinePattern(key).test(output)) keys.add(key);
     }
   }
 }
@@ -226,9 +252,10 @@ function collectDynamicYamlKeys(
 function emittedResourceKeys(template: string): Set<ResourceKey> {
   const source = stripComments(template);
   const keys = new Set<ResourceKey>();
-  collectActionStringKeys(source, keys);
+  const variables = collectConstantVariables(source);
+  collectConstantActionOutputKeys(source, variables, keys);
   collectLiteralYamlKeys(source, keys);
-  collectDynamicYamlKeys(source, collectConstantVariables(source), keys);
+  collectDynamicYamlKeys(source, variables, keys);
   return keys;
 }
 
