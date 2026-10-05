@@ -10,10 +10,10 @@ importers:
     dependencies:
       cdk8s:
         specifier: ^2.70.102
-        version: 2.70.102(constructs@10.8.1)
+        version: 2.70.108(constructs@10.8.1)
       cdk8s-plus-33:
         specifier: ^2.5.54
-        version: 2.5.54(cdk8s@2.70.102(constructs@10.8.1))(constructs@10.8.1)
+        version: 2.5.59(cdk8s@2.70.108(constructs@10.8.1))(constructs@10.8.1)
       constructs:
         specifier: ^10.8.1
         version: 10.8.1
@@ -1130,8 +1130,8 @@ packages:
     resolution: {integrity: sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ==}
     engines: {node: '>=6'}
 
-  cdk8s-plus-33@2.5.54:
-    resolution: {integrity: sha512-OOLjev/D4taIVhxDq5dylX+4zqhEQPMQNiJH30sY0k98fyuu49BOoRzbiZkeNrtgBMn3Uu1NIt3PjhEqIVZ7Ag==}
+  cdk8s-plus-33@2.5.59:
+    resolution: {integrity: sha512-v6Orp18KTLojyTMXmVF9FFaCYPZCh/c9AnYgrKDcXz+WAmSFsyBeX74W33DyoM1OY1pW2PHLT1/I5QJW0NFqaQ==}
     engines: {node: '>= 16.20.0'}
     peerDependencies:
       cdk8s: ^2.68.11
@@ -1139,8 +1139,8 @@ packages:
     bundledDependencies:
       - minimatch
 
-  cdk8s@2.70.102:
-    resolution: {integrity: sha512-Sg+33O+jJMBK9Tiuu44ejkSlLr+1zlE4kVAW5D5U/FnXYYAL+lEeEfAPf5fEaH/Kt84yq+Bi6BDjxVX7RQ4qDg==}
+  cdk8s@2.70.108:
+    resolution: {integrity: sha512-g9fnxkbPPKH2zUXVCE5wWd6s7CmXswx2cUPoaoQTda5N0ise4jPcQp3K7xzj5kTE/FONmzSdOGGCKQz75ERbVA==}
     engines: {node: '>= 16.20.0'}
     peerDependencies:
       constructs: ^10
@@ -4022,12 +4022,12 @@ snapshots:
 
   callsites@3.1.0: {}
 
-  cdk8s-plus-33@2.5.54(cdk8s@2.70.102(constructs@10.8.1))(constructs@10.8.1):
+  cdk8s-plus-33@2.5.59(cdk8s@2.70.108(constructs@10.8.1))(constructs@10.8.1):
     dependencies:
-      cdk8s: 2.70.102(constructs@10.8.1)
+      cdk8s: 2.70.108(constructs@10.8.1)
       constructs: 10.8.1
 
-  cdk8s@2.70.102(constructs@10.8.1):
+  cdk8s@2.70.108(constructs@10.8.1):
     dependencies:
       constructs: 10.8.1
 
