@@ -139,3 +139,10 @@ We provide security updates for the following versions:
 - **ESLint Security**: Runtime security checks
 - **pnpm audit**: Dependency vulnerability scanning
 - **Semantic Release**: Automated versioning with security considerations
+
+## Temporary audit exception
+
+`CVE-2026-93687` (`braces` <= 3.0.3) currently has no patched npm release. Timonel reaches
+`braces` only through development-time semantic-release tooling, where glob patterns are
+repository-controlled rather than supplied by library consumers. CI ignores only this CVE until
+an upstream patched release is available; all other high-severity advisories remain blocking.
