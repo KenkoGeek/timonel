@@ -28,6 +28,10 @@ updates:
       day: 'monday'
       time: '09:00'
     open-pull-requests-limit: 5
+    groups:
+      codeql:
+        patterns:
+          - 'github/codeql-action/*'
     reviewers:
       - 'KenkoGeek'
     assignees:
