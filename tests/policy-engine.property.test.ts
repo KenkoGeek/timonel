@@ -8,7 +8,7 @@
  * @since 3.0.0
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { PolicyEngine } from '../src/lib/policy/policyEngine.js';
 import type { PolicyPlugin, ValidationContext, PolicyViolation } from '../src/lib/policy/types.js';
@@ -2471,52 +2471,67 @@ describe('Policy Engine Property Tests', () => {
     });
 
     it('should handle timeout with retry configuration', async () => {
-      for (let iteration = 0; iteration < Math.min(PROPERTY_TEST_ITERATIONS, 10); iteration++) {
-        const timeout = 50; // Very short timeout
-        const maxAttempts = 2;
+      vi.useFakeTimers();
+      try {
+        for (let iteration = 0; iteration < Math.min(PROPERTY_TEST_ITERATIONS, 10); iteration++) {
+          const timeout = 50; // Very short timeout
+          const maxAttempts = 2;
 
-        const testEngine = new PolicyEngine({
-          timeout,
-          gracefulDegradation: true,
-          retryConfig: {
-            maxAttempts,
-            baseDelay: 10,
-            backoffMultiplier: 1,
-            maxDelay: 50,
-            retryOnTimeout: true,
-            retryOnPluginError: false,
-          },
-        });
+          const testEngine = new PolicyEngine({
+            timeout,
+            gracefulDegradation: true,
+            retryConfig: {
+              maxAttempts,
+              baseDelay: 10,
+              backoffMultiplier: 1,
+              maxDelay: 50,
+              retryOnTimeout: true,
+              retryOnPluginError: false,
+            },
+          });
 
-        let attemptCount = 0;
-        const timeoutPlugin: PolicyPlugin = {
-          name: `retry-timeout-plugin-${iteration}`,
-          version: '1.0.0',
-          async validate(): Promise<PolicyViolation[]> {
-            attemptCount++;
-            // Always timeout
-            await new Promise((resolve) => setTimeout(resolve, timeout * 2));
-            return [];
-          },
-        };
+          let attemptCount = 0;
+          const timeoutPlugin: PolicyPlugin = {
+            name: `retry-timeout-plugin-${iteration}`,
+            version: '1.0.0',
+            async validate(): Promise<PolicyViolation[]> {
+              attemptCount++;
+              // Always timeout
+              await new Promise((resolve) => setTimeout(resolve, timeout * 2));
+              return [];
+            },
+          };
 
-        await testEngine.use(timeoutPlugin);
+          await testEngine.use(timeoutPlugin);
 
-        // Execute validation
-        const startTime = Date.now();
-        const result = await testEngine.validate([{ kind: 'Pod' }], mockChartMetadata);
-        const executionTime = Date.now() - startTime;
+          // Advance the timeout and retry delay independently of runner load.
+          const startTime = Date.now();
+          const validation = testEngine.validate([{ kind: 'Pod' }], mockChartMetadata);
+          expect(attemptCount).toBe(1);
+          await vi.advanceTimersByTimeAsync(timeout);
+          expect(attemptCount).toBe(1);
+          await vi.advanceTimersByTimeAsync(9);
+          expect(attemptCount).toBe(1);
+          await vi.advanceTimersByTimeAsync(1);
+          expect(attemptCount).toBe(maxAttempts);
+          await vi.advanceTimersByTimeAsync(timeout);
+          const result = await validation;
+          const executionTime = Date.now() - startTime;
 
-        // Property: Plugin should be attempted the configured number of times
-        expect(attemptCount).toBe(maxAttempts);
+          // Property: Plugin should be attempted the configured number of times
+          expect(attemptCount).toBe(maxAttempts);
 
-        // Property: Execution time should account for retries and delays
-        const expectedMinTime = maxAttempts * timeout + (maxAttempts - 1) * 10; // timeout + delays
-        expect(executionTime).toBeGreaterThanOrEqual(expectedMinTime - 20); // Allow some margin
+          // Property: Execution time should account for retries and delays
+          const expectedTime = maxAttempts * timeout + (maxAttempts - 1) * 10;
+          expect(executionTime).toBe(expectedTime);
 
-        // Property: With graceful degradation, should not throw error
-        expect(result).toBeDefined();
-        expect(result.valid).toBe(false); // Invalid due to error violations from failed plugins
+          // Property: With graceful degradation, should not throw error
+          expect(result).toBeDefined();
+          expect(result.valid).toBe(false); // Invalid due to error violations from failed plugins
+        }
+      } finally {
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
