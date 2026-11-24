@@ -135,7 +135,7 @@
     "markdownlint": "^0.42.0",
     "markdownlint-cli": "^0.50.0",
     "prettier": "^3.9.6",
-    "semantic-release": "^25.0.9",
+    "semantic-release": "^26.0.1",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^5.0.0"
